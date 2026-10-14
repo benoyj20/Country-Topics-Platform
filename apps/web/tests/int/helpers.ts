@@ -1,15 +1,42 @@
 import { base32 } from "@better-auth/utils/base32";
+import { createSmtpSender } from "@countrytopics/email";
+import { createEmailWorker, createRedisConnection } from "@countrytopics/jobs";
 import { createOTP } from "@better-auth/utils/otp";
 import config from "@payload-config";
 import { REST_GET, REST_PATCH } from "@payloadcms/next/routes";
 import * as z from "zod";
 
 import { getAuth } from "@/auth/auth";
+import { serverEnv } from "@/env";
 
 export const SITE_URL = "http://localhost:3000";
 const MAILPIT_URL = process.env.TEST_MAILPIT_URL ?? "http://localhost:8025";
 const MAIL_WAIT_MS = 15_000;
 const MAIL_POLL_MS = 250;
+
+export const UUID_V7_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+/**
+ * Runs the real worker code on the tests' own queue, sending through Mailpit.
+ * Returns a function that stops it.
+ */
+export function startEmailWorker(): () => Promise<void> {
+  const env = serverEnv();
+  const connection = createRedisConnection(env.redisUrl, "worker");
+  const worker = createEmailWorker({
+    connection,
+    prefix: env.queuePrefix,
+    sender: createSmtpSender({
+      smtpUrl: process.env.SMTP_URL ?? "smtp://localhost:1025",
+      from: "Country Topics tests <no-reply@localhost>",
+    }),
+  });
+  return async () => {
+    await worker.close();
+    await connection.quit();
+  };
+}
 
 export function testEmail(name: string): string {
   return `${name}-${process.env.TEST_RUN_ID}@example.test`;
@@ -64,14 +91,25 @@ export async function authRequest(
 }
 
 const mailpitSearch = z.object({
-  messages: z.array(z.object({ ID: z.string() })),
+  messages: z.array(
+    z.object({
+      ID: z.string(),
+      To: z.array(z.object({ Address: z.string() })),
+    }),
+  ),
 });
 const mailpitMessage = z.object({ Text: z.string() });
 
 async function searchMailpit(to: string) {
   const query = encodeURIComponent(`to:"${to}"`);
   const response = await fetch(`${MAILPIT_URL}/api/v1/search?query=${query}`);
-  return mailpitSearch.parse(await response.json()).messages;
+  // Mailpit matches part of an address (x-member@ for member@), so keep only
+  // messages to exactly this one.
+  return mailpitSearch
+    .parse(await response.json())
+    .messages.filter((message) =>
+      message.To.some((recipient) => recipient.Address === to),
+    );
 }
 
 /**
@@ -171,6 +209,22 @@ export async function enableAuthenticator(jar: CookieJar): Promise<string> {
   return secret;
 }
 
+/**
+ * Signs in an existing staff profile and confirms an authenticator code, as a
+ * staff member does before using the admin panel.
+ */
+export async function signInAsVerifiedStaff(email: string): Promise<CookieJar> {
+  const jar = await signInWithEmailLink(email);
+  const secret = await enableAuthenticator(jar);
+  const verified = await authRequest("/admin-verification/verify", {
+    body: { code: await currentCode(secret) },
+    jar,
+  });
+  if (!verified.ok)
+    throw new Error(`Staff verification failed: ${verified.status}`);
+  return jar;
+}
+
 const payloadGet = REST_GET(config);
 const payloadPatch = REST_PATCH(config);
 
@@ -181,8 +235,9 @@ export async function payloadRest(
   jar: CookieJar,
   body?: unknown,
   origin: string = SITE_URL,
+  search = "",
 ): Promise<Response> {
-  const request = new Request(`${SITE_URL}/api/${slug.join("/")}`, {
+  const request = new Request(`${SITE_URL}/api/${slug.join("/")}${search}`, {
     method,
     headers: {
       cookie: jar.header(),

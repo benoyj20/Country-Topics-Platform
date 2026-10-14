@@ -1,5 +1,3 @@
-import { createSmtpSender } from "@countrytopics/email";
-import { createEmailWorker, createRedisConnection } from "@countrytopics/jobs";
 import config from "@payload-config";
 import { getMigrations } from "better-auth/db/migration";
 import { getPayload, type Payload } from "payload";
@@ -24,35 +22,22 @@ import {
   requestSignInLink,
   SITE_URL,
   signInWithEmailLink,
+  startEmailWorker,
   testEmail,
+  UUID_V7_PATTERN,
   waitForEmail,
 } from "./helpers";
 
-const UUID_V7_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-
 let payload: Payload;
-let workerConnection: ReturnType<typeof createRedisConnection>;
-let emailWorker: ReturnType<typeof createEmailWorker>;
+let stopEmailWorker: (() => Promise<void>) | undefined;
 
 beforeAll(async () => {
   payload = await getPayload({ config });
-  // The real worker code, sending through Mailpit, on the tests' own queue.
-  const env = serverEnv();
-  workerConnection = createRedisConnection(env.redisUrl, "worker");
-  emailWorker = createEmailWorker({
-    connection: workerConnection,
-    prefix: env.queuePrefix,
-    sender: createSmtpSender({
-      smtpUrl: process.env.SMTP_URL ?? "smtp://localhost:1025",
-      from: "Country Topics tests <no-reply@localhost>",
-    }),
-  });
+  stopEmailWorker = startEmailWorker();
 });
 
 afterAll(async () => {
-  await emailWorker?.close();
-  await workerConnection?.quit();
+  await stopEmailWorker?.();
   await payload?.destroy();
 });
 

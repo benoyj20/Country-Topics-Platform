@@ -45,18 +45,18 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
 }
 
 export async function down({ db, payload, req }: MigrateDownArgs): Promise<void> {
+  // The lock table's constraints, indexes, and columns go first: dropping the
+  // tables with CASCADE would remove the constraints and make these fail.
   await db.execute(sql`
-   ALTER TABLE "invitations" DISABLE ROW LEVEL SECURITY;
-  ALTER TABLE "audit_log" DISABLE ROW LEVEL SECURITY;
-  DROP TABLE "invitations" CASCADE;
-  DROP TABLE "audit_log" CASCADE;
-  ALTER TABLE "payload_locked_documents_rels" DROP CONSTRAINT "payload_locked_documents_rels_invitations_fk";
-  
+   ALTER TABLE "payload_locked_documents_rels" DROP CONSTRAINT "payload_locked_documents_rels_invitations_fk";
   ALTER TABLE "payload_locked_documents_rels" DROP CONSTRAINT "payload_locked_documents_rels_audit_log_fk";
-  
   DROP INDEX "payload_locked_documents_rels_invitations_id_idx";
   DROP INDEX "payload_locked_documents_rels_audit_log_id_idx";
   ALTER TABLE "payload_locked_documents_rels" DROP COLUMN "invitations_id";
   ALTER TABLE "payload_locked_documents_rels" DROP COLUMN "audit_log_id";
+  ALTER TABLE "invitations" DISABLE ROW LEVEL SECURITY;
+  ALTER TABLE "audit_log" DISABLE ROW LEVEL SECURITY;
+  DROP TABLE "invitations" CASCADE;
+  DROP TABLE "audit_log" CASCADE;
   DROP TYPE "public"."enum_invitations_role";`)
 }

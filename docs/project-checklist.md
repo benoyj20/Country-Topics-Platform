@@ -14,8 +14,9 @@ end times → pasted transcript parsed into timed segments → visitor preview w
 lazy-loaded privacy-enhanced player and synced transcript highlighting.
 
 The site itself (`apps/web`) so far has sign-in (Google and email links,
-invite-only), roles, staff authenticator checks, the admin panel, a placeholder
-home page, and a health check; see Weeks 1 and 2 below.
+invite-only), roles, staff authenticator checks, the admin panel with countries,
+categories, tags, and individuals, a placeholder home page, and a health check;
+see Weeks 1 to 3 below.
 
 The snippet flow is a standalone prototype in `prototypes/youtube-snippet`. It has no
 database, accounts, or persistence beyond the browser's `localStorage`, and it is
@@ -167,3 +168,52 @@ See [ADR 0002](adr/0002-sign-in-and-roles.md) for the design.
 - [ ] Not built yet: Apple sign-in, backup codes for staff, members editing their
   name, account deletion (week 11), and a real email provider (before the pilot).
   Better Auth's rate limits are on outside tests but not yet verified (week 10).
+
+### Week 3: countries, categories, tags, individuals
+
+See [ADR 0003](adr/0003-countries-and-individuals.md) for the design.
+
+- [x] Countries: the migrations load all 249 ISO 3166-1 entries (Debian
+  `iso-codes`, with UN M49 regions; Antarctica and Taiwan have no M49 region) with
+  UUIDv7 keys. They cannot be created or deleted through the API, and their codes
+  cannot change; an admin can edit the display name and region, and the edit is
+  audited (integration tests, 2026-10-14).
+- [x] Categories and tags: an empty slug is filled from the name (`-2` when it is
+  taken), also when an existing slug is cleared; invalid slugs are refused; creates, edits, and deletes are audited with
+  the deleted values kept (integration tests, 2026-10-14).
+- [x] Access: visitors, members, and admins without a confirmed authenticator code
+  cannot read countries, categories, tags, or individuals (403); verified
+  moderators can read but not write; verified admins can write (integration
+  tests, 2026-10-14).
+- [x] Individuals: name, aliases, role or description, countries with a role and
+  a partial-date period, bio, links, Wikidata ID, and slug, all audited. Bad or
+  over-long links (`javascript:`, over 2048 characters), impossible dates, an end
+  before the start, malformed Wikidata IDs, and a Wikidata ID already in use are
+  refused (integration and unit tests, 2026-10-14).
+- [x] Duplicate warning: the same name or alias, ignoring case, accents,
+  punctuation, and word order, is refused until "This is a different person" is
+  ticked, on create and when a clashing alias is added later; of two
+  simultaneous saves of the same name, only one gets through (the test fails
+  without the lock). Similar spellings and Wikidata matches are listed by
+  `/api/individuals/possible-duplicates`, which only verified staff can call,
+  is never cached, and marks the matches the save would refuse. Names in
+  Devanagari or Japanese that differ only by a vowel sign or voicing mark are
+  not treated as the same (integration and unit tests, 2026-10-14).
+- [x] Every migration rolls back with `payload migrate:down` to an empty
+  database and applies again (test database, 2026-10-14); the week 2
+  `auth_tables` rollback was fixed on the way.
+- [x] Real browser (headless Edge, production build on the test database): the
+  dashboard groups Content and Administration; the countries list shows the
+  seeded entries; typing an existing name shows the warning with a checkbox,
+  saving without it is refused with "The following field is invalid: This is a
+  different person", and saving with it works; a similar spelling shows an
+  information notice without the checkbox; a new name saves with its slug filled
+  in; a country row picked by typing "Kenya", with "2019-05" as its start, is
+  still there after reloading; no horizontal scroll at 390 px; no browser errors
+  (2026-10-14).
+- [x] CI ran these tests and the migration drift check: all passed on PR #7,
+  applying the eight migrations to the CI database (2026-10-14).
+- [ ] The developer adds five individuals in the admin panel.
+- [ ] Not built yet: photos with their licence (week 5, with uploads), public
+  pages for countries and individuals (week 7), and links from individuals to
+  topics (week 4).

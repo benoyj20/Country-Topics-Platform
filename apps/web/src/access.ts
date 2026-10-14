@@ -27,6 +27,7 @@ export function isVerifiedAdmin(user: RequestUser): boolean {
   return roleOf(user) === "admin" && isVerifiedStaff(user);
 }
 
+export const verifiedStaffOnly: Access = ({ req }) => isVerifiedStaff(req.user);
 export const verifiedAdminsOnly: Access = ({ req }) =>
   isVerifiedAdmin(req.user);
 export const nobody: Access = () => false;

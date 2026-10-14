@@ -67,6 +67,10 @@ export interface Config {
   };
   blocks: {};
   collections: {
+    individuals: Individual;
+    countries: Country;
+    categories: Category;
+    tags: Tag;
     users: User;
     invitations: Invitation;
     'audit-log': AuditLog;
@@ -77,6 +81,10 @@ export interface Config {
   };
   collectionsJoins: {};
   collectionsSelect: {
+    individuals: IndividualsSelect<false> | IndividualsSelect<true>;
+    countries: CountriesSelect<false> | CountriesSelect<true>;
+    categories: CategoriesSelect<false> | CategoriesSelect<true>;
+    tags: TagsSelect<false> | TagsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     invitations: InvitationsSelect<false> | InvitationsSelect<true>;
     'audit-log': AuditLogSelect<false> | AuditLogSelect<true>;
@@ -118,6 +126,130 @@ export interface UserAuthOperations {
     email: string;
     password: string;
   };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "individuals".
+ */
+export interface Individual {
+  id: string;
+  /**
+   * The name the person is best known by.
+   */
+  name: string;
+  /**
+   * Other names and spellings: birth names, transliterations, initials.
+   */
+  aliases?:
+    | {
+        name: string;
+        key?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  notADuplicate?: boolean | null;
+  /**
+   * One line that tells people with the same name apart, such as 'Economist' or 'Minister of Finance'.
+   */
+  summary?: string | null;
+  /**
+   * Countries this person is linked to, their role there, and when.
+   */
+  countries?:
+    | {
+        country: string | Country;
+        /**
+         * Such as 'Member of Parliament' or 'Central bank governor'.
+         */
+        role?: string | null;
+        startDate?: string | null;
+        endDate?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Plain text. Keep to what the linked evidence and references support.
+   */
+  bio?: string | null;
+  /**
+   * Official pages and other profiles.
+   */
+  links?:
+    | {
+        label: string;
+        url: string;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Optional. Tells people with the same name apart.
+   */
+  wikidataId?: string | null;
+  /**
+   * Used in links. Filled from the name when left empty; changing it later breaks old links.
+   */
+  slug: string;
+  nameKey?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "countries".
+ */
+export interface Country {
+  id: string;
+  /**
+   * The name shown on the site.
+   */
+  name: string;
+  code: string;
+  alpha3: string;
+  numericCode: string;
+  isoName: string;
+  /**
+   * UN M49 region, used to group the country picker.
+   */
+  region?: string | null;
+  /**
+   * UN M49 sub-region.
+   */
+  subregion?: string | null;
+  /**
+   * Used in links. Filled from the name when left empty; changing it later breaks old links.
+   */
+  slug: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "categories".
+ */
+export interface Category {
+  id: string;
+  name: string;
+  description?: string | null;
+  /**
+   * Used in links. Filled from the name when left empty; changing it later breaks old links.
+   */
+  slug: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "tags".
+ */
+export interface Tag {
+  id: string;
+  name: string;
+  /**
+   * Used in links. Filled from the name when left empty; changing it later breaks old links.
+   */
+  slug: string;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -199,6 +331,22 @@ export interface PayloadLockedDocument {
   id: string;
   document?:
     | ({
+        relationTo: 'individuals';
+        value: string | Individual;
+      } | null)
+    | ({
+        relationTo: 'countries';
+        value: string | Country;
+      } | null)
+    | ({
+        relationTo: 'categories';
+        value: string | Category;
+      } | null)
+    | ({
+        relationTo: 'tags';
+        value: string | Tag;
+      } | null)
+    | ({
         relationTo: 'users';
         value: string | User;
       } | null)
@@ -251,6 +399,81 @@ export interface PayloadMigration {
   batch?: number | null;
   updatedAt: string;
   createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "individuals_select".
+ */
+export interface IndividualsSelect<T extends boolean = true> {
+  name?: T;
+  aliases?:
+    | T
+    | {
+        name?: T;
+        key?: T;
+        id?: T;
+      };
+  notADuplicate?: T;
+  summary?: T;
+  countries?:
+    | T
+    | {
+        country?: T;
+        role?: T;
+        startDate?: T;
+        endDate?: T;
+        id?: T;
+      };
+  bio?: T;
+  links?:
+    | T
+    | {
+        label?: T;
+        url?: T;
+        id?: T;
+      };
+  wikidataId?: T;
+  slug?: T;
+  nameKey?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "countries_select".
+ */
+export interface CountriesSelect<T extends boolean = true> {
+  name?: T;
+  code?: T;
+  alpha3?: T;
+  numericCode?: T;
+  isoName?: T;
+  region?: T;
+  subregion?: T;
+  slug?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "categories_select".
+ */
+export interface CategoriesSelect<T extends boolean = true> {
+  name?: T;
+  description?: T;
+  slug?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "tags_select".
+ */
+export interface TagsSelect<T extends boolean = true> {
+  name?: T;
+  slug?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

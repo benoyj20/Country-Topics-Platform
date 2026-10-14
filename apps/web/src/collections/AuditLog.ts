@@ -7,6 +7,7 @@ import { nobody, verifiedAdminsOnly } from "@/access";
 export const AuditLog: CollectionConfig = {
   slug: "audit-log",
   admin: {
+    group: "Administration",
     useAsTitle: "action",
     defaultColumns: [
       "action",

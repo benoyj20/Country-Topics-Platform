@@ -1,0 +1,6 @@
+# Keep LF endings in the repository and working tree, matching .editorconfig,
+# so shell scripts and Compose files behave the same on Windows and in CI.
+* text=auto eol=lf
+*.pdf binary
+*.png binary
+*.jpg binary

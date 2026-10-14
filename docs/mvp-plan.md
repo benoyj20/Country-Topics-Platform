@@ -30,7 +30,7 @@ one task branch and one PR unless it is too large to review as one change.
 
 | Week | Build | Manual test |
 | --- | --- | --- |
-| 0 | Accounts: Google Cloud project (OAuth client, YouTube API key), Cloudflare, Brevo or Resend; install Docker Desktop | All accounts work |
+| 0 | Accounts: Google Cloud project (OAuth client, YouTube API key); install Docker Desktop. The email provider (Brevo or Resend) can wait until before the pilot, and Cloudflare until week 10 | The YouTube key works in the prototype; Google accepts the OAuth client |
 | 1 | Next.js + Payload in `apps/web`, Compose services, CI running real lint/typecheck/test/build | Admin panel opens locally |
 | 2 | Sign-in, roles, admin 2FA, invite-only allowlist | Sign in with Google and with an email link |
 | 3 | Countries seeded from ISO 3166-1, categories, tags, F2 individuals with duplicate warning | Add five individuals |

@@ -19,7 +19,7 @@ below in the same PR. Never record passwords, keys, or secrets here; name the
 | GitHub Actions (CI) | `javascript`, `infrastructure` checks | Part of the repository | 2026-10-14 | Required checks | Moves with the repository; no Actions secrets yet |
 | GitGuardian GitHub App | `GitGuardian Security Checks` (required) | Installed on `benoyj20` | 2026-10-14 | Required check on `main` | [GitGuardian](#2-gitguardian) |
 | GitGuardian dashboard account | Secret-scanning workspace | Signed in with `benoyj20` | 2026-10-14 | GitGuardian checks | [GitGuardian](#2-gitguardian) |
-| Google Cloud project (created in week 0) | APIs and OAuth | Personal Google account | 2026-10-14 | YouTube key, Google sign-in | [Google Cloud](#3-google-cloud) |
+| Google Cloud project (the project number is the digits at the start of `GOOGLE_CLIENT_ID`) | APIs and OAuth | Personal Google account | 2026-10-14 | YouTube key, Google sign-in | [Google Cloud](#3-google-cloud) |
 | YouTube Data API v3 key (restricted to that API) | Video metadata and embeddable checks | In the Google Cloud project | 2026-10-14 | `YOUTUBE_API_KEY` | Stays with the project; rotate after transfer |
 | Google OAuth web client, consent screen in Testing mode | "Sign in with Google" | In the Google Cloud project | 2026-10-14 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`; origin `http://localhost:3000`, redirect `http://localhost:3000/api/auth/callback/google`; test users | Stays with the project; reset the secret after transfer |
 | Email provider (Brevo or Resend, not chosen) | Magic-link and notification email for the pilot | Personal (planned) | Not set up | `SMTP_URL` (Mailpit locally) | [Email provider](#4-email-provider) |
@@ -115,7 +115,8 @@ authentication and access to a password manager.
    the old ones.
 3. Transfer the domain registration to the new owner's registrar account; this can
    take several days, so start it early.
-4. Update the Google OAuth redirect URLs if the site address changes.
+4. If the site address changes, update the OAuth client's origins and redirect
+   URLs as in step 3.3.
 
 ### 6. Other services
 

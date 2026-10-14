@@ -58,9 +58,14 @@ plain JavaScript; the typed version is built into `apps/web` in MVP week 6.
 - [ ] Each edge case confirmed in a real browser: stop at the end time, snap back
   when dragged before the start, Replay, and the "watch full video" link.
 - [ ] Time taken per clip by an admin, measured on several real videos.
-- [x] Data API checks with a real `YOUTUBE_API_KEY` loaded from `.env`: the demo
-  video reported "via oembed + data api", 0:19 duration, embeddable, public, not
-  age-restricted, and the default clip end was set (headless Edge, 2026-10-14).
+- [x] Data API lookup with a real `YOUTUBE_API_KEY` loaded from `.env`: for the demo
+  video, `/api/video` returned source "oembed + data api", duration 19, embeddable,
+  public, not age-restricted (`curl`), and the page showed "via oembed + data api"
+  and 0:19 (headless Edge, 2026-10-14).
+- [x] Default clip end from the video length: pasting the demo link with no end set
+  gave 0:00–0:19, the start plus 30 seconds capped at the length (headless Edge,
+  2026-10-14).
+- [ ] Age-restricted detection verified with a real age-restricted video.
 - [ ] Behavior for a video with embedding disabled, verified with a real example.
 
 ## MVP milestones
@@ -76,4 +81,7 @@ See [the MVP plan](mvp-plan.md) for weeks 0–12.
   `http://localhost:3000/api/auth/callback/google` redirect URL and confirmed the
   secret through its token endpoint (2026-10-14). Sign-in itself is built in week 2.
 - [ ] Email provider (Brevo or Resend) with a verified sender, needed before the pilot.
+- [ ] Before the pilot: Google's Testing mode allows at most 100 listed test users,
+  so either list every tester and admin (100 at most) or publish the consent
+  screen to Production.
 - [ ] Cloudflare account, needed by week 10 (Turnstile) and week 12 (tunnel).

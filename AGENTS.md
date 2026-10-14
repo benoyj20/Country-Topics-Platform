@@ -206,7 +206,7 @@ invariants; changing them needs an ADR.
 - Split work only when it has an independent purpose and can be tested, reviewed,
   merged, and reverted separately, or when size makes one review impractical.
   Explain the split and link related PRs and their merge order.
-- Complete a task's planned review and verification before marking a PR ready.
+- Complete a task's review and verification before pushing it for review.
   Batch related findings into a verified milestone instead of publishing a stream
   of speculative fixes. A genuinely urgent independent fix may ship separately;
   explain why.
@@ -244,9 +244,20 @@ invariants; changing them needs an ADR.
   screenshots for visible UI changes, and migration or configuration steps where
   relevant. Use `.github/pull_request_template.md`.
 - GitHub does not let authors approve their own PRs, so `main` requires a PR and
-  passing CI rather than approvals. Before merging, review the final diff
-  yourself: run `/code-review` or the `code-reviewer` agent, and
-  `/security-guidance` for security-sensitive changes. Record the review in the PR.
+  passing CI rather than approvals, plus one code review of each PR right before
+  it is pushed:
+  - When the change is finished and its checks pass, run `/code-review` once on
+    the whole branch diff against `main` (`origin/main...HEAD`). Add
+    `/security-guidance` when the change touches logins, roles, payments,
+    uploads, user content, outbound requests, webhooks, or CI workflows.
+  - Fix the correctness and security findings, re-run the affected checks, and
+    push. Do not review again after the fixes or after later pushes; one review
+    per PR is enough. Note other findings you chose not to fix, with a reason.
+  - Summarise the review in the PR description: what it found and what was fixed.
+    The repository is public: a security problem that affects `main` or a deployed
+    site goes in a private GitHub security advisory, not the PR.
+  - Answer and resolve any review threads on the PR; the ruleset blocks merging
+    while threads are unresolved.
 - Require the repository's `javascript` and `infrastructure` CI checks to pass
   before merging. Local checks do not replace PR CI. If any check is missing or
   failing, investigate instead of treating it as passed.

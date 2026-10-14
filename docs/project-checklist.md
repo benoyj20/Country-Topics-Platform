@@ -28,10 +28,11 @@ plain JavaScript; the typed version is built into `apps/web` in MVP week 6.
 - [x] Repo-local Claude Code skills and review agents in `.claude/`.
 - [x] CI passing on GitHub for the first PR (`javascript` and `infrastructure`, PR #1,
   2026-10-14).
-- [x] `main` protected on GitHub by the "Protect main" ruleset: PR required, `javascript`
-  and `infrastructure` checks required and up to date, linear history, no force pushes
-  or deletion, admin bypass. Squash-only merges, PR title as the squash title,
-  merged branches deleted automatically (2026-10-14).
+- [x] `main` protected on GitHub by the "Protect main" ruleset: PR required,
+  `javascript` and `infrastructure` checks required and up to date, review threads
+  resolved, linear history, no force pushes or deletion, admin bypass. Squash-only
+  merges, PR title as the squash title, merged branches deleted automatically
+  (2026-10-14).
 - [x] Local services started with `make infra-up` and healthy: PostgreSQL 17.11 with
   pgvector 0.8.7 (vector query ran), Valkey answering `PING` and set/get, Mailpit
   receiving a test email over SMTP (2026-10-14).

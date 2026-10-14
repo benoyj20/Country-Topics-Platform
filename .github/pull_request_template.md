@@ -17,6 +17,11 @@ or failing checks explicitly. For behavior changes, include reproduction steps. 
 | --- | --- |
 | | |
 
+## Code review
+
+<!-- Summarise the one `/code-review` run before pushing: what it found and what was
+fixed. Note findings left unfixed, with a reason. -->
+
 ## UI evidence (if applicable)
 
 <!-- Include screenshots and widths actually checked: mobile 360–390 px,
@@ -37,7 +42,8 @@ Write N/A when there is no impact. -->
 - [ ] No fabricated references, quotes, transcripts, or facts about real people.
 - [ ] Relevant local checks passed; limitations are stated above.
 - [ ] Required GitHub CI checks (`javascript`, `infrastructure`) passed on the final version.
-- [ ] Self-review done on the final diff (`/code-review` or the `code-reviewer` agent;
-      `/security-guidance` for logins, roles, payments, uploads, or user content).
+- [ ] One `/code-review` of the finished change before pushing, with its correctness and
+      security findings fixed (plus `/security-guidance` where AGENTS.md lists it);
+      summarised above.
 - [ ] Affected documentation and `docs/project-checklist.md` are updated.
 - [ ] At merge: squash only, with the final PR title and a concise description.

@@ -179,22 +179,29 @@ See [ADR 0003](adr/0003-countries-and-individuals.md) for the design.
   cannot change; an admin can edit the display name and region, and the edit is
   audited (integration tests, 2026-10-14).
 - [x] Categories and tags: an empty slug is filled from the name (`-2` when it is
-  taken); invalid slugs are refused; creates, edits, and deletes are audited with
+  taken), also when an existing slug is cleared; invalid slugs are refused; creates, edits, and deletes are audited with
   the deleted values kept (integration tests, 2026-10-14).
 - [x] Access: visitors, members, and admins without a confirmed authenticator code
   cannot read countries, categories, tags, or individuals (403); verified
   moderators can read but not write; verified admins can write (integration
   tests, 2026-10-14).
 - [x] Individuals: name, aliases, role or description, countries with a role and
-  a partial-date period, bio, links, Wikidata ID, and slug, all audited. Bad links
-  (`javascript:`), impossible dates, an end before the start, and a Wikidata ID
-  already in use are refused (integration and unit tests, 2026-10-14).
+  a partial-date period, bio, links, Wikidata ID, and slug, all audited. Bad or
+  over-long links (`javascript:`, over 2048 characters), impossible dates, an end
+  before the start, malformed Wikidata IDs, and a Wikidata ID already in use are
+  refused (integration and unit tests, 2026-10-14).
 - [x] Duplicate warning: the same name or alias, ignoring case, accents,
   punctuation, and word order, is refused until "This is a different person" is
-  ticked, on create and when a clashing alias is added later; similar spellings
-  and Wikidata matches are listed by `/api/individuals/possible-duplicates`,
-  which only verified staff can call and which is never cached (integration
-  tests, 2026-10-14).
+  ticked, on create and when a clashing alias is added later; of two
+  simultaneous saves of the same name, only one gets through (the test fails
+  without the lock). Similar spellings and Wikidata matches are listed by
+  `/api/individuals/possible-duplicates`, which only verified staff can call,
+  is never cached, and marks the matches the save would refuse. Names in
+  Devanagari or Japanese that differ only by a vowel sign or voicing mark are
+  not treated as the same (integration and unit tests, 2026-10-14).
+- [x] Every migration rolls back with `payload migrate:down` to an empty
+  database and applies again (test database, 2026-10-14); the week 2
+  `auth_tables` rollback was fixed on the way.
 - [x] Real browser (headless Edge, production build on the test database): the
   dashboard groups Content and Administration; the countries list shows the
   seeded entries; typing an existing name shows the warning with a checkbox,

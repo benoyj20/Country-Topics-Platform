@@ -33,12 +33,15 @@ public pages and their cache rules arrive in week 7.
   Links must be `http:` or `https:`. Photos wait for uploads to S3-compatible
   storage (week 5), together with their licence.
 - **Duplicate warning.** Names and aliases are compared by a key that ignores
-  case, accents, punctuation, and word order ("Diaz, José Pérez" matches "José
-  Pérez-Díaz"):
+  case, accents on Latin and Greek letters, punctuation, and word order ("Diaz,
+  José Pérez" matches "José Pérez-Díaz"). Marks in other scripts, such as
+  Devanagari vowel signs, are part of the name and kept:
   - The same name or alias as another individual: the admin form shows the match
     as they type, and the server refuses to save until the admin ticks "This is a
     different person". This applies when an individual is created and when a name
-    or alias is added later.
+    or alias is added later; names saved before were already confirmed. The form
+    and the save share one rule, and saves that add the same name take turns
+    (a transaction-scoped advisory lock), so two at once cannot both slip past.
   - The same Wikidata ID: refused outright by a unique index.
   - A similar spelling (PostgreSQL `pg_trgm` similarity of 0.6 or more, through
     trigram indexes): shown as information only.

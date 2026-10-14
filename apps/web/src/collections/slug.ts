@@ -28,17 +28,23 @@ export const slugField: TextField = {
 
 /**
  * Fills an empty slug from `sourceField`, adding `-2`, `-3`, … when that slug is
- * taken. A typed slug is kept as it is and must be unique.
+ * taken: on create, and on update when the slug is cleared. A typed slug is
+ * kept as it is and must be unique.
  */
 export function fillSlug(
   collection: CollectionSlug,
   sourceField = "name",
 ): CollectionBeforeValidateHook {
   return async ({ data, originalDoc, req }) => {
-    if (!data || data.slug || originalDoc?.slug) return data;
-    const source = data[sourceField];
+    if (!data || data.slug) return data;
+    // An update that does not send the slug keeps the stored one.
+    if (data.slug === undefined && originalDoc?.slug) return data;
+    const source: unknown = data[sourceField] ?? originalDoc?.[sourceField];
     const base = typeof source === "string" ? slugify(source) : "";
     if (!base) return data;
+    const notSelf = originalDoc?.id
+      ? [{ id: { not_equals: originalDoc.id } }]
+      : [];
     for (let n = 1; n <= MAX_SUFFIX; n++) {
       const suffix = n === 1 ? "" : `-${n}`;
       const candidate =
@@ -46,7 +52,7 @@ export function fillSlug(
         suffix;
       const { totalDocs } = await req.payload.count({
         collection,
-        where: { slug: { equals: candidate } },
+        where: { and: [{ slug: { equals: candidate } }, ...notSelf] },
         overrideAccess: true,
         req,
       });

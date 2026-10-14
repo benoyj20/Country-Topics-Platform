@@ -53,6 +53,13 @@ describe("personNameKey", () => {
     assert.equal(personNameKey("pérez díaz josé."), key);
   });
 
+  it("keeps the marks that change a name outside Latin and Greek", () => {
+    assert.notEqual(personNameKey("मोदी"), personNameKey("मादा"));
+    assert.notEqual(personNameKey("がく"), personNameKey("かく"));
+    assert.equal(personNameKey("がく"), "がく");
+    assert.equal(personNameKey("मोदी"), "मोदी");
+  });
+
   it("keeps names in other scripts", () => {
     assert.equal(personNameKey("Ἀθηνᾶ"), "αθηνα");
     assert.equal(personNameKey("李 明"), personNameKey("明 李"));
@@ -73,6 +80,8 @@ describe("isWikidataId", () => {
     assert.equal(isWikidataId("Q0"), false);
     assert.equal(isWikidataId("q42"), false);
     assert.equal(isWikidataId("P31"), false);
+    assert.equal(isWikidataId("Q123456789012"), true);
+    assert.equal(isWikidataId("Q1234567890123"), false);
     assert.equal(isWikidataId("https://www.wikidata.org/wiki/Q42"), false);
   });
 });

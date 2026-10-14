@@ -274,6 +274,16 @@ describe("categories and tags", () => {
       "public-health-2",
     ]);
 
+    // Clearing the slug fills it again; the document's own slug is not "taken".
+    const refilled = await payload.update({
+      collection: "categories",
+      id: first.id,
+      data: { slug: "" },
+      user: admin,
+      overrideAccess: false,
+    });
+    expect(refilled.slug).toBe("public-health");
+
     await expect(
       payload.create({
         collection: "tags",
@@ -428,6 +438,18 @@ describe("individuals", () => {
     expect(original.id).not.toBe(namesake.id);
   });
 
+  it("lets only one of two simultaneous saves with the same name through", async () => {
+    const results = await Promise.allSettled([
+      // Different slugs, so only the duplicate check can refuse one.
+      createIndividual({ name: "Test Individual Mu", slug: "mu-one" }),
+      createIndividual({ name: "test individual mu", slug: "mu-two" }),
+    ]);
+    expect(results.map((result) => result.status).sort()).toEqual([
+      "fulfilled",
+      "rejected",
+    ]);
+  });
+
   it("refuses a Wikidata item that is already used, bad links, and impossible dates", async () => {
     await createIndividual({ name: "Test Individual Delta", wikidataId: "Q1" });
     await expect(
@@ -442,7 +464,14 @@ describe("individuals", () => {
         name: "Test Individual Theta",
         links: [{ label: "Script", url: "javascript:alert(1)" }],
       },
+      {
+        name: "Test Individual Nu",
+        links: [
+          { label: "Long", url: `https://example.org/${"a".repeat(2048)}` },
+        ],
+      },
       { name: "Test Individual Iota", wikidataId: "not-an-id" },
+      { name: "Test Individual Xi", wikidataId: `Q${"1".repeat(20)}` },
       {
         name: "Test Individual Kappa",
         countries: [{ country: ghana, startDate: "2019-02-30" }],
@@ -462,7 +491,12 @@ describe("individuals", () => {
 describe("GET /api/individuals/possible-duplicates", () => {
   const matchesSchema = z.object({
     matches: z.array(
-      z.object({ id: z.string(), name: z.string(), matchedOn: z.string() }),
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        matchedOn: z.string(),
+        needsConfirmation: z.boolean(),
+      }),
     ),
   });
 
@@ -494,7 +528,12 @@ describe("GET /api/individuals/possible-duplicates", () => {
     expect(exact.status).toBe(200);
     expect(exact.headers.get("cache-control")).toBe("no-store");
     expect(matchesSchema.parse(await exact.json()).matches).toEqual([
-      { id: target.id, name: "Synthetic Person Omicron", matchedOn: "name" },
+      {
+        id: target.id,
+        name: "Synthetic Person Omicron",
+        matchedOn: "name",
+        needsConfirmation: true,
+      },
     ]);
 
     // A typo, an alias, and the Wikidata item.
@@ -502,7 +541,11 @@ describe("GET /api/individuals/possible-duplicates", () => {
       await (await lookup("?name=Synthetic+Persn+Omicron")).json(),
     );
     expect(similar.matches).toContainEqual(
-      expect.objectContaining({ id: target.id, matchedOn: "similar name" }),
+      expect.objectContaining({
+        id: target.id,
+        matchedOn: "similar name",
+        needsConfirmation: false,
+      }),
     );
     const byAlias = matchesSchema.parse(
       await (await lookup("?name=New&alias=Omicron+Testperson")).json(),
@@ -514,7 +557,39 @@ describe("GET /api/individuals/possible-duplicates", () => {
       await (await lookup("?name=Someone+Else&wikidataId=Q7")).json(),
     );
     expect(byWikidata.matches).toContainEqual(
-      expect.objectContaining({ id: target.id, matchedOn: "wikidata" }),
+      expect.objectContaining({
+        id: target.id,
+        matchedOn: "wikidata",
+        needsConfirmation: false,
+      }),
+    );
+    // The same item and the same name: the name still needs confirming, as the
+    // save check would refuse it.
+    const byBoth = matchesSchema.parse(
+      await (
+        await lookup("?name=Synthetic+Person+Omicron&wikidataId=Q7")
+      ).json(),
+    );
+    expect(byBoth.matches).toContainEqual(
+      expect.objectContaining({
+        id: target.id,
+        matchedOn: "wikidata",
+        needsConfirmation: true,
+      }),
+    );
+
+    // Editing a confirmed namesake: its saved name was confirmed already.
+    const namesake = await createIndividual({
+      name: "Synthetic Person Omicron",
+      notADuplicate: true,
+    });
+    const editing = matchesSchema.parse(
+      await (
+        await lookup(`?name=Synthetic+Person+Omicron&exclude=${namesake.id}`)
+      ).json(),
+    );
+    expect(editing.matches).toContainEqual(
+      expect.objectContaining({ id: target.id, needsConfirmation: false }),
     );
 
     // The individual being edited is not its own duplicate.

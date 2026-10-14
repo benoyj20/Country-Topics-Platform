@@ -119,8 +119,22 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
 }
 
 export async function down({ db, payload, req }: MigrateDownArgs): Promise<void> {
+  // The lock table's constraints, indexes, and columns go first: dropping the
+  // tables with CASCADE would remove the constraints and make these fail.
   await db.execute(sql`
-   ALTER TABLE "individuals_aliases" DISABLE ROW LEVEL SECURITY;
+   ALTER TABLE "payload_locked_documents_rels" DROP CONSTRAINT "payload_locked_documents_rels_individuals_fk";
+  ALTER TABLE "payload_locked_documents_rels" DROP CONSTRAINT "payload_locked_documents_rels_countries_fk";
+  ALTER TABLE "payload_locked_documents_rels" DROP CONSTRAINT "payload_locked_documents_rels_categories_fk";
+  ALTER TABLE "payload_locked_documents_rels" DROP CONSTRAINT "payload_locked_documents_rels_tags_fk";
+  DROP INDEX "payload_locked_documents_rels_individuals_id_idx";
+  DROP INDEX "payload_locked_documents_rels_countries_id_idx";
+  DROP INDEX "payload_locked_documents_rels_categories_id_idx";
+  DROP INDEX "payload_locked_documents_rels_tags_id_idx";
+  ALTER TABLE "payload_locked_documents_rels" DROP COLUMN "individuals_id";
+  ALTER TABLE "payload_locked_documents_rels" DROP COLUMN "countries_id";
+  ALTER TABLE "payload_locked_documents_rels" DROP COLUMN "categories_id";
+  ALTER TABLE "payload_locked_documents_rels" DROP COLUMN "tags_id";
+  ALTER TABLE "individuals_aliases" DISABLE ROW LEVEL SECURITY;
   ALTER TABLE "individuals_countries" DISABLE ROW LEVEL SECURITY;
   ALTER TABLE "individuals_links" DISABLE ROW LEVEL SECURITY;
   ALTER TABLE "individuals" DISABLE ROW LEVEL SECURITY;
@@ -133,21 +147,5 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   DROP TABLE "individuals" CASCADE;
   DROP TABLE "countries" CASCADE;
   DROP TABLE "categories" CASCADE;
-  DROP TABLE "tags" CASCADE;
-  ALTER TABLE "payload_locked_documents_rels" DROP CONSTRAINT "payload_locked_documents_rels_individuals_fk";
-  
-  ALTER TABLE "payload_locked_documents_rels" DROP CONSTRAINT "payload_locked_documents_rels_countries_fk";
-  
-  ALTER TABLE "payload_locked_documents_rels" DROP CONSTRAINT "payload_locked_documents_rels_categories_fk";
-  
-  ALTER TABLE "payload_locked_documents_rels" DROP CONSTRAINT "payload_locked_documents_rels_tags_fk";
-  
-  DROP INDEX "payload_locked_documents_rels_individuals_id_idx";
-  DROP INDEX "payload_locked_documents_rels_countries_id_idx";
-  DROP INDEX "payload_locked_documents_rels_categories_id_idx";
-  DROP INDEX "payload_locked_documents_rels_tags_id_idx";
-  ALTER TABLE "payload_locked_documents_rels" DROP COLUMN "individuals_id";
-  ALTER TABLE "payload_locked_documents_rels" DROP COLUMN "countries_id";
-  ALTER TABLE "payload_locked_documents_rels" DROP COLUMN "categories_id";
-  ALTER TABLE "payload_locked_documents_rels" DROP COLUMN "tags_id";`)
+  DROP TABLE "tags" CASCADE;`)
 }

@@ -14,11 +14,16 @@ const LETTER_FALLBACKS: Record<string, string> = {
   ı: "i",
 };
 
-/** Lowercase, without accents, with the letters above spelled out in ASCII. */
+/**
+ * Lowercase, without accents on Latin and Greek letters, with the letters above
+ * spelled out in ASCII. Marks in other scripts are kept: a Devanagari vowel sign
+ * or a Japanese voicing mark changes the name.
+ */
 function foldLetters(text: string): string {
   return text
     .normalize("NFKD")
-    .replace(/\p{M}/gu, "")
+    .replace(/([\p{Script=Latin}\p{Script=Greek}])\p{M}+/gu, "$1")
+    .normalize("NFC")
     .toLowerCase()
     .replace(/[ßæœøłđðþı]/g, (letter) => LETTER_FALLBACKS[letter] ?? letter);
 }
@@ -45,19 +50,19 @@ export function isSlug(value: string): boolean {
 /**
  * The form used to find people entered twice: case, accents, punctuation, and
  * word order are ignored, so "José  Pérez-Díaz" and "Diaz, Jose Perez" match.
- * Any script works; only marks and punctuation are dropped.
+ * Names in any script work: only Latin and Greek accents are dropped.
  */
 export function personNameKey(name: string): string {
   return foldLetters(name)
-    .split(/[^\p{L}\p{N}]+/u)
+    .split(/[^\p{L}\p{M}\p{N}]+/u)
     .filter(Boolean)
     .sort()
     .join(" ");
 }
 
-/** A Wikidata item id such as `Q42`. */
+/** A Wikidata item id such as `Q42` (current ids have at most 9 digits). */
 export function isWikidataId(value: string): boolean {
-  return /^Q[1-9][0-9]*$/.test(value);
+  return /^Q[1-9][0-9]{0,11}$/.test(value);
 }
 
 /** An absolute `http:` or `https:` URL (no `javascript:` or `data:` links). */

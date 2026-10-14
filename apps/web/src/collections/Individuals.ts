@@ -19,14 +19,19 @@ import {
   verifiedStaffOnly,
 } from "@/access";
 import { auditHooks, relationId } from "@/audit";
-import { findPossibleDuplicates, nameKeys } from "@/individuals/duplicates";
+import {
+  findPossibleDuplicates,
+  lockNameKeys,
+  nameKeys,
+} from "@/individuals/duplicates";
+import { DIFFERENT_PERSON_LABEL } from "@/individuals/labels";
 
 import { fillSlug, slugField } from "./slug";
 
 const NAME_MAX_LENGTH = 200;
 const MAX_ALIASES = 20;
+const URL_MAX_LENGTH = 2048;
 const NO_STORE = { "Cache-Control": "no-store" };
-const DIFFERENT_PERSON_LABEL = "This is a different person";
 
 type AliasRow = { name?: unknown };
 
@@ -35,6 +40,15 @@ function aliasNames(aliases: unknown): string[] {
   return aliases
     .map((alias: AliasRow) => alias?.name)
     .filter((name): name is string => typeof name === "string");
+}
+
+/** An individual's name followed by its aliases. */
+function namesOf(doc: { name?: unknown; aliases?: unknown } | undefined) {
+  if (!doc) return [];
+  return [
+    ...(typeof doc.name === "string" ? [doc.name] : []),
+    ...aliasNames(doc.aliases),
+  ];
 }
 
 function partialDate(value: unknown): true | string {
@@ -63,33 +77,31 @@ const checkDuplicates: CollectionBeforeChangeHook = async ({
     }));
   }
 
-  const name: unknown = data.name ?? originalDoc?.name;
-  const names = [
-    ...(typeof name === "string" ? [name] : []),
-    ...aliasNames(data.aliases ?? originalDoc?.aliases),
-  ];
-  const before =
-    operation === "create"
-      ? []
-      : nameKeys([
-          ...(typeof originalDoc?.name === "string" ? [originalDoc.name] : []),
-          ...aliasNames(originalDoc?.aliases),
-        ]);
-  const added = nameKeys(names).filter((key) => !before.includes(key));
+  const names = namesOf({
+    name: data.name ?? originalDoc?.name,
+    aliases: data.aliases ?? originalDoc?.aliases,
+  });
+  const previousNames = operation === "create" ? [] : namesOf(originalDoc);
+  const previousKeys = nameKeys(previousNames);
+  const added = nameKeys(names).filter((key) => !previousKeys.includes(key));
   if (added.length === 0 || data.notADuplicate === true) return data;
 
+  await lockNameKeys(req, added);
   const duplicates = (
     await findPossibleDuplicates(req, {
-      names: added,
+      names,
+      previousNames,
       excludeId: originalDoc?.id ? String(originalDoc.id) : null,
+      exactOnly: true,
     })
-  ).filter(
-    (match) => match.matchedOn === "name" || match.matchedOn === "alias",
-  );
+  ).filter((match) => match.needsConfirmation);
   if (duplicates.length === 0) return data;
 
   const list = duplicates
-    .map((match) => `${match.name} (same ${match.matchedOn})`)
+    .map(
+      (match) =>
+        `${match.name} (same ${match.matchedOn === "alias" ? "alias" : "name"})`,
+    )
     .join(", ");
   throw new ValidationError({
     collection: "individuals",
@@ -112,7 +124,9 @@ const duplicateQuery = z.object({
 });
 
 // GET /api/individuals/possible-duplicates?name=…&alias=…&wikidataId=…&exclude=…
-// Powers the live warning in the admin form. Staff only, never cached.
+// Powers the live warning in the admin form. Staff only, never cached. It
+// shares the save check's rules, so `needsConfirmation` matches what the
+// server will refuse.
 const possibleDuplicatesEndpoint: Endpoint = {
   path: "/possible-duplicates",
   method: "get",
@@ -137,8 +151,20 @@ const possibleDuplicatesEndpoint: Endpoint = {
       );
     }
     const { name, aliases, wikidataId, exclude } = query.data;
+    const saved = exclude
+      ? await req.payload.findByID({
+          collection: "individuals",
+          id: exclude,
+          select: { name: true, aliases: true },
+          depth: 0,
+          disableErrors: true,
+          overrideAccess: true,
+          req,
+        })
+      : null;
     const matches = await findPossibleDuplicates(req, {
       names: [name, ...aliases],
+      previousNames: namesOf(saved ?? undefined),
       wikidataId,
       excludeId: exclude,
     });
@@ -295,11 +321,14 @@ export const Individuals: CollectionConfig = {
           label: "URL",
           type: "text",
           required: true,
-          maxLength: 2048,
+          maxLength: URL_MAX_LENGTH,
+          // A custom validate replaces Payload's, so the length is checked here.
           validate: (value: unknown) =>
-            typeof value === "string" && isHttpUrl(value)
+            typeof value === "string" &&
+            value.length <= URL_MAX_LENGTH &&
+            isHttpUrl(value)
               ? true
-              : "Enter a full link starting with https:// or http://.",
+              : "Enter a full link starting with https:// or http://, at most 2048 characters.",
         },
       ],
     },

@@ -9,9 +9,11 @@ import {
   useFormFields,
 } from "@payloadcms/ui";
 import type { CheckboxFieldClientComponent } from "payload";
+import { isWikidataId } from "@countrytopics/domain";
 import { useEffect, useState } from "react";
 
 import type { PossibleDuplicate } from "@/individuals/duplicates";
+import { DIFFERENT_PERSON_LABEL } from "@/individuals/labels";
 
 const LOOKUP_DELAY_MS = 400;
 
@@ -24,8 +26,9 @@ const MATCH_LABELS: Record<PossibleDuplicate["matchedOn"], string> = {
 
 /**
  * The duplicate warning (F2): as the admin types a name, aliases, or a
- * Wikidata ID, lists individuals who may be the same person. An exact name or
- * alias match must be confirmed with the checkbox before the server saves.
+ * Wikidata ID, lists individuals who may be the same person. When the server
+ * says a match needs confirmation (a name or alias being added is exactly
+ * another individual's), the checkbox must be ticked before it saves.
  */
 export const PossibleDuplicates: CheckboxFieldClientComponent = ({
   path,
@@ -44,6 +47,7 @@ export const PossibleDuplicates: CheckboxFieldClientComponent = ({
       .join("\n"),
   );
   const [matches, setMatches] = useState<PossibleDuplicate[]>([]);
+  const [lookupFailed, setLookupFailed] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -51,7 +55,7 @@ export const PossibleDuplicates: CheckboxFieldClientComponent = ({
     for (const alias of aliases.split("\n")) {
       if (alias.trim()) params.append("alias", alias);
     }
-    if (typeof wikidataId === "string" && /^Q[1-9][0-9]*$/.test(wikidataId))
+    if (typeof wikidataId === "string" && isWikidataId(wikidataId))
       params.set("wikidataId", wikidataId);
     if (id) params.set("exclude", String(id));
 
@@ -62,13 +66,19 @@ export const PossibleDuplicates: CheckboxFieldClientComponent = ({
           `${config.serverURL}${config.routes.api}/individuals/possible-duplicates?${params}`,
           { credentials: "same-origin", signal: controller.signal },
         );
-        if (!response.ok) return;
+        if (!response.ok) throw new Error(`Lookup failed: ${response.status}`);
         const body = (await response.json()) as {
           matches: PossibleDuplicate[];
         };
         setMatches(body.matches);
-      } catch {
-        // Aborted by a newer lookup, or offline: the server still checks on save.
+        setLookupFailed(false);
+      } catch (error) {
+        // A newer lookup replaced this one.
+        if (controller.signal.aborted) return;
+        // Stale matches would describe another name; say the check failed.
+        console.error(error);
+        setMatches([]);
+        setLookupFailed(true);
       }
     }, LOOKUP_DELAY_MS);
     return () => {
@@ -77,14 +87,31 @@ export const PossibleDuplicates: CheckboxFieldClientComponent = ({
     };
   }, [name, aliases, wikidataId, id, config.serverURL, config.routes.api]);
 
-  if (matches.length === 0) return null;
-  const needsConfirmation = matches.some(
-    (match) => match.matchedOn === "name" || match.matchedOn === "alias",
+  const confirmation = (
+    <CheckboxInput
+      id={`field-${path}`}
+      name={path}
+      checked={value === true}
+      label={
+        typeof field.label === "string" ? field.label : DIFFERENT_PERSON_LABEL
+      }
+      onToggle={(event) => setValue(event.target.checked)}
+    />
   );
-  const label =
-    typeof field.label === "string"
-      ? field.label
-      : "This is a different person";
+  if (lookupFailed) {
+    // The checkbox stays available in case the server refuses the save.
+    return (
+      <div className="field-type" style={{ marginBottom: "var(--base)" }}>
+        <Banner type="info">
+          Could not check for possible duplicates. The server still checks for
+          the same name when you save.
+        </Banner>
+        {confirmation}
+      </div>
+    );
+  }
+  if (matches.length === 0) return null;
+  const needsConfirmation = matches.some((match) => match.needsConfirmation);
 
   return (
     <div className="field-type" style={{ marginBottom: "var(--base)" }}>
@@ -105,15 +132,7 @@ export const PossibleDuplicates: CheckboxFieldClientComponent = ({
           ))}
         </ul>
       </Banner>
-      {needsConfirmation ? (
-        <CheckboxInput
-          id={`field-${path}`}
-          name={path}
-          checked={value === true}
-          label={label}
-          onToggle={(event) => setValue(event.target.checked)}
-        />
-      ) : null}
+      {needsConfirmation ? confirmation : null}
     </div>
   );
 };

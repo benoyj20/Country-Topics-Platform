@@ -258,8 +258,8 @@ invariants; changing them needs an ADR.
     site goes in a private GitHub security advisory, not the PR.
   - Answer and resolve any review threads on the PR; the ruleset blocks merging
     while threads are unresolved.
-- Require the repository's `javascript` and `infrastructure` CI checks to pass
-  before merging. Local checks do not replace PR CI. If any check is missing or
+- Require the repository's `javascript`, `infrastructure`, and
+  `GitGuardian Security Checks` (secret scanning) checks to pass before merging. Local checks do not replace PR CI. If any check is missing or
   failing, investigate instead of treating it as passed.
 - Agents must not merge, change repository settings, or bypass branch protection
   without the user's explicit authorisation for that action.

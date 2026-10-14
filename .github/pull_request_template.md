@@ -41,7 +41,7 @@ Write N/A when there is no impact. -->
 - [ ] PR title describes the resulting behavior using `<type>: <specific change>`.
 - [ ] No fabricated references, quotes, transcripts, or facts about real people.
 - [ ] Relevant local checks passed; limitations are stated above.
-- [ ] Required GitHub CI checks (`javascript`, `infrastructure`) passed on the final version.
+- [ ] Required checks (`javascript`, `infrastructure`, GitGuardian) passed on the final version.
 - [ ] One `/code-review` of the finished change before pushing, with its correctness and
       security findings fixed (plus `/security-guidance` where AGENTS.md lists it);
       summarised above.

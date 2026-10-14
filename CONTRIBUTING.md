@@ -78,7 +78,7 @@ states the limitation.
 cp .github/pull_request_template.md ../pr-body.md   # fill it in, including the review summary
 git push -u origin HEAD
 gh pr create --title "<type>: <change>" --body-file ../pr-body.md
-gh pr checks --watch          # wait for the javascript and infrastructure checks
+gh pr checks --watch          # wait for javascript, infrastructure, and GitGuardian
 gh pr merge --squash --delete-branch --body "<two-line summary>"
 ```
 
@@ -93,8 +93,9 @@ CI checks instead of approvals, and you run one `/code-review` on the finished
 change right before pushing it; details are in the Pull requests section of
 [AGENTS.md](AGENTS.md#pull-requests).
 
-`main` is protected: changes arrive through PRs; the `javascript` and
-`infrastructure` checks must pass on a branch that is up to date with `main`;
+`main` is protected: changes arrive through PRs; the `javascript`,
+`infrastructure`, and `GitGuardian Security Checks` checks must pass on a branch
+that is up to date with `main`;
 review threads must be resolved; the ruleset requires linear history on `main`,
 which squash merges keep (task branches may still contain merges from `main`);
 and force pushes and deletion are blocked. As administrator you can bypass this

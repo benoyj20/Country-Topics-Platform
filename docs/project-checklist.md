@@ -13,8 +13,9 @@ YouTube link → oEmbed lookup on a local Node server → editor player with sta
 end times → pasted transcript parsed into timed segments → visitor preview with a
 lazy-loaded privacy-enhanced player and synced transcript highlighting.
 
-The site itself (`apps/web`) so far has the admin panel, a placeholder home page,
-and a health check; see Week 1 below.
+The site itself (`apps/web`) so far has sign-in (Google and email links,
+invite-only), roles, staff authenticator checks, the admin panel, a placeholder
+home page, and a health check; see Weeks 1 and 2 below.
 
 The snippet flow is a standalone prototype in `prototypes/youtube-snippet`. It has no
 database, accounts, or persistence beyond the browser's `localStorage`, and it is
@@ -118,3 +119,42 @@ See [the MVP plan](mvp-plan.md) for weeks 0–12.
 - [ ] The developer creates the first admin account at `/admin` and signs in.
 - [ ] Not in week 1: an email adapter (Payload logs emails to the console until
   week 2), Redis use, and `apps/worker`.
+
+### Week 2: sign-in, roles, staff verification, invite-only
+
+See [ADR 0002](adr/0002-sign-in-and-roles.md) for the design.
+
+- [x] Email-link sign-in end to end: the web app queued the email, the worker sent
+  it through Mailpit, and opening the link signed the person in and created their
+  profile with the invitation's role. A used link is refused (integration tests,
+  2026-10-14).
+- [x] Invite-only: an uninvited address gets the same response but no email, and
+  Better Auth refuses to create its account (`NOT_INVITED`, shown on the sign-in
+  page). `ADMIN_EMAILS` addresses become admins; invitations record who invited and
+  when they were accepted (integration tests, 2026-10-14).
+- [x] A profile made before Better Auth (the week 1 admin) is kept as an admin by
+  the migration and linked by email on first sign-in, with no duplicate
+  (integration test; the development database's existing account kept its admin
+  role, 2026-10-14).
+- [x] Staff verification: an admin without a confirmed code is refused by the
+  admin panel and the REST API (403); setting up the authenticator alone is not
+  enough; after the code, both work. Five wrong codes lock verification (429).
+  Members see only their own profile and cannot change their role (403)
+  (integration tests, 2026-10-14).
+- [x] Real browser (headless Edge, production build on the test database): sign-in
+  page, link sent, account page, authenticator QR code, code confirmed, admin panel
+  with Users, Invitations, and Audit Logs, and the replaced sign-out button. The
+  sign-in page has no horizontal scroll at 390 px. `make reset-2fa` removed the
+  test admin's authenticator and setup worked again (2026-10-14).
+- [x] Google sign-in starts at `accounts.google.com` with the registered redirect
+  URL `SITE_URL/api/auth/callback/google` (integration test, 2026-10-14).
+- [x] Role changes, account creation, and invitations are written to the
+  append-only audit log (integration test, 2026-10-14).
+- [x] The committed migration matches Better Auth's schema for its options
+  (integration test, 2026-10-14).
+- [ ] CI runs these tests with Valkey and Mailpit services.
+- [ ] The developer signs in with Google and with an email link, sets up an
+  authenticator, and opens the admin panel.
+- [ ] Not built yet: Apple sign-in, backup codes for staff, members editing their
+  name, account deletion (week 11), and a real email provider (before the pilot).
+  Better Auth's rate limits are on outside tests but not yet verified (week 10).

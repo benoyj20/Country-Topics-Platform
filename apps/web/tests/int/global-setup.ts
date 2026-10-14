@@ -10,11 +10,24 @@ const appRoot = path.resolve(
 );
 const MIGRATE_TIMEOUT_MS = 120_000;
 
-// Points every test at the dedicated test database; test workers start after
-// this and inherit the environment.
+// Points every test at the dedicated test database and a separate queue, with
+// fixed sign-in settings; test workers start after this and inherit the
+// environment.
 export default function setup(): void {
-  process.env.DATABASE_URL = testDatabaseUrl(process.env);
-  process.env.DATABASE_REPLICA_URL = "";
+  const runId = Date.now().toString(36);
+  Object.assign(process.env, {
+    DATABASE_URL: testDatabaseUrl(process.env),
+    DATABASE_REPLICA_URL: "",
+    // The dev worker uses the default prefix; tests must not feed it jobs.
+    QUEUE_PREFIX: "countrytopics-test",
+    SITE_URL: "http://localhost:3000",
+    INVITE_ONLY: "true",
+    ADMIN_EMAILS: `owner-${runId}@example.test`,
+    GOOGLE_CLIENT_ID: "test-client.apps.googleusercontent.com",
+    GOOGLE_CLIENT_SECRET: "test-client-secret",
+    // Mailpit keeps old messages, so each run uses fresh addresses.
+    TEST_RUN_ID: runId,
+  });
 
   // Drops every table and reruns the committed migrations, so each run starts
   // empty and proves the migrations apply cleanly. This uses the Payload CLI

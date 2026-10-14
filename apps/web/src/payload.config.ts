@@ -3,11 +3,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildConfig } from "payload";
 
+import { AuditLog } from "./collections/AuditLog";
+import { Invitations } from "./collections/Invitations";
 import { Users } from "./collections/Users";
-import { readServerEnv } from "./env";
+import { serverEnv } from "./env";
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
-const env = readServerEnv();
+const env = serverEnv();
 const DATABASE_CONNECT_TIMEOUT_MS = 5_000;
 
 export default buildConfig({
@@ -15,8 +17,13 @@ export default buildConfig({
     user: Users.slug,
     importMap: { baseDir: dirname },
     meta: { titleSuffix: " - Country Topics" },
+    components: {
+      // Payload's password login is off; staff sign in on the site instead.
+      beforeLogin: ["/components/admin/RedirectToSignIn#RedirectToSignIn"],
+      logout: { Button: "/components/admin/SignOutButton#SignOutButton" },
+    },
   },
-  collections: [Users],
+  collections: [Users, Invitations, AuditLog],
   db: postgresAdapter({
     // Fail fast instead of waiting for the OS TCP timeout when the database is
     // unreachable.

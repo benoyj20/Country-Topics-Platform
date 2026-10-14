@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help bootstrap env infra-up infra-down infra-config dev dev-prototype migrate generate format lint typecheck test test-int build check
+.PHONY: help bootstrap env infra-up infra-down infra-config dev dev-prototype migrate generate reset-2fa format lint typecheck test test-int build check
 
 # Use the local .env when it exists; otherwise Compose falls back to the defaults in compose.yaml.
 COMPOSE = docker compose $(if $(wildcard .env),--env-file .env) -f deploy/compose/compose.yaml
@@ -24,8 +24,8 @@ infra-down: ## Stop local infrastructure, keeping its data volumes
 infra-config: ## Validate the Compose configuration
 	$(COMPOSE) config --quiet
 
-dev: ## Run the site and admin panel at http://localhost:3000 (run make migrate first)
-	$(WEB) dev
+dev: ## Run the site (http://localhost:3000) and the email worker (run make migrate first)
+	pnpm --parallel --filter @countrytopics/web --filter @countrytopics/worker dev
 
 dev-prototype: ## Run the YouTube snippet prototype at http://localhost:4173
 	pnpm --filter @countrytopics/youtube-snippet-prototype dev
@@ -35,6 +35,9 @@ migrate: ## Apply database migrations to DATABASE_URL
 
 generate: ## Regenerate Payload's TypeScript types and admin import map
 	$(WEB) generate
+
+reset-2fa: ## Remove someone's authenticator app so they can set up a new one: make reset-2fa EMAIL=...
+	$(WEB) reset-two-factor "$(EMAIL)"
 
 format: ## Format JavaScript and TypeScript packages
 	pnpm -r exec prettier --write .

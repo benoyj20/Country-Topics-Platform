@@ -111,9 +111,10 @@ See [the MVP plan](mvp-plan.md) for weeks 0–12.
   kept its data (2026-10-14).
 - [x] `make env` adds missing variables to an existing `.env` without changing set
   values, and generates `PAYLOAD_SECRET` (tested on scratch copies, 2026-10-14).
-- [ ] CI runs lint, typecheck, unit and integration tests against a PostgreSQL
+- [x] CI runs lint, typecheck, unit and integration tests against a PostgreSQL
   service, the build, and a check that generated Payload files and migrations
-  match the config.
+  match the config: all passed on PR #5, with the integration tests applying the
+  initial migration to the CI database (2026-10-14).
 - [ ] The developer creates the first admin account at `/admin` and signs in.
 - [ ] Not in week 1: an email adapter (Payload logs emails to the console until
   week 2), Redis use, and `apps/worker`.

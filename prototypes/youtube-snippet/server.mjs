@@ -18,17 +18,23 @@ const TYPES = {
 };
 
 createServer(async (req, res) => {
-  const url = new URL(req.url, `http://${req.headers.host}`);
+  let url;
   try {
+    url = parseRequestUrl(req);
     if (url.pathname === "/api/video")
       return sendJson(res, 200, await lookupVideo(url.searchParams.get("id")));
     await serveStatic(url.pathname, res);
   } catch (err) {
     if (err.status) return sendJson(res, err.status, { error: err.message });
-    // Unexpected failures (network errors, timeouts) are logged here; the browser gets a generic message.
-    console.error(`${req.method} ${url.pathname} failed:`, err);
-    sendJson(res, 502, {
-      error: "YouTube lookup failed. Check your connection and try again.",
+    // Unexpected failures are logged here; the browser gets a generic message.
+    console.error(`${req.method} ${req.url} failed:`, err);
+    if (url?.pathname === "/api/video") {
+      return sendJson(res, 502, {
+        error: "YouTube lookup failed. Check your connection and try again.",
+      });
+    }
+    sendJson(res, 500, {
+      error: "Something went wrong in the prototype server.",
     });
   }
 }).listen(PORT, "localhost", () => {
@@ -39,6 +45,14 @@ createServer(async (req, res) => {
       : "YouTube Data API: off (set YOUTUBE_API_KEY for duration/embeddable checks)",
   );
 });
+
+function parseRequestUrl(req) {
+  try {
+    return new URL(req.url, `http://${req.headers.host ?? "localhost"}`);
+  } catch {
+    throw httpError(400, "Bad request");
+  }
+}
 
 async function lookupVideo(id) {
   if (!/^[\w-]{11}$/.test(id ?? "")) throw httpError(400, "Invalid video id");
@@ -69,10 +83,17 @@ async function lookupVideo(id) {
 
 // videos.list with contentDetails + status costs 1 quota unit (of 10,000/day by default).
 async function dataApiDetails(id) {
-  const res = await fetch(
-    `https://www.googleapis.com/youtube/v3/videos?part=contentDetails,status&id=${id}&key=${encodeURIComponent(API_KEY)}`,
-    { signal: AbortSignal.timeout(YOUTUBE_TIMEOUT_MS) },
-  );
+  let res;
+  try {
+    res = await fetch(
+      `https://www.googleapis.com/youtube/v3/videos?part=contentDetails,status&id=${id}&key=${encodeURIComponent(API_KEY)}`,
+      { signal: AbortSignal.timeout(YOUTUBE_TIMEOUT_MS) },
+    );
+  } catch (err) {
+    // Keep the oEmbed result and report the missing enrichment explicitly.
+    console.error(`Data API request for ${id} failed:`, err);
+    return { dataApiError: "Data API timed out or could not be reached" };
+  }
   if (!res.ok) return { dataApiError: `Data API returned ${res.status}` };
   const item = (await res.json()).items?.[0];
   if (!item)
@@ -96,13 +117,19 @@ function isoDurationToSeconds(iso) {
   const [, d = 0, h = 0, min = 0, s = 0] = m.map((v) =>
     v === undefined ? 0 : Number(v),
   );
-  return d * 86400 + h * 3600 + min * 60 + s;
+  const seconds = d * 86400 + h * 3600 + min * 60 + s;
+  // The Data API reports P0D for live streams and upcoming premieres: the length is unknown.
+  return seconds > 0 ? seconds : null;
 }
 
 async function serveStatic(pathname, res) {
-  const rel = normalize(
-    decodeURIComponent(pathname === "/" ? "/index.html" : pathname),
-  ).replace(/^[/\\]+/, "");
+  let decoded;
+  try {
+    decoded = decodeURIComponent(pathname === "/" ? "/index.html" : pathname);
+  } catch {
+    throw httpError(400, "Bad request");
+  }
+  const rel = normalize(decoded).replace(/^[/\\]+/, "");
   const file = join(ROOT, rel);
   const type = TYPES[extname(file)];
   if (!file.startsWith(ROOT) || !type) throw httpError(404, "Not found");

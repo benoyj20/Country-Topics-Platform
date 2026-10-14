@@ -11,7 +11,7 @@ and every change can be reverted on its own.
 
 ## Setup
 
-Install Node.js 22 or later, Docker Desktop, Git, and the GitHub CLI (`gh`).
+Install Node.js 22.9 or later, Docker Desktop, Git, and the GitHub CLI (`gh`).
 pnpm is provided by Corepack: run `corepack enable` once, and the version pinned
 in `package.json` is used automatically.
 

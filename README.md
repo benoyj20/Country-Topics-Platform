@@ -44,7 +44,7 @@ Open `http://localhost:4173` and click **Try demo**. See
 
 ## Prerequisites
 
-- Node.js 22 or later, with pnpm 10 through Corepack (`corepack enable`)
+- Node.js 22.9 or later, with pnpm 10 through Corepack (`corepack enable`)
 - Docker Desktop (Compose v2)
 - Git and the GitHub CLI (`gh`)
 - GNU Make (optional; every target is a plain `pnpm` or `docker compose` command)

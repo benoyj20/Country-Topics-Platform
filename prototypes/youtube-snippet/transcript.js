@@ -11,7 +11,11 @@ const SPOKEN_TS =
   /^\d+\s+(hours?|minutes?|seconds?)(,?\s+\d+\s+(hours?|minutes?|seconds?))*$/i;
 const VIDEO_ID = /^[\w-]{11}$/;
 
-/** Accepts "95", "95.5", "1:35", "01:02:03", "00:01:35.000" or "00:01:35,000". Returns seconds or NaN. */
+/**
+ * Accepts "95", "95.5", "1:35", "75:00", "01:02:03", "00:01:35.000" or "00:01:35,000".
+ * Seconds need two digits and must be under 60; with hours, minutes must be under 60 too.
+ * Returns seconds, or NaN for anything else (so "1:75" and "1:5" are rejected, not guessed).
+ */
 export function parseTime(input) {
   if (input == null) return NaN;
   const s = String(input)
@@ -20,20 +24,32 @@ export function parseTime(input) {
     .replace(",", ".");
   if (s === "") return NaN;
   if (/^\d+(\.\d+)?$/.test(s)) return Number(s);
-  if (!/^(\d+:){1,2}\d{1,2}(\.\d+)?$/.test(s)) return NaN;
-  return s.split(":").reduce((acc, part) => acc * 60 + Number(part), 0);
+  const m = /^(?:(\d+):)?(\d+):(\d{2})(\.\d+)?$/.exec(s);
+  if (!m) return NaN;
+  const [, hours, minutes, secs, fraction] = m;
+  if (Number(secs) >= 60) return NaN;
+  if (hours !== undefined && (minutes.length > 2 || Number(minutes) >= 60))
+    return NaN;
+  return (
+    Number(hours ?? 0) * 3600 +
+    Number(minutes) * 60 +
+    Number(secs) +
+    Number(fraction ?? 0)
+  );
 }
 
 /** 95.25 -> "1:35" (or "1:35.2" with tenths). Hours appear only when needed. */
 export function formatTime(seconds, tenths = false) {
   if (!Number.isFinite(seconds)) return "–";
   const t = Math.max(0, seconds);
-  const whole = Math.floor(t);
+  // Round to tenths first: flooring (2.3 - 2) * 10 gives 2.9999… and would show "0:02.2".
+  const totalTenths = Math.round(t * 10);
+  const whole = tenths ? Math.floor(totalTenths / 10) : Math.floor(t);
   const h = Math.floor(whole / 3600);
   const m = Math.floor((whole % 3600) / 60);
   const s = whole % 60;
   const pad = (n) => String(n).padStart(2, "0");
-  const frac = tenths ? `.${Math.floor((t - whole) * 10)}` : "";
+  const frac = tenths ? `.${totalTenths % 10}` : "";
   return h ? `${h}:${pad(m)}:${pad(s)}${frac}` : `${m}:${pad(s)}${frac}`;
 }
 

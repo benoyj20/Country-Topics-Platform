@@ -10,7 +10,8 @@ const YT_HOST = "https://www.youtube-nocookie.com";
 const STORAGE_KEY = "yt-snippet-prototype";
 
 // "Me at the zoo" — the first video uploaded to YouTube. Short, public and embeddable.
-// Timings are approximate; it's here to exercise the parser and the sync, not as a reference.
+// The transcript lines are clearly labelled placeholders, not the speaker's words: real
+// transcript text must come from the video itself (see AGENTS.md on fabricated content).
 const DEMO = {
   url: "https://www.youtube.com/watch?v=jNQXAC9IVRw",
   start: 1,
@@ -20,16 +21,16 @@ const DEMO = {
   transcriptText: [
     "0:01",
     "1 second",
-    "All right, so here we are, in front of the, uh, elephants.",
+    "[Placeholder line 1 — paste the real transcript from YouTube to replace these]",
     "0:05",
     "5 seconds",
-    "The cool thing about these guys is that they have really, really, really long trunks,",
+    "[Placeholder line 2]",
     "0:12",
     "12 seconds",
-    "and that's, that's cool.",
+    "[Placeholder line 3]",
     "0:15",
     "15 seconds",
-    "And that's pretty much all there is to say.",
+    "[Placeholder line 4]",
   ].join("\n"),
 };
 
@@ -72,7 +73,7 @@ const els = {
 
 const state = {
   url: "",
-  video: null, // { id, ok, title, channel, reason?, duration?, ageRestricted?, source? }
+  video: null, // { id, ok, title, channel, reason?, duration?, ageRestricted?, dataApiError?, source? }
   duration: NaN,
   start: NaN,
   end: NaN,
@@ -138,10 +139,11 @@ function editorTick() {
   if (loadedId && loadedId !== state.video?.id) return;
   const t = editorPlayer.getCurrentTime() || 0;
   const d = editorPlayer.getDuration() || 0;
-  if (d > 0 && Math.abs(d - (state.duration || 0)) > 0.5) {
-    state.duration = d;
-    if (!Number.isFinite(state.end))
-      state.end = Math.min((state.start || 0) + 30, d);
+  if (
+    d > 0 &&
+    (Math.abs(d - (state.duration || 0)) > 0.5 || !Number.isFinite(state.end))
+  ) {
+    applyDuration(d);
     renderMeta();
     renderClip();
     refreshTranscript();
@@ -154,6 +156,16 @@ function editorTick() {
   }
 }
 setInterval(editorTick, 250);
+
+const DEFAULT_CLIP_LENGTH_S = 30;
+
+/** Records a known video length and, if no end is set yet, proposes a default clip end. */
+function applyDuration(durationS) {
+  state.duration = durationS;
+  if (!Number.isFinite(state.end)) {
+    state.end = Math.min((state.start || 0) + DEFAULT_CLIP_LENGTH_S, durationS);
+  }
+}
 
 // ---------- Loading a video ----------
 
@@ -185,14 +197,16 @@ async function loadVideo(rawUrl, { keepClip = false } = {}) {
         reason: info.error ?? `Lookup failed (${res.status}).`,
       };
   } catch {
+    // Unchecked is not the same as embeddable: block the preview until the check succeeds.
     info = {
-      ok: true,
-      title: "(metadata unavailable — is server.mjs running?)",
+      ok: false,
+      reason:
+        "Could not check this video. Is the prototype server (server.mjs) running?",
     };
   }
   if (state.video?.id !== parsed.id) return; // a newer load replaced this one
   state.video = { ...info, id: parsed.id };
-  if (Number.isFinite(info.duration)) state.duration = info.duration;
+  if (Number.isFinite(info.duration)) applyDuration(info.duration);
   save();
   renderAll();
 }
@@ -236,6 +250,13 @@ function renderMeta() {
         "div",
         { class: "row" },
         pill,
+        v.dataApiError
+          ? h(
+              "span",
+              { class: "pill bad" },
+              `Extra checks unavailable: ${v.dataApiError}`,
+            )
+          : null,
         v.ageRestricted
           ? h(
               "span",

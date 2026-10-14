@@ -16,15 +16,33 @@ test("parseTime handles seconds, m:ss, h:mm:ss and cue formats", () => {
   assert.equal(parseTime("00:01:35.250"), 95.25);
   assert.equal(parseTime("00:01:35,250"), 95.25);
   assert.equal(parseTime("[1:35]"), 95);
+  assert.equal(parseTime("75:00"), 4500);
   assert.ok(Number.isNaN(parseTime("abc")));
   assert.ok(Number.isNaN(parseTime("")));
 });
 
+test("parseTime rejects out-of-range or ambiguous clock fields", () => {
+  for (const bad of ["1:75", "1:5", "1:60:00", "1:100:00", "0:60", "1:2:3"]) {
+    assert.ok(Number.isNaN(parseTime(bad)), bad);
+  }
+});
+
 test("formatTime", () => {
   assert.equal(formatTime(95.27), "1:35");
-  assert.equal(formatTime(95.27, true), "1:35.2");
+  assert.equal(formatTime(95.27, true), "1:35.3");
   assert.equal(formatTime(3723), "1:02:03");
   assert.equal(formatTime(NaN), "–");
+});
+
+test("formatTime with tenths shows the stored value, not one tenth less", () => {
+  assert.equal(formatTime(2.3, true), "0:02.3");
+  assert.equal(formatTime(4.6, true), "0:04.6");
+  assert.equal(formatTime(59.96, true), "1:00.0");
+  for (let tenth = 0; tenth < 600; tenth++) {
+    const value = tenth / 10;
+    const roundTrip = parseTime(formatTime(value, true));
+    assert.ok(Math.abs(roundTrip - value) < 1e-9, `${value} -> ${roundTrip}`);
+  }
 });
 
 test("parseYouTubeUrl covers common link shapes", () => {
@@ -60,20 +78,20 @@ test("parses YouTube transcript panel copy, including accessibility labels", () 
       "Transcript",
       "0:01",
       "1 second",
-      "All right, so here we are",
+      "First synthetic line",
       "0:05",
       "5 seconds",
-      "long trunks",
+      "second line",
       "and more",
       "0:12",
-      "that's cool",
+      "third line",
     ].join("\n"),
   );
   assert.equal(skipped, 1);
   assert.deepEqual(segments, [
-    { start_s: 1, end_s: 5, text: "All right, so here we are" },
-    { start_s: 5, end_s: 12, text: "long trunks and more" },
-    { start_s: 12, end_s: NaN, text: "that's cool" },
+    { start_s: 1, end_s: 5, text: "First synthetic line" },
+    { start_s: 5, end_s: 12, text: "second line and more" },
+    { start_s: 12, end_s: NaN, text: "third line" },
   ]);
 });
 

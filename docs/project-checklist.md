@@ -13,7 +13,10 @@ YouTube link → oEmbed lookup on a local Node server → editor player with sta
 end times → pasted transcript parsed into timed segments → visitor preview with a
 lazy-loaded privacy-enhanced player and synced transcript highlighting.
 
-This is a standalone prototype in `prototypes/youtube-snippet`. It has no
+The site itself (`apps/web`) so far has the admin panel, a placeholder home page,
+and a health check; see Week 1 below.
+
+The snippet flow is a standalone prototype in `prototypes/youtube-snippet`. It has no
 database, accounts, or persistence beyond the browser's `localStorage`, and it is
 plain JavaScript; the typed version is built into `apps/web` in MVP week 6.
 
@@ -85,3 +88,28 @@ See [the MVP plan](mvp-plan.md) for weeks 0–12.
   so either list every tester and admin (100 at most) or publish the consent
   screen to Production.
 - [ ] Cloudflare account, needed by week 10 (Turnstile) and week 12 (tunnel).
+
+### Week 1: site and admin skeleton
+
+- [x] Next.js 16.3.8 and Payload 3.90.2 in `apps/web`, on PostgreSQL through
+  Payload's Postgres adapter: UUIDv7 primary keys, timezone-aware timestamps,
+  committed migrations with automatic schema push off, a read replica used only
+  when `DATABASE_REPLICA_URL` differs from `DATABASE_URL`, GraphQL off, and
+  server configuration checked at startup (2026-10-14).
+- [x] Admin panel opens locally: `/admin` led to Payload's "create your first user"
+  screen (headless Edge, 2026-10-14). The dev server listens on `127.0.0.1` only.
+- [x] `GET /api/v1/health` returned 200 `{"status":"ok"}` with
+  `Cache-Control: no-store`; the home page sends `noindex, nofollow` and has no
+  horizontal scroll at 390 px; `/api/users` refuses anonymous requests; the
+  GraphQL route returns 404 (`curl` and headless Edge, 2026-10-14).
+- [x] Unit tests (10) and integration tests (3) pass locally. The integration tests
+  rebuilt `countrytopics_test` from the migrations, and the development database
+  kept its data (2026-10-14).
+- [x] `make env` adds missing variables to an existing `.env` without changing set
+  values, and generates `PAYLOAD_SECRET` (tested on scratch copies, 2026-10-14).
+- [ ] CI runs lint, typecheck, unit and integration tests against a PostgreSQL
+  service, the build, and a check that generated Payload files and migrations
+  match the config.
+- [ ] The developer creates the first admin account at `/admin` and signs in.
+- [ ] Not in week 1: an email adapter (Payload logs emails to the console until
+  week 2), Redis use, and `apps/worker`.

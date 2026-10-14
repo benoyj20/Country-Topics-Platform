@@ -15,9 +15,16 @@ Install Node.js 22.9 or later, Docker Desktop, Git, and the GitHub CLI (`gh`).
 pnpm is provided by Corepack: run `corepack enable` once, and the version pinned
 in `package.json` is used automatically.
 
-Copy `.env.example` to `.env` only if you do not already have a local
-configuration, then run `make bootstrap` and `make infra-up`. Never commit `.env`,
-credentials, or local `.data/` files.
+Run `make env`: it creates `.env` from `.env.example`, or adds the variables an
+existing `.env` is missing (generating `PAYLOAD_SECRET`), and never changes values
+already set. Then run `make bootstrap`, `make infra-up`, and `make migrate`, and
+start the site with `make dev`. Never commit `.env`, credentials, or local `.data/`
+files.
+
+Schema changes go through committed migrations (Payload's automatic schema push is
+off): change a collection, run `pnpm --filter @countrytopics/web migrate:create
+<name>` and `make generate`, and commit the migration and generated files. CI fails
+if they do not match the config.
 
 ## Start a task
 
@@ -57,9 +64,9 @@ The exact CI baseline is in [ci.yaml](.github/workflows/ci.yaml).
 
 | Area | Local verification |
 | --- | --- |
-| JavaScript/TypeScript | `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build` (or `make check`) |
+| JavaScript/TypeScript | `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm test:int`, `pnpm build` (or `make check`) |
 | Infrastructure | `docker compose -f deploy/compose/compose.yaml config --quiet` with a local `.env` |
-| Database changes | Integration tests against a dedicated test database, never development data |
+| Database changes | `make test-int`: rebuilds the `TEST_DATABASE_URL` database (its name must end in `_test`) from the migrations and runs the integration tests; never point it at development data |
 | Documentation only | Check accuracy, referenced paths, and Markdown formatting |
 
 For UI changes, check the affected flow in a browser at mobile (360–390 px),

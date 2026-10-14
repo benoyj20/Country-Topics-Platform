@@ -73,23 +73,31 @@ states the limitation.
 ## Open, review, and merge a pull request
 
 ```sh
+# finished and checks pass: /code-review origin/main...HEAD once, fix its
+# findings, and re-run the checks
+cp .github/pull_request_template.md ../pr-body.md   # fill it in, including the review summary
 git push -u origin HEAD
-gh pr create --fill --draft   # fill in the PR template, then mark ready
-gh pr checks --watch          # wait for the javascript and infrastructure checks
-gh pr merge --squash --delete-branch
+gh pr create --title "<type>: <change>" --body-file ../pr-body.md
+gh pr checks --watch          # wait for javascript, infrastructure, and GitGuardian
+gh pr merge --squash --delete-branch --body "<two-line summary>"
 ```
+
+Pass a short `--body` to `gh pr merge`; otherwise the squash commit on `main`
+would contain the whole PR description.
 
 Fill in the PR template: problem, behavior, verification evidence, and any API,
 database, configuration, or rollout impact. Include screenshots for UI changes.
 
 GitHub does not let you approve your own PR, so `main` requires a PR and passing
-CI checks instead of approvals. Before merging, review the final diff yourself:
-run `/code-review` (or the `code-reviewer` agent), and `/security-guidance` for
-changes to logins, roles, payments, uploads, or user content. Note the review in
-the PR.
+CI checks instead of approvals, and you run one `/code-review` on the finished
+change right before pushing it; details are in the Pull requests section of
+[AGENTS.md](AGENTS.md#pull-requests).
 
-`main` is protected: changes arrive through PRs, the `javascript` and
-`infrastructure` checks must pass, history stays linear, and force pushes and
-deletion are blocked. As administrator you can bypass this in an emergency;
-coding agents must never use the bypass, merge, or change repository settings
-without your explicit instruction.
+`main` is protected: changes arrive through PRs; the `javascript`,
+`infrastructure`, and `GitGuardian Security Checks` checks must pass on a branch
+that is up to date with `main`;
+review threads must be resolved; the ruleset requires linear history on `main`,
+which squash merges keep (task branches may still contain merges from `main`);
+and force pushes and deletion are blocked. As administrator you can bypass this
+in an emergency; coding agents must never use the bypass, merge, or change
+repository settings without your explicit instruction.

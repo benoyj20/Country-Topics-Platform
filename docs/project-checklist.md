@@ -26,8 +26,14 @@ plain JavaScript; the typed version is built into `apps/web` in MVP week 6.
   validated with `docker compose config --quiet` (2026-10-14).
 - [x] CI workflow with `javascript` and `infrastructure` jobs.
 - [x] Repo-local Claude Code skills and review agents in `.claude/`.
-- [ ] CI passing on GitHub for the first PR.
-- [ ] `main` branch protection and squash-only merges configured on GitHub.
+- [x] CI passing on GitHub for the first PR (`javascript` and `infrastructure`, PR #1,
+  2026-10-14).
+- [x] `main` protected on GitHub by the "Protect main" ruleset: PR required, `javascript`
+  and `infrastructure` checks required and up to date, linear history, no force pushes
+  or deletion, admin bypass. Squash-only merges, PR title as the squash title,
+  merged branches deleted automatically (2026-10-14).
+- [ ] Local services started with `make infra-up` and healthy (Docker Desktop was not
+  running during setup).
 - [ ] `pnpm typecheck` and `pnpm build` checking real code (they have nothing to
   check until `apps/web` exists).
 

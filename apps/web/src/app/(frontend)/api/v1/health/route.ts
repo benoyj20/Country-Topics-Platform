@@ -6,8 +6,9 @@ import { checkHealth, payloadHealthDependencies } from "@/health";
 export const dynamic = "force-dynamic";
 
 export async function GET(): Promise<Response> {
-  const payload = await getPayload({ config });
-  const status = await checkHealth(payloadHealthDependencies(payload));
+  const status = await checkHealth(
+    payloadHealthDependencies(() => getPayload({ config })),
+  );
   return Response.json(
     { status },
     {

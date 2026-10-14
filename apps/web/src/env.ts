@@ -33,7 +33,7 @@ export function readServerEnv(
   const payloadSecret = env.PAYLOAD_SECRET?.trim() ?? "";
   if (payloadSecret.length < MIN_PAYLOAD_SECRET_LENGTH) {
     problems.push(
-      `PAYLOAD_SECRET must be at least ${MIN_PAYLOAD_SECRET_LENGTH} characters; run "make env" to generate one`,
+      `PAYLOAD_SECRET must be at least ${MIN_PAYLOAD_SECRET_LENGTH} characters; leave it empty in .env and run "make env" to generate one`,
     );
   }
 

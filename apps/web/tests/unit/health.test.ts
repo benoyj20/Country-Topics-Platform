@@ -21,4 +21,27 @@ describe("checkHealth", () => {
     ).resolves.toBe("unavailable");
     expect(logError).toHaveBeenCalledWith(failure);
   });
+
+  it("is unavailable when the database does not answer in time", async () => {
+    vi.useFakeTimers();
+    try {
+      const logError = vi.fn();
+      const result = checkHealth({
+        pingDatabase: () => new Promise(() => {}),
+        logError,
+        timeoutMs: 3_000,
+      });
+
+      await vi.advanceTimersByTimeAsync(3_000);
+
+      await expect(result).resolves.toBe("unavailable");
+      expect(logError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: expect.stringContaining("3000 ms"),
+        }),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

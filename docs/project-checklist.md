@@ -102,7 +102,11 @@ See [the MVP plan](mvp-plan.md) for weeks 0–12.
   `Cache-Control: no-store`; the home page sends `noindex, nofollow` and has no
   horizontal scroll at 390 px; `/api/users` refuses anonymous requests; the
   GraphQL route returns 404 (`curl` and headless Edge, 2026-10-14).
-- [x] Unit tests (10) and integration tests (3) pass locally. The integration tests
+- [x] With the database stopped when the server started, the health check returned
+  503 `{"status":"unavailable"}` and recovered to `ok` once it was back; every page
+  sends `frame-ancestors 'self'`, `X-Frame-Options: SAMEORIGIN`, and `nosniff`
+  (`pnpm start`, which also listens on `127.0.0.1` only, 2026-10-14).
+- [x] Unit tests (11) and integration tests (3) pass locally. The integration tests
   rebuilt `countrytopics_test` from the migrations, and the development database
   kept its data (2026-10-14).
 - [x] `make env` adds missing variables to an existing `.env` without changing set

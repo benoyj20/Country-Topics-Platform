@@ -4,6 +4,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { GET } from "@/app/(frontend)/api/v1/health/route";
 
+import { testDatabaseUrl } from "./test-database";
+
 const UUID_V7_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
@@ -14,15 +16,15 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await payload.destroy();
+  // Unset when getPayload failed in beforeAll; keep that error the only one.
+  await payload?.destroy();
 });
 
 describe("integration environment", () => {
   it("runs against the dedicated test database", () => {
-    const databaseName = new URL(process.env.DATABASE_URL ?? "").pathname.slice(
-      1,
-    );
-    expect(databaseName).toMatch(/_test$/);
+    expect(() =>
+      testDatabaseUrl({ TEST_DATABASE_URL: process.env.DATABASE_URL }),
+    ).not.toThrow();
   });
 });
 

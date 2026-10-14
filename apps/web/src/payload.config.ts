@@ -8,6 +8,7 @@ import { readServerEnv } from "./env";
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 const env = readServerEnv();
+const DATABASE_CONNECT_TIMEOUT_MS = 5_000;
 
 export default buildConfig({
   admin: {
@@ -17,7 +18,12 @@ export default buildConfig({
   },
   collections: [Users],
   db: postgresAdapter({
-    pool: { connectionString: env.databaseUrl },
+    // Fail fast instead of waiting for the OS TCP timeout when the database is
+    // unreachable.
+    pool: {
+      connectionString: env.databaseUrl,
+      connectionTimeoutMillis: DATABASE_CONNECT_TIMEOUT_MS,
+    },
     readReplicas: env.databaseReplicaUrl ? [env.databaseReplicaUrl] : undefined,
     // Time-ordered UUIDs keep primary key indexes compact (AGENTS.md: UUID keys).
     idType: "uuidv7",

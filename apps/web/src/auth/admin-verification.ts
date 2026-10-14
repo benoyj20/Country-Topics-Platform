@@ -3,6 +3,8 @@ import type { BetterAuthPlugin } from "better-auth";
 import {
   APIError,
   createAuthEndpoint,
+  createAuthMiddleware,
+  getSessionFromCtx,
   sessionMiddleware,
 } from "better-auth/api";
 import { symmetricDecrypt } from "better-auth/crypto";
@@ -13,6 +15,12 @@ import * as z from "zod";
 // confirm a code from their authenticator app after signing in, and the session
 // records when they did (`twoFactorVerifiedAt`). The admin panel requires a
 // recent confirmation; see canEnterAdminPanel in @countrytopics/domain.
+//
+// The authenticator must protect against someone who has only the person's
+// email or Google account (or session cookie). So once an authenticator is set
+// up, the two-factor plugin's other endpoints are closed: nobody can read the
+// secret back, switch it off, or set up a different app from a session. Losing
+// the app is handled on the host with `make reset-2fa`.
 
 /** Wrong codes allowed before the account's verification is locked. */
 export const MAX_VERIFICATION_FAILURES = 5;
@@ -21,6 +29,9 @@ export const VERIFICATION_LOCK_MS = 15 * 60 * 1000;
 // Must match the two-factor plugin's TOTP settings (its defaults).
 const TOTP_DIGITS = 6;
 const TOTP_PERIOD_S = 30;
+
+/** Two-factor plugin endpoints used to set up a first authenticator. */
+const SETUP_PATHS = new Set(["/two-factor/enable", "/two-factor/verify-totp"]);
 
 type VerificationState = {
   twoFactorEnabled: boolean | null;
@@ -57,6 +68,36 @@ export const adminVerification = () =>
         },
       },
     },
+    hooks: {
+      before: [
+        {
+          matcher: (context) =>
+            context.path?.startsWith("/two-factor/") ?? false,
+          handler: createAuthMiddleware(async (ctx) => {
+            const closed = () =>
+              APIError.from("FORBIDDEN", {
+                code: "TWO_FACTOR_CHANGE_NOT_ALLOWED",
+                message:
+                  "Your authenticator app is already set up. Ask the site owner to reset it if you lost it.",
+              });
+            if (!SETUP_PATHS.has(ctx.path)) throw closed();
+
+            const session = await getSessionFromCtx(ctx);
+            if (!session) {
+              throw APIError.from("UNAUTHORIZED", {
+                code: "SIGN_IN_REQUIRED",
+                message: "Sign in first.",
+              });
+            }
+            const state = await ctx.context.adapter.findOne<VerificationState>({
+              model: "user",
+              where: [{ field: "id", value: session.user.id }],
+            });
+            if (state?.twoFactorEnabled) throw closed();
+          }),
+        },
+      ],
+    },
     endpoints: {
       verifyAdminCode: createAuthEndpoint(
         "/admin-verification/verify",
@@ -68,6 +109,10 @@ export const adminVerification = () =>
         async (ctx) => {
           const { session, user } = ctx.context.session;
           const now = new Date();
+          const locked = APIError.from("TOO_MANY_REQUESTS", {
+            code: "VERIFICATION_LOCKED",
+            message: "Too many wrong codes. Try again in 15 minutes.",
+          });
 
           const state = await ctx.context.adapter.findOne<VerificationState>({
             model: "user",
@@ -77,10 +122,7 @@ export const adminVerification = () =>
             state?.adminVerificationLockedUntil &&
             state.adminVerificationLockedUntil > now
           ) {
-            throw APIError.from("TOO_MANY_REQUESTS", {
-              code: "VERIFICATION_LOCKED",
-              message: "Too many wrong codes. Try again in 15 minutes.",
-            });
+            throw locked;
           }
 
           const twoFactor = await ctx.context.adapter.findOne<TwoFactorRecord>({
@@ -108,14 +150,25 @@ export const adminVerification = () =>
           }).verify(ctx.body.code);
 
           if (!valid) {
-            const failures = (state.adminVerificationFailures ?? 0) + 1;
-            const lock = failures >= MAX_VERIFICATION_FAILURES;
-            await ctx.context.internalAdapter.updateUser(user.id, {
-              adminVerificationFailures: lock ? 0 : failures,
-              adminVerificationLockedUntil: lock
-                ? new Date(now.getTime() + VERIFICATION_LOCK_MS)
-                : null,
-            });
+            // Atomic, so parallel guesses cannot all read the same count.
+            const counted =
+              await ctx.context.adapter.incrementOne<VerificationState>({
+                model: "user",
+                where: [{ field: "id", value: user.id }],
+                increment: { adminVerificationFailures: 1 },
+              });
+            if (
+              (counted?.adminVerificationFailures ?? 0) >=
+              MAX_VERIFICATION_FAILURES
+            ) {
+              await ctx.context.internalAdapter.updateUser(user.id, {
+                adminVerificationFailures: 0,
+                adminVerificationLockedUntil: new Date(
+                  now.getTime() + VERIFICATION_LOCK_MS,
+                ),
+              });
+              throw locked;
+            }
             throw APIError.from("UNAUTHORIZED", {
               code: "INVALID_CODE",
               message:

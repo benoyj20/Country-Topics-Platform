@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
+import { RefreshSession } from "@/components/RefreshSession";
+
 import "./styles.css";
 
 export const metadata: Metadata = {
@@ -16,6 +18,7 @@ export default function FrontendLayout({ children }: { children: ReactNode }) {
     <html lang="en">
       <body>
         <main>{children}</main>
+        <RefreshSession />
       </body>
     </html>
   );

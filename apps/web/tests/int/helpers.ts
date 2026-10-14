@@ -74,12 +74,19 @@ async function searchMailpit(to: string) {
   return mailpitSearch.parse(await response.json()).messages;
 }
 
-/** Waits for the newest email to `to` in Mailpit and returns its text body. */
-export async function waitForEmail(to: string): Promise<string> {
+/**
+ * Waits until `to` has more than `alreadyReceived` emails in Mailpit and returns
+ * the newest one's text body.
+ */
+export async function waitForEmail(
+  to: string,
+  alreadyReceived = 0,
+): Promise<string> {
   const deadline = Date.now() + MAIL_WAIT_MS;
   while (Date.now() < deadline) {
-    const [newest] = await searchMailpit(to);
-    if (newest) {
+    const messages = await searchMailpit(to);
+    const [newest] = messages;
+    if (newest && messages.length > alreadyReceived) {
       const response = await fetch(
         `${MAILPIT_URL}/api/v1/message/${newest.ID}`,
       );
@@ -115,14 +122,18 @@ export async function requestSignInLink(email: string): Promise<Response> {
 
 /** Signs in through the emailed link and returns the browser's cookies. */
 export async function signInWithEmailLink(email: string): Promise<CookieJar> {
+  const alreadyReceived = await emailCount(email);
   const requested = await requestSignInLink(email);
   if (!requested.ok)
     throw new Error(`Sign-in link request failed: ${requested.status}`);
   const jar = new CookieJar();
-  const opened = await authRequest(linkFrom(await waitForEmail(email)), {
-    method: "GET",
-    jar,
-  });
+  const opened = await authRequest(
+    linkFrom(await waitForEmail(email, alreadyReceived)),
+    {
+      method: "GET",
+      jar,
+    },
+  );
   if (
     opened.status !== 302 ||
     redirectTarget(opened) !== `${SITE_URL}/account`
@@ -169,12 +180,13 @@ export async function payloadRest(
   slug: string[],
   jar: CookieJar,
   body?: unknown,
+  origin: string = SITE_URL,
 ): Promise<Response> {
   const request = new Request(`${SITE_URL}/api/${slug.join("/")}`, {
     method,
     headers: {
       cookie: jar.header(),
-      origin: SITE_URL,
+      origin,
       "content-type": "application/json",
     },
     body: body === undefined ? undefined : JSON.stringify(body),

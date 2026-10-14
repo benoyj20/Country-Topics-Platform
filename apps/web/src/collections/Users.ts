@@ -7,12 +7,15 @@ import {
   nobody,
   verifiedAdminsOnly,
 } from "@/access";
-import { recordAudit } from "@/audit";
+import { changedFields, recordAudit } from "@/audit";
+import { deleteAuthUser } from "@/auth/auth";
 import { betterAuthStrategy } from "@/auth/payload-strategy";
 
 // One profile per person. Sign-in itself (Google, email link, authenticator
 // apps, sessions) is handled by Better Auth; see src/auth. Profiles are created
 // on first sign-in, never through the API.
+const AUDITED_FIELDS = ["role", "name"] as const;
+
 export const Users: CollectionConfig = {
   slug: "users",
   admin: {
@@ -86,14 +89,30 @@ export const Users: CollectionConfig = {
             targetId: String(doc.id),
             details: { email: doc.email, role: doc.role },
           });
-        } else if (previousDoc.role !== doc.role) {
+          return;
+        }
+        const changes = changedFields(previousDoc, doc, AUDITED_FIELDS);
+        if (Object.keys(changes).length > 0) {
           await recordAudit(req, {
-            action: "user.role_changed",
+            action: "role" in changes ? "user.role_changed" : "user.updated",
             targetCollection: "users",
             targetId: String(doc.id),
-            details: { email: doc.email, from: previousDoc.role, to: doc.role },
+            details: { email: doc.email, changes },
           });
         }
+      },
+    ],
+    afterDelete: [
+      async ({ doc, req }) => {
+        // Deleting a profile removes the person's sign-in account too, which
+        // ends all their sessions; they need a new invitation to come back.
+        if (doc.authUserId) await deleteAuthUser(doc.authUserId);
+        await recordAudit(req, {
+          action: "user.deleted",
+          targetCollection: "users",
+          targetId: String(doc.id),
+          details: { email: doc.email, role: doc.role },
+        });
       },
     ],
   },

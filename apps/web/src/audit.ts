@@ -22,3 +22,21 @@ export async function recordAudit(
     req,
   });
 }
+
+/** The listed fields whose values differ, as `{ field: { from, to } }`. */
+export function changedFields(
+  before: Record<string, unknown>,
+  after: Record<string, unknown>,
+  fields: readonly string[],
+): Record<string, { from: unknown; to: unknown }> {
+  const changes: Record<string, { from: unknown; to: unknown }> = {};
+  for (const field of fields) {
+    if (before[field] !== after[field]) {
+      changes[field] = {
+        from: before[field] ?? null,
+        to: after[field] ?? null,
+      };
+    }
+  }
+  return changes;
+}

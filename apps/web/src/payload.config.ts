@@ -21,9 +21,14 @@ export default buildConfig({
       // Payload's password login is off; staff sign in on the site instead.
       beforeLogin: ["/components/admin/RedirectToSignIn#RedirectToSignIn"],
       logout: { Button: "/components/admin/SignOutButton#SignOutButton" },
+      // Keeps an admin's session alive while they work in the panel.
+      afterNavLinks: ["/components/RefreshSession#RefreshSession"],
     },
   },
   collections: [Users, Invitations, AuditLog],
+  serverURL: env.siteUrl,
+  cors: [env.siteUrl],
+  csrf: [env.siteUrl],
   db: postgresAdapter({
     // Fail fast instead of waiting for the OS TCP timeout when the database is
     // unreachable.

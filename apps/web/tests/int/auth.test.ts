@@ -7,7 +7,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import * as z from "zod";
 
 import { MAX_VERIFICATION_FAILURES } from "@/auth/admin-verification";
-import { getAuth } from "@/auth/auth";
+import { ensureUserProfile, maySignIn } from "@/auth/accounts";
+import { EMAIL_NOT_VERIFIED_ERROR, getAuth } from "@/auth/auth";
 import { serverEnv } from "@/env";
 
 import {
@@ -222,7 +223,7 @@ describe("admin panel access", () => {
     expect((await profileFor(member))[0]?.role).toBe("member");
   });
 
-  it(`locks verification after ${MAX_VERIFICATION_FAILURES} wrong codes`, async () => {
+  it(`locks verification on the ${MAX_VERIFICATION_FAILURES}th wrong code, even for parallel guesses`, async () => {
     const moderator = testEmail("moderator");
     await invite(moderator, "moderator");
     const jar = await signInWithEmailLink(moderator);
@@ -230,13 +231,15 @@ describe("admin panel access", () => {
 
     const valid = await currentCode(secret);
     const wrong = valid === "000000" ? "111111" : "000000";
-    for (let attempt = 0; attempt < MAX_VERIFICATION_FAILURES; attempt++) {
-      const response = await authRequest("/admin-verification/verify", {
-        body: { code: wrong },
-        jar,
-      });
-      expect(response.status).toBe(401);
-    }
+    const guesses = await Promise.all(
+      Array.from({ length: MAX_VERIFICATION_FAILURES * 2 }, () =>
+        authRequest("/admin-verification/verify", {
+          body: { code: wrong },
+          jar,
+        }),
+      ),
+    );
+    expect(guesses.map((response) => response.status)).toContain(429);
 
     const locked = await authRequest("/admin-verification/verify", {
       body: { code: valid },
@@ -244,5 +247,121 @@ describe("admin panel access", () => {
     });
     expect(locked.status).toBe(429);
     expect(await canAccessAdmin(jar)).toBe(false);
+  });
+
+  it("closes the authenticator endpoints once it is set up", async () => {
+    const moderator = testEmail("closed-2fa");
+    await invite(moderator, "moderator");
+    const jar = await signInWithEmailLink(moderator);
+    const secret = await enableAuthenticator(jar);
+
+    // Nobody holding only the session may read the secret, switch it off,
+    // replace it, or use the plugin's unlocked code check.
+    for (const [path, body] of [
+      ["/two-factor/get-totp-uri", {}],
+      ["/two-factor/disable", {}],
+      ["/two-factor/enable", { method: "totp" }],
+      ["/two-factor/verify-totp", { code: await currentCode(secret) }],
+      ["/two-factor/generate-backup-codes", {}],
+    ] as const) {
+      const response = await authRequest(path, { body, jar });
+      expect(response.status, path).toBe(403);
+    }
+  });
+
+  it("refuses staff writes that come from another site", async () => {
+    // A fully verified admin, so only the request's origin differs below.
+    const admin = testEmail("csrf-admin");
+    await payload.create({
+      collection: "users",
+      data: { email: admin, role: "admin" },
+      overrideAccess: true,
+    });
+    const jar = await signInWithEmailLink(admin);
+    const secret = await enableAuthenticator(jar);
+    await authRequest("/admin-verification/verify", {
+      body: { code: await currentCode(secret) },
+      jar,
+    });
+    const [profile] = await profileFor(admin);
+    const path = ["users", String(profile?.id)];
+
+    const forged = await payloadRest(
+      "PATCH",
+      path,
+      jar,
+      { name: "Forged" },
+      "https://evil.example",
+    );
+    expect(forged.status).toBe(403);
+    expect((await profileFor(admin))[0]?.name).not.toBe("Forged");
+
+    const genuine = await payloadRest("PATCH", path, jar, { name: "Genuine" });
+    expect(genuine.status).toBe(200);
+    expect((await profileFor(admin))[0]?.name).toBe("Genuine");
+
+    const audit = await payload.find({
+      collection: "audit-log",
+      where: {
+        action: { equals: "user.updated" },
+        targetId: { equals: String(profile?.id) },
+      },
+      overrideAccess: true,
+    });
+    expect(audit.docs[0]?.details).toMatchObject({
+      changes: { name: { to: "Genuine" } },
+    });
+  });
+});
+
+describe("account removal and address checks", () => {
+  it("ends a deleted person's sessions and does not let their old invitation back in", async () => {
+    const member = testEmail("removed");
+    await invite(member, "member");
+    const jar = await signInWithEmailLink(member);
+    const [profile] = await profileFor(member);
+
+    await payload.delete({
+      collection: "users",
+      id: String(profile?.id),
+      overrideAccess: true,
+    });
+
+    expect(
+      await getAuth().api.getSession({
+        headers: new Headers({ cookie: jar.header() }),
+      }),
+    ).toBeNull();
+    expect(await maySignIn(payload, member)).toBe(false);
+    const audit = await payload.find({
+      collection: "audit-log",
+      where: {
+        action: { equals: "user.deleted" },
+        targetId: { equals: String(profile?.id) },
+      },
+      overrideAccess: true,
+    });
+    expect(audit.totalDocs).toBe(1);
+  });
+
+  it("refuses accounts whose email address is not verified", async () => {
+    const invited = testEmail("unverified");
+    await invite(invited, "member");
+    const context = await getAuth().$context;
+
+    await expect(
+      // What a Google sign-in does when Google has not verified the address.
+      context.internalAdapter.createUser(
+        { email: invited, name: "Unverified", emailVerified: false },
+        { method: "oauth", oauth: { providerId: "google", profile: {} } },
+      ),
+    ).rejects.toMatchObject({ body: { code: EMAIL_NOT_VERIFIED_ERROR } });
+    expect(
+      await ensureUserProfile(payload, {
+        id: "unverified-id",
+        email: invited,
+        emailVerified: false,
+      }),
+    ).toBeNull();
   });
 });

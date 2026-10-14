@@ -13,15 +13,25 @@ import type { User } from "@/payload-types";
 // Better Auth owns sign-in (accounts, sessions, authenticators); Payload owns the
 // profile that carries the role. They are linked by `users.authUserId`.
 
-export type AuthUser = { id: string; email: string; name?: string | null };
+export type AuthUser = {
+  id: string;
+  email: string;
+  name?: string | null;
+  emailVerified: boolean;
+};
 
 export async function invitationRole(
   payload: Payload,
   email: string,
 ): Promise<Role | null> {
+  // An invitation admits one account; once accepted it grants nothing more, so
+  // deleting that person's profile really removes their access.
   const result = await payload.find({
     collection: "invitations",
-    where: { email: { equals: normalizeEmail(email) } },
+    where: {
+      email: { equals: normalizeEmail(email) },
+      acceptedAt: { exists: false },
+    },
     limit: 1,
     depth: 0,
     overrideAccess: true,
@@ -84,7 +94,8 @@ export async function maySignIn(
  * first use with the role the sign-up rules give. A profile made before Better
  * Auth (MVP week 1) is linked by its email instead. Returns null when the rules
  * no longer allow the account (for example, its invitation was withdrawn before
- * the profile existed). Safe to call concurrently.
+ * the profile existed) or the address is not verified. Safe to call
+ * concurrently.
  */
 export async function ensureUserProfile(
   payload: Payload,
@@ -93,8 +104,10 @@ export async function ensureUserProfile(
   const existing = await findProfile(payload, { authUserId: authUser.id });
   if (existing) return existing;
 
-  // Better Auth has verified this address (Google or an emailed link), so the
-  // person owns it and may take over the unlinked profile.
+  // Invitations, admin rights, and old profiles are matched by address, so only
+  // a proven address (an emailed link, or Google's verified flag) may use them.
+  if (!authUser.emailVerified) return null;
+
   const unlinked = await findProfile(payload, {
     unlinkedEmail: authUser.email,
   });

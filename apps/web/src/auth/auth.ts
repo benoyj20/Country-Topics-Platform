@@ -16,6 +16,17 @@ const SESSION_UPDATE_AGE_S = 24 * 60 * 60;
 const DATABASE_CONNECT_TIMEOUT_MS = 5_000;
 
 export const NOT_INVITED_ERROR = "NOT_INVITED";
+export const EMAIL_NOT_VERIFIED_ERROR = "EMAIL_NOT_VERIFIED";
+
+async function queueSignInLink(email: string, url: string): Promise<void> {
+  if (!(await maySignIn(await loadPayload(), email))) return;
+  await emailQueue().enqueue({
+    kind: "magic-link",
+    to: email,
+    url,
+    expiresInMinutes: MAGIC_LINK_EXPIRES_IN_MINUTES,
+  });
+}
 
 function createAuth() {
   const env = serverEnv();
@@ -43,7 +54,9 @@ function createAuth() {
     account: {
       modelName: "auth_account",
       // The same person may use Google and an email link with one address.
-      accountLinking: { enabled: true, trustedProviders: ["google"] },
+      // Google is deliberately not a trusted provider: its accounts are linked
+      // only when Google reports the address as verified.
+      accountLinking: { enabled: true },
     },
     verification: { modelName: "auth_verification" },
     emailAndPassword: { enabled: false },
@@ -59,15 +72,12 @@ function createAuth() {
     plugins: [
       magicLink({
         expiresIn: MAGIC_LINK_EXPIRES_IN_MINUTES * 60,
-        sendMagicLink: async ({ email, url }) => {
-          // Addresses that may not sign in get no email. The response is the
-          // same either way, so it does not reveal who is invited.
-          if (!(await maySignIn(await loadPayload(), email))) return;
-          await emailQueue().enqueue({
-            kind: "magic-link",
-            to: email,
-            url,
-            expiresInMinutes: MAGIC_LINK_EXPIRES_IN_MINUTES,
+        sendMagicLink: ({ email, url }) => {
+          // Addresses that may not sign in get no email. The check and the
+          // queueing run after the response, so its content and timing are the
+          // same either way and do not reveal who is invited.
+          void queueSignInLink(email, url).catch((error: unknown) => {
+            console.error("Could not queue a sign-in link:", error);
           });
         },
       }),
@@ -82,6 +92,14 @@ function createAuth() {
       user: {
         create: {
           before: async (user) => {
+            // Invitations and admin rights are granted by address, so the
+            // address must be proven: email links always are, and Google says.
+            if (user.emailVerified !== true) {
+              throw APIError.from("FORBIDDEN", {
+                code: EMAIL_NOT_VERIFIED_ERROR,
+                message: "Use an account whose email address is verified.",
+              });
+            }
             if (!(await maySignIn(await loadPayload(), user.email))) {
               throw APIError.from("FORBIDDEN", {
                 code: NOT_INVITED_ERROR,
@@ -109,4 +127,10 @@ declare global {
 export function getAuth(): Auth {
   globalThis.countryTopicsAuth ??= createAuth();
   return globalThis.countryTopicsAuth;
+}
+
+/** Deletes a Better Auth user; their sessions, accounts, and authenticator go with it. */
+export async function deleteAuthUser(authUserId: string): Promise<void> {
+  const context = await getAuth().$context;
+  await context.internalAdapter.deleteUser(authUserId);
 }

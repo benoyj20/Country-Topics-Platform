@@ -148,10 +148,18 @@ See [ADR 0002](adr/0002-sign-in-and-roles.md) for the design.
   test admin's authenticator and setup worked again (2026-10-14).
 - [x] Google sign-in starts at `accounts.google.com` with the registered redirect
   URL `SITE_URL/api/auth/callback/google` (integration test, 2026-10-14).
-- [x] Role changes, account creation, and invitations are written to the
-  append-only audit log (integration test, 2026-10-14).
+- [x] Account creation, profile edits and role changes, deletions, and
+  invitation changes are written to the append-only audit log (integration tests,
+  2026-10-14).
 - [x] The committed migration matches Better Auth's schema for its options
   (integration test, 2026-10-14).
+- [x] Hardening from the code review, each with an integration or unit test
+  (2026-10-14): parallel wrong codes still lock verification; once set up, the
+  authenticator cannot be read back, switched off, or replaced from a session;
+  staff writes from another origin are refused while the same write from the site
+  works; deleting a profile ends that person's sessions and their used invitation
+  does not readmit them; accounts with unverified addresses are refused; sign-in
+  redirects stay on the site (`//` and `/\` tricks rejected).
 - [ ] CI runs these tests with Valkey and Mailpit services.
 - [ ] The developer signs in with Google and with an email link, sets up an
   authenticator, and opens the admin panel.

@@ -2,7 +2,7 @@ import { normalizeEmail, ROLES } from "@countrytopics/domain";
 import type { CollectionConfig } from "payload";
 
 import { verifiedAdminsOnly } from "@/access";
-import { recordAudit } from "@/audit";
+import { changedFields, recordAudit } from "@/audit";
 
 // The invite-only allowlist (INVITE_ONLY). An address on this list may create an
 // account and receives the invitation's role when it does.
@@ -65,13 +65,20 @@ export const Invitations: CollectionConfig = {
             targetId: String(doc.id),
             details: { email: doc.email, role: doc.role },
           });
-        } else if (previousDoc.role !== doc.role) {
-          await recordAudit(req, {
-            action: "invitation.role_changed",
-            targetCollection: "invitations",
-            targetId: String(doc.id),
-            details: { email: doc.email, from: previousDoc.role, to: doc.role },
-          });
+        } else {
+          const changes = changedFields(previousDoc, doc, [
+            "email",
+            "role",
+            "note",
+          ]);
+          if (Object.keys(changes).length > 0) {
+            await recordAudit(req, {
+              action: "invitation.updated",
+              targetCollection: "invitations",
+              targetId: String(doc.id),
+              details: { email: doc.email, changes },
+            });
+          }
         }
       },
     ],

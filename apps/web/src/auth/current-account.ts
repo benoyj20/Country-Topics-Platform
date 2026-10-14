@@ -23,7 +23,12 @@ export type CurrentAccount = {
 
 /** The signed-in person for server-rendered pages, or null for visitors. */
 export async function currentAccount(): Promise<CurrentAccount | null> {
-  const session = await getAuth().api.getSession({ headers: await headers() });
+  // Server components cannot set cookies, so the browser refreshes the session
+  // instead (RefreshSession).
+  const session = await getAuth().api.getSession({
+    headers: await headers(),
+    query: { disableRefresh: true },
+  });
   if (!session) return null;
 
   const profile = await ensureUserProfile(await loadPayload(), session.user);

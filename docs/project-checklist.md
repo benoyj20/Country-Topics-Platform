@@ -211,6 +211,8 @@ See [ADR 0003](adr/0003-countries-and-individuals.md) for the design.
   in; a country row picked by typing "Kenya", with "2019-05" as its start, is
   still there after reloading; no horizontal scroll at 390 px; no browser errors
   (2026-10-14).
+- [x] CI ran these tests and the migration drift check: all passed on PR #7,
+  applying the eight migrations to the CI database (2026-10-14).
 - [ ] The developer adds five individuals in the admin panel.
 - [ ] Not built yet: photos with their licence (week 5, with uploads), public
   pages for countries and individuals (week 7), and links from individuals to

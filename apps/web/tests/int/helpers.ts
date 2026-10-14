@@ -1,0 +1,204 @@
+import { base32 } from "@better-auth/utils/base32";
+import { createOTP } from "@better-auth/utils/otp";
+import config from "@payload-config";
+import { REST_GET, REST_PATCH } from "@payloadcms/next/routes";
+import * as z from "zod";
+
+import { getAuth } from "@/auth/auth";
+
+export const SITE_URL = "http://localhost:3000";
+const MAILPIT_URL = process.env.TEST_MAILPIT_URL ?? "http://localhost:8025";
+const MAIL_WAIT_MS = 15_000;
+const MAIL_POLL_MS = 250;
+
+export function testEmail(name: string): string {
+  return `${name}-${process.env.TEST_RUN_ID}@example.test`;
+}
+
+/** A browser-like cookie jar: keeps the latest value of each cookie. */
+export class CookieJar {
+  private readonly cookies = new Map<string, string>();
+
+  store(response: Response): void {
+    for (const header of response.headers.getSetCookie()) {
+      const [pair = ""] = header.split(";");
+      const separator = pair.indexOf("=");
+      const name = pair.slice(0, separator).trim();
+      const value = pair.slice(separator + 1).trim();
+      const expired = /max-age=0/i.test(header) || value === "";
+      if (expired) this.cookies.delete(name);
+      else this.cookies.set(name, value);
+    }
+  }
+
+  header(): string {
+    return [...this.cookies]
+      .map(([name, value]) => `${name}=${value}`)
+      .join("; ");
+  }
+}
+
+/** Calls a Better Auth endpoint the way the browser would, from the site's origin. */
+export async function authRequest(
+  path: string,
+  {
+    method = "POST",
+    body,
+    jar,
+  }: { method?: "GET" | "POST"; body?: unknown; jar?: CookieJar } = {},
+): Promise<Response> {
+  const headers = new Headers({ origin: SITE_URL });
+  if (body !== undefined) headers.set("content-type", "application/json");
+  if (jar) headers.set("cookie", jar.header());
+  const url = path.startsWith("http") ? path : `${SITE_URL}/api/auth${path}`;
+  const response = await getAuth().handler(
+    new Request(url, {
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+      redirect: "manual",
+    }),
+  );
+  jar?.store(response);
+  return response;
+}
+
+const mailpitSearch = z.object({
+  messages: z.array(z.object({ ID: z.string() })),
+});
+const mailpitMessage = z.object({ Text: z.string() });
+
+async function searchMailpit(to: string) {
+  const query = encodeURIComponent(`to:"${to}"`);
+  const response = await fetch(`${MAILPIT_URL}/api/v1/search?query=${query}`);
+  return mailpitSearch.parse(await response.json()).messages;
+}
+
+/**
+ * Waits until `to` has more than `alreadyReceived` emails in Mailpit and returns
+ * the newest one's text body.
+ */
+export async function waitForEmail(
+  to: string,
+  alreadyReceived = 0,
+): Promise<string> {
+  const deadline = Date.now() + MAIL_WAIT_MS;
+  while (Date.now() < deadline) {
+    const messages = await searchMailpit(to);
+    const [newest] = messages;
+    if (newest && messages.length > alreadyReceived) {
+      const response = await fetch(
+        `${MAILPIT_URL}/api/v1/message/${newest.ID}`,
+      );
+      return mailpitMessage.parse(await response.json()).Text;
+    }
+    await new Promise((resolve) => setTimeout(resolve, MAIL_POLL_MS));
+  }
+  throw new Error(`No email to ${to} arrived within ${MAIL_WAIT_MS} ms`);
+}
+
+export async function emailCount(to: string): Promise<number> {
+  return (await searchMailpit(to)).length;
+}
+
+export function linkFrom(emailText: string): string {
+  const match = /https?:\/\/\S+\/api\/auth\/magic-link\/verify\S+/.exec(
+    emailText,
+  );
+  if (!match) throw new Error("The email has no sign-in link");
+  return match[0];
+}
+
+/** Where a redirect response points, as an absolute URL. */
+export function redirectTarget(response: Response): string {
+  return new URL(response.headers.get("location") ?? "", SITE_URL).toString();
+}
+
+export async function requestSignInLink(email: string): Promise<Response> {
+  return authRequest("/sign-in/magic-link", {
+    body: { email, callbackURL: "/account", errorCallbackURL: "/sign-in" },
+  });
+}
+
+/** Signs in through the emailed link and returns the browser's cookies. */
+export async function signInWithEmailLink(email: string): Promise<CookieJar> {
+  const alreadyReceived = await emailCount(email);
+  const requested = await requestSignInLink(email);
+  if (!requested.ok)
+    throw new Error(`Sign-in link request failed: ${requested.status}`);
+  const jar = new CookieJar();
+  const opened = await authRequest(
+    linkFrom(await waitForEmail(email, alreadyReceived)),
+    {
+      method: "GET",
+      jar,
+    },
+  );
+  if (
+    opened.status !== 302 ||
+    redirectTarget(opened) !== `${SITE_URL}/account`
+  ) {
+    throw new Error(
+      `Sign-in link did not sign in: ${opened.status} ${opened.headers.get("location")}`,
+    );
+  }
+  return jar;
+}
+
+export function currentCode(secret: string): Promise<string> {
+  return createOTP(secret, { digits: 6, period: 30 }).totp();
+}
+
+/** Sets up an authenticator for the signed-in user and returns its secret. */
+export async function enableAuthenticator(jar: CookieJar): Promise<string> {
+  const enabled = await authRequest("/two-factor/enable", {
+    body: { method: "totp" },
+    jar,
+  });
+  const { totpURI } = z
+    .object({ totpURI: z.string() })
+    .parse(await enabled.json());
+  const encoded = new URL(totpURI).searchParams.get("secret");
+  if (!encoded) throw new Error("No secret in the TOTP URI");
+  // The URI carries the secret base32-encoded, as authenticator apps expect.
+  const secret = new TextDecoder().decode(base32.decode(encoded));
+  const confirmed = await authRequest("/two-factor/verify-totp", {
+    body: { code: await currentCode(secret) },
+    jar,
+  });
+  if (!confirmed.ok)
+    throw new Error(`Authenticator setup failed: ${confirmed.status}`);
+  return secret;
+}
+
+const payloadGet = REST_GET(config);
+const payloadPatch = REST_PATCH(config);
+
+/** Calls Payload's REST API (`/api/<slug...>`) with the browser's cookies. */
+export async function payloadRest(
+  method: "GET" | "PATCH",
+  slug: string[],
+  jar: CookieJar,
+  body?: unknown,
+  origin: string = SITE_URL,
+): Promise<Response> {
+  const request = new Request(`${SITE_URL}/api/${slug.join("/")}`, {
+    method,
+    headers: {
+      cookie: jar.header(),
+      origin,
+      "content-type": "application/json",
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const handler = method === "GET" ? payloadGet : payloadPatch;
+  return handler(request, { params: Promise.resolve({ slug }) });
+}
+
+export async function canAccessAdmin(jar: CookieJar): Promise<boolean> {
+  const response = await payloadRest("GET", ["access"], jar);
+  const body = z
+    .object({ canAccessAdmin: z.boolean().optional() })
+    .parse(await response.json());
+  return body.canAccessAdmin === true;
+}

@@ -14,20 +14,31 @@
     "payload": "node --env-file-if-exists=../../.env node_modules/payload/bin.js",
     "migrate": "pnpm payload migrate",
     "migrate:create": "pnpm payload migrate:create",
-    "generate": "pnpm payload generate:types && pnpm payload generate:importmap"
+    "generate": "pnpm payload generate:types && pnpm payload generate:importmap",
+    "reset-two-factor": "node --env-file-if-exists=../../.env scripts/reset-two-factor.ts"
   },
   "dependencies": {
+    "@better-auth/utils": "0.4.2",
+    "@countrytopics/domain": "workspace:*",
+    "@countrytopics/jobs": "workspace:*",
     "@payloadcms/db-postgres": "3.90.2",
     "@payloadcms/next": "3.90.2",
     "@payloadcms/ui": "3.90.2",
+    "better-auth": "1.7.7",
     "graphql": "16.14.2",
     "next": "16.3.8",
     "payload": "3.90.2",
+    "pg": "8.20.0",
+    "qrcode": "1.5.4",
     "react": "19.2.6",
-    "react-dom": "19.2.6"
+    "react-dom": "19.2.6",
+    "zod": "4.6.5"
   },
   "devDependencies": {
+    "@countrytopics/email": "workspace:*",
     "@types/node": "22.20.5",
+    "@types/pg": "8.20.0",
+    "@types/qrcode": "1.5.6",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "eslint": "9.39.5",

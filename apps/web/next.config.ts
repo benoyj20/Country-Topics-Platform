@@ -20,6 +20,12 @@ if (existsSync(rootEnvFile)) process.loadEnvFile(rootEnvFile);
 const nextConfig: NextConfig = {
   // The repository's AGENTS.md holds agent rules; stop `next dev` writing its own.
   agentRules: false,
+  // Workspace packages ship TypeScript source.
+  transpilePackages: [
+    "@countrytopics/domain",
+    "@countrytopics/email",
+    "@countrytopics/jobs",
+  ],
   outputFileTracingRoot: workspaceRoot,
   poweredByHeader: false,
   async headers() {

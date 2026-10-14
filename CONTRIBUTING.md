@@ -24,7 +24,10 @@ files.
 Schema changes go through committed migrations (Payload's automatic schema push is
 off): change a collection, run `pnpm --filter @countrytopics/web migrate:create
 <name>` and `make generate`, and commit the migration and generated files. CI fails
-if they do not match the config.
+if they do not match the config. A hand-written migration (seed data, or SQL that
+Payload cannot describe, such as trigram indexes) also needs an entry in
+`src/migrations/index.ts` and a copy of the latest `.json` schema snapshot under
+its own name.
 
 ## Start a task
 

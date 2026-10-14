@@ -9,6 +9,7 @@ import { changedFields, recordAudit } from "@/audit";
 export const Invitations: CollectionConfig = {
   slug: "invitations",
   admin: {
+    group: "Administration",
     useAsTitle: "email",
     defaultColumns: ["email", "role", "acceptedAt", "createdAt"],
   },

@@ -4,7 +4,11 @@ import { fileURLToPath } from "node:url";
 import { buildConfig } from "payload";
 
 import { AuditLog } from "./collections/AuditLog";
+import { Categories } from "./collections/Categories";
+import { Countries } from "./collections/Countries";
+import { Individuals } from "./collections/Individuals";
 import { Invitations } from "./collections/Invitations";
+import { Tags } from "./collections/Tags";
 import { Users } from "./collections/Users";
 import { serverEnv } from "./env";
 
@@ -25,7 +29,15 @@ export default buildConfig({
       afterNavLinks: ["/components/RefreshSession#RefreshSession"],
     },
   },
-  collections: [Users, Invitations, AuditLog],
+  collections: [
+    Individuals,
+    Countries,
+    Categories,
+    Tags,
+    Users,
+    Invitations,
+    AuditLog,
+  ],
   serverURL: env.siteUrl,
   cors: [env.siteUrl],
   csrf: [env.siteUrl],

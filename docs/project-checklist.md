@@ -32,8 +32,9 @@ plain JavaScript; the typed version is built into `apps/web` in MVP week 6.
   and `infrastructure` checks required and up to date, linear history, no force pushes
   or deletion, admin bypass. Squash-only merges, PR title as the squash title,
   merged branches deleted automatically (2026-10-14).
-- [ ] Local services started with `make infra-up` and healthy (Docker Desktop was not
-  running during setup).
+- [x] Local services started with `make infra-up` and healthy: PostgreSQL 17.11 with
+  pgvector 0.8.7 (vector query ran), Valkey answering `PING` and set/get, Mailpit
+  receiving a test email over SMTP (2026-10-14).
 - [ ] `pnpm typecheck` and `pnpm build` checking real code (they have nothing to
   check until `apps/web` exists).
 

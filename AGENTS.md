@@ -53,6 +53,9 @@ coding agents. "The user" below means that developer.
   package manager; do not hand-edit lockfiles or resolve their conflicts blindly.
 - Keep secrets and real user data out of code, tests, logs, and commits. Document
   new configuration using placeholders in `.env.example` and relevant setup docs.
+- Keep `docs/runbooks/ownership-transfer.md` current: a PR that adds an external
+  service, account, GitHub setting, or credential follows its "Keep it current"
+  instructions.
 - Do not disable checks, weaken assertions, or swallow errors to obtain a green
   build. Fix the cause and distinguish pre-existing failures from new failures.
 - Update relevant setup docs or runbooks when behavior or operational steps change.

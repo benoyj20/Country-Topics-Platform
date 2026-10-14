@@ -17,6 +17,7 @@ and the PR flow. Coding agents must also follow [AGENTS.md](AGENTS.md).
 - [Project and testing checklist](docs/project-checklist.md): what works today
 - [MVP plan](docs/mvp-plan.md): the 12-week build for a 100-person pilot
 - [Architecture decisions](docs/adr/README.md)
+- [Ownership transfer runbook](docs/runbooks/ownership-transfer.md): every account to move later
 
 ## Implementation status
 
@@ -39,7 +40,7 @@ Open `http://localhost:4173` and click **Try demo**. See
 - `packages` — domain logic, database schema, adapters, shared UI (planned)
 - `prototypes` — throwaway experiments; apps never import from here
 - `deploy/compose` — local PostgreSQL (pgvector), Redis-compatible Valkey, Mailpit
-- `docs` — plans, checklist, and architecture decision records
+- `docs` — plans, checklist, architecture decision records, and runbooks
 - `.claude` — repo-local Claude Code skills and review agents
 
 ## Prerequisites

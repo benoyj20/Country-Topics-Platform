@@ -160,7 +160,8 @@ See [ADR 0002](adr/0002-sign-in-and-roles.md) for the design.
   works; deleting a profile ends that person's sessions and their used invitation
   does not readmit them; accounts with unverified addresses are refused; sign-in
   redirects stay on the site (`//` and `/\` tricks rejected).
-- [ ] CI runs these tests with Valkey and Mailpit services.
+- [x] CI runs these tests with Valkey and Mailpit services: all passed on PR #6,
+  applying the five migrations to the CI database (2026-10-14).
 - [ ] The developer signs in with Google and with an email link, sets up an
   authenticator, and opens the admin panel.
 - [ ] Not built yet: Apple sign-in, backup codes for staff, members editing their

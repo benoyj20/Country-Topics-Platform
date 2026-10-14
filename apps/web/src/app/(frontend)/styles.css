@@ -1,0 +1,45 @@
+:root {
+  color-scheme: light dark;
+  --text: #1a1a1a;
+  --muted: #555;
+  --background: #fafafa;
+  --accent: #1f5fbf;
+  --accent-text: #fff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #ececec;
+    --muted: #aaa;
+    --background: #121212;
+    --accent: #6ea2ff;
+    --accent-text: #0b1a33;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--text);
+  font-family: system-ui, sans-serif;
+  line-height: 1.5;
+}
+
+main {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 4rem 1rem;
+}
+
+.home p {
+  color: var(--muted);
+}
+
+.button {
+  display: inline-block;
+  padding: 0.6rem 1rem;
+  border-radius: 0.4rem;
+  background: var(--accent);
+  color: var(--accent-text);
+  text-decoration: none;
+}

@@ -82,6 +82,10 @@ coding agents. "The user" below means that developer.
   JavaScript and TypeScript. Format touched code without unrelated formatting
   changes. Remove unused imports, dead code, debugging output, and commented-out
   implementations introduced by the task.
+- Next.js and Payload change faster than model training data. Before using their
+  APIs, check the installed versions' docs and types: Next.js ships its guides in
+  `apps/web/node_modules/next/dist/docs/`, and Payload's types are in
+  `apps/web/node_modules/payload/dist/`.
 - Use strict TypeScript and explicit data contracts. Validate external data at
   boundaries (request bodies, webhooks, YouTube and scholarly API responses,
   environment variables); do not use `any`, unchecked casts, ignored type

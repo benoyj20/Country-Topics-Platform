@@ -11,6 +11,25 @@ permissions:
 jobs:
   javascript:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_DB: countrytopics_test
+          POSTGRES_USER: countrytopics
+          POSTGRES_PASSWORD: countrytopics_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U countrytopics -d countrytopics_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Throwaway values for the CI database and build; nothing here is deployed.
+      DATABASE_URL: postgres://countrytopics:countrytopics_ci@localhost:5432/countrytopics_test?sslmode=disable
+      TEST_DATABASE_URL: postgres://countrytopics:countrytopics_ci@localhost:5432/countrytopics_test?sslmode=disable
+      PAYLOAD_SECRET: ci-only-placeholder-value-not-used-anywhere-else
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -24,7 +43,17 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
+      - run: pnpm test:int
       - run: pnpm build
+      - name: Generated Payload files and migrations match the config
+        run: |
+          pnpm --filter @countrytopics/web generate
+          pnpm --filter @countrytopics/web migrate:create schema-drift --skip-empty
+          if [ -n "$(git status --porcelain)" ]; then
+            git status --short
+            echo "::error::Run 'make generate' and 'pnpm --filter @countrytopics/web migrate:create <name>', then commit the result."
+            exit 1
+          fi
 
   infrastructure:
     runs-on: ubuntu-latest

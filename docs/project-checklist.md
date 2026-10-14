@@ -58,10 +58,22 @@ plain JavaScript; the typed version is built into `apps/web` in MVP week 6.
 - [ ] Each edge case confirmed in a real browser: stop at the end time, snap back
   when dragged before the start, Replay, and the "watch full video" link.
 - [ ] Time taken per clip by an admin, measured on several real videos.
-- [ ] Data API checks (duration, embeddable, age restriction) with a real
-  `YOUTUBE_API_KEY`.
+- [x] Data API checks with a real `YOUTUBE_API_KEY` loaded from `.env`: the demo
+  video reported "via oembed + data api", 0:19 duration, embeddable, public, not
+  age-restricted, and the default clip end was set (headless Edge, 2026-10-14).
 - [ ] Behavior for a video with embedding disabled, verified with a real example.
 
 ## MVP milestones
 
-Not started. See [the MVP plan](mvp-plan.md) for weeks 0–12.
+See [the MVP plan](mvp-plan.md) for weeks 0–12.
+
+### Week 0: accounts
+
+- [x] Google Cloud project on the developer's personal Google account (2026-10-14).
+- [x] YouTube Data API v3 key, restricted to that API, working in the prototype
+  (2026-10-14).
+- [x] Google OAuth web client: Google accepted the client ID with the
+  `http://localhost:3000/api/auth/callback/google` redirect URL and confirmed the
+  secret through its token endpoint (2026-10-14). Sign-in itself is built in week 2.
+- [ ] Email provider (Brevo or Resend) with a verified sender, needed before the pilot.
+- [ ] Cloudflare account, needed by week 10 (Turnstile) and week 12 (tunnel).

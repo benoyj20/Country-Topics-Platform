@@ -19,9 +19,9 @@ below in the same PR. Never record passwords, keys, or secrets here; name the
 | GitHub Actions (CI) | `javascript`, `infrastructure` checks | Part of the repository | 2026-10-14 | Required checks | Moves with the repository; no Actions secrets yet |
 | GitGuardian GitHub App | `GitGuardian Security Checks` (required) | Installed on `benoyj20` | 2026-10-14 | Required check on `main` | [GitGuardian](#2-gitguardian) |
 | GitGuardian dashboard account | Secret-scanning workspace | Signed in with `benoyj20` | 2026-10-14 | GitGuardian checks | [GitGuardian](#2-gitguardian) |
-| Google Cloud project `country-topics` | APIs and OAuth | Personal Google account | Week 0 (pending) | YouTube key, Google sign-in | [Google Cloud](#3-google-cloud) |
-| YouTube Data API v3 key | Video metadata and embeddable checks | In the Google Cloud project | Week 0 (pending) | `YOUTUBE_API_KEY` | Stays with the project; rotate after transfer |
-| Google OAuth client `country-topics-local` | "Sign in with Google" | In the Google Cloud project | Week 0 (pending) | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (added in week 2) | Stays with the project; reset the secret after transfer |
+| Google Cloud project (created in week 0) | APIs and OAuth | Personal Google account | 2026-10-14 | YouTube key, Google sign-in | [Google Cloud](#3-google-cloud) |
+| YouTube Data API v3 key (restricted to that API) | Video metadata and embeddable checks | In the Google Cloud project | 2026-10-14 | `YOUTUBE_API_KEY` | Stays with the project; rotate after transfer |
+| Google OAuth web client, consent screen in Testing mode | "Sign in with Google" | In the Google Cloud project | 2026-10-14 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`; origin `http://localhost:3000`, redirect `http://localhost:3000/api/auth/callback/google`; test users | Stays with the project; reset the secret after transfer |
 | Email provider (Brevo or Resend, not chosen) | Magic-link and notification email for the pilot | Personal (planned) | Not set up | `SMTP_URL` (Mailpit locally) | [Email provider](#4-email-provider) |
 | Cloudflare | Turnstile (week 10), tunnel and CDN (week 12) | Personal (planned) | Not set up | Turnstile site and secret keys, tunnel token (names added when built) | [Cloudflare](#5-cloudflare-and-domain) |
 | Domain (optional) | Stable pilot address | Not bought | — | Cloudflare, OAuth redirect URLs | [Domain](#5-cloudflare-and-domain) |
@@ -89,6 +89,8 @@ authentication and access to a password manager.
    project into it (**IAM and Admin**, **Settings**, **Migrate**).
 3. **Google Auth Platform**, **Branding**: change the support and developer contact
    emails to the new owner's address. Under **Audience**, review the test users.
+   Under **Clients**, check the authorised origins and redirect URLs still match
+   the site's address.
 4. If a billing account is ever linked, link the new owner's billing account.
 5. Rotate credentials the previous owner had: create a new YouTube API key (same
    restrictions) and reset the OAuth client secret. Update `.env` and any deployment

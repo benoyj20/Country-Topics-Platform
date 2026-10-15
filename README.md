@@ -55,7 +55,7 @@ Open `http://localhost:4173` and click **Try demo**. See
 - `packages/domain` — roles, sign-up rules, name, slug, date, DOI, and ISBN rules, the topic workflow, and the evidence rules
 - `packages/email` — the email adapter (SMTP) and email templates
 - `packages/jobs` — job queues shared by the web app and the worker, and the worker's database writes
-- `packages/sources` — outside services: Crossref, the DOI system, Open Library, the Wayback Machine, and safe link checks
+- `packages/sources` — outside services: Crossref, the DOI system, Open Library, Google Books (optional), the Wayback Machine, and safe link checks
 - `prototypes` — throwaway experiments; apps never import from here
 - `deploy/compose` — local PostgreSQL (pgvector), Redis-compatible Valkey, Mailpit, SeaweedFS (S3-compatible storage)
 - `deploy/scripts` — local setup helpers, such as the `make env` script
@@ -89,7 +89,8 @@ listens on `127.0.0.1` only.
 
 Mailpit's inbox is at `http://localhost:8025`. Uploaded files go to the
 `countrytopics` bucket of the local SeaweedFS storage (data in a Docker volume). The
-worker checks references with Crossref, the DOI system, and Open Library and looks
+worker checks references with Crossref, the DOI system, and Open Library (with
+Google Books as a backup when `GOOGLE_BOOKS_API_KEY` is set) and looks
 for existing copies of links in the Wayback Machine. Saving fresh copies is an
 optional feature planned for after the pilot; it turns on when an Internet
 Archive account's keys are set in `WAYBACK_ACCESS_KEY` and `WAYBACK_SECRET_KEY`.

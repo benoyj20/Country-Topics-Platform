@@ -308,8 +308,13 @@ See [ADR 0005](adr/0005-evidence-and-references.md) for the design.
   Library (ISBN 978-0-306-40615-7), and the Wayback Machine's CDX index answered
   as the adapters expect. Two findings changed the design: the Wayback
   "availability" API answered "no copy" even for example.com, and Google Books
-  refused keyless requests (shared quota exhausted), so it is not used
-  (2026-10-14).
+  refused keyless requests (shared quota exhausted) (2026-10-14).
+- [x] Google Books as an optional ISBN backup with the developer's API key
+  (`GOOGLE_BOOKS_API_KEY`): only an exact ISBN match counts, it is asked only
+  when Open Library does not find the book or is down, and a failure (503, a
+  refused key) never changes the answer (unit tests, 2026-10-15). Live, with
+  the key, Google answered without errors but found none of four well-known
+  ISBNs, so it rarely helps for now (2026-10-15).
 - [x] Real browser (headless Edge, production build on the test database, the
   worker running against it): a PNG uploaded with its licence and served with
   the headers above; "Look up" filled a reference from Crossref and another from

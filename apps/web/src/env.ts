@@ -23,6 +23,8 @@ export type ServerEnv = {
   storage: StorageEnv;
   /** Named in requests to bibliographic services; optional. */
   contactEmail?: string;
+  /** Optional: Google Books as a backup when Open Library does not know an ISBN. */
+  googleBooksApiKey?: string;
 };
 
 export type StorageEnv = {
@@ -193,6 +195,7 @@ export function readServerEnv(env: Env = process.env): ServerEnv {
     queuePrefix,
     storage,
     contactEmail,
+    googleBooksApiKey: env.GOOGLE_BOOKS_API_KEY?.trim() || undefined,
   };
 }
 

@@ -10,6 +10,8 @@ export type WorkerEnv = {
   /** Named in requests to outside services, with the contact address. */
   siteUrl: string;
   contactEmail?: string;
+  /** Optional: Google Books as a backup when Open Library does not know an ISBN. */
+  googleBooksApiKey?: string;
   /** Unset when the Wayback Machine may only be searched, not asked to save. */
   wayback?: { accessKey: string; secretKey: string };
 };
@@ -92,6 +94,7 @@ export function readWorkerEnv(env: Env = process.env): WorkerEnv {
     databaseUrl,
     siteUrl: siteUrl.replace(/\/$/, ""),
     contactEmail,
+    googleBooksApiKey: env.GOOGLE_BOOKS_API_KEY?.trim() || undefined,
     wayback,
   };
 }

@@ -44,7 +44,11 @@ const workers: Record<string, ReturnType<typeof createEmailWorker>> = {
     ...queues,
     store,
     checkers: {
-      bibliography: createBibliography(sourceClient),
+      bibliography: createBibliography(sourceClient, {
+        googleBooksApiKey: env.googleBooksApiKey,
+        onBackupError: (message) =>
+          console.warn(`ISBN check backup failed: ${message}`),
+      }),
       checkUrl: (url) => checkUrl(url, { userAgent: sourceClient.userAgent }),
     },
   }),
@@ -72,7 +76,7 @@ for (const [name, worker] of Object.entries(workers)) {
 }
 
 console.log(
-  `Worker started: queues ${Object.keys(workers).join(", ")}, prefix "${env.queuePrefix}"; Wayback Machine ${env.wayback ? "saving enabled" : "search only (no keys)"}`,
+  `Worker started: queues ${Object.keys(workers).join(", ")}, prefix "${env.queuePrefix}"; Wayback Machine ${env.wayback ? "saving enabled" : "search only (no keys)"}; Google Books backup ${env.googleBooksApiKey ? "on" : "off"}`,
 );
 
 // Containers stop with SIGTERM; finish in-flight jobs, then release Redis and

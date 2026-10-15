@@ -21,6 +21,7 @@ describe("readWorkerEnv", () => {
       databaseUrl: valid.DATABASE_URL,
       siteUrl: valid.SITE_URL,
       contactEmail: undefined,
+      googleBooksApiKey: undefined,
       wayback: undefined,
     });
   });
@@ -45,10 +46,12 @@ describe("readWorkerEnv", () => {
     const env = readWorkerEnv({
       ...valid,
       CONTACT_EMAIL: "team@example.test",
+      GOOGLE_BOOKS_API_KEY: "books-key",
       WAYBACK_ACCESS_KEY: "access",
       WAYBACK_SECRET_KEY: "secret",
     });
     assert.equal(env.contactEmail, "team@example.test");
+    assert.equal(env.googleBooksApiKey, "books-key");
     assert.deepEqual(env.wayback, { accessKey: "access", secretKey: "secret" });
   });
 

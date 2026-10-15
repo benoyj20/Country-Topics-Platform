@@ -20,11 +20,18 @@ declare global {
 export function bibliography(): Bibliography {
   if (!globalThis.countryTopicsBibliography) {
     const env = serverEnv();
-    globalThis.countryTopicsBibliography = createBibliography({
-      fetch,
-      userAgent: sourceUserAgent(env),
-      timeoutMs: SOURCE_TIMEOUT_MS,
-    });
+    globalThis.countryTopicsBibliography = createBibliography(
+      {
+        fetch,
+        userAgent: sourceUserAgent(env),
+        timeoutMs: SOURCE_TIMEOUT_MS,
+      },
+      {
+        googleBooksApiKey: env.googleBooksApiKey,
+        onBackupError: (message) =>
+          console.warn(`ISBN lookup backup failed: ${message}`),
+      },
+    );
   }
   return globalThis.countryTopicsBibliography;
 }

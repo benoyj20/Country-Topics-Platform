@@ -35,7 +35,12 @@ describe("readServerEnv", () => {
         secretAccessKey: "secret-key",
       },
       contactEmail: undefined,
+      googleBooksApiKey: undefined,
     });
+    expect(
+      readServerEnv({ ...valid, GOOGLE_BOOKS_API_KEY: " key " })
+        .googleBooksApiKey,
+    ).toBe("key");
   });
 
   it("reads an S3-compatible endpoint and refuses bad storage settings", () => {

@@ -15,12 +15,17 @@ import {
 type Route = { status?: number; body?: unknown };
 
 function fakeFetch(routes: Record<string, Route>) {
-  const requested: { url: string; userAgent: string | null }[] = [];
+  const requested: {
+    url: string;
+    userAgent: string | null;
+    apiKey: string | null;
+  }[] = [];
   const fetch: Fetch = async (input, init) => {
     const url = String(input);
     requested.push({
       url,
       userAgent: new Headers(init?.headers).get("User-Agent"),
+      apiKey: new Headers(init?.headers).get("X-goog-api-key"),
     });
     const route = routes[url];
     if (!route) return new Response("not found", { status: 404 });
@@ -223,6 +228,110 @@ describe("lookup hardening", () => {
     assert.equal(
       requested[0]?.url,
       "https://api.crossref.org/works/10.5555/%2E%2E/works/x",
+    );
+  });
+});
+
+describe("Google Books backup", () => {
+  const GOOGLE = `https://www.googleapis.com/books/v1/volumes?q=${ISBN}&maxResults=20`;
+  const volume = (identifier: string, title: string) => ({
+    volumeInfo: {
+      title,
+      authors: ["Ada Example"],
+      publishedDate: "2004-05-01",
+      industryIdentifiers: [{ type: "ISBN_13", identifier }],
+    },
+  });
+  const withKey = (fetch: Fetch, errors: string[] = []) =>
+    createBibliography(client(fetch), {
+      googleBooksApiKey: "test-key",
+      onBackupError: (message) => errors.push(message),
+    });
+
+  it("finds a book Open Library does not know, by exact ISBN, sending the key in a header", async () => {
+    const { fetch, requested } = fakeFetch({
+      [OPEN_LIBRARY]: { body: {} },
+      [GOOGLE]: {
+        body: {
+          items: [
+            volume("9780000000019", "Near match"),
+            volume(ISBN, "Exact match"),
+          ],
+        },
+      },
+    });
+    const result = await withKey(fetch).lookupIsbn(ISBN);
+    assert.deepEqual(result, {
+      found: true,
+      metadata: {
+        source: "Google Books",
+        kind: "book",
+        title: "Exact match",
+        authors: ["Ada Example"],
+        publisher: undefined,
+        publishedDate: "2004-05-01",
+      },
+    });
+    const google = requested.find((request) => request.url === GOOGLE);
+    assert.equal(google?.apiKey, "test-key");
+    assert.doesNotMatch(google?.url ?? "", /test-key/);
+  });
+
+  it("never counts a near match", async () => {
+    const { fetch } = fakeFetch({
+      [OPEN_LIBRARY]: { body: {} },
+      [GOOGLE]: { body: { items: [volume("9780000000019", "Near match")] } },
+    });
+    assert.deepEqual(await withKey(fetch).lookupIsbn(ISBN), { found: false });
+  });
+
+  it("is not asked when Open Library finds the book, or without a key", async () => {
+    const found = fakeFetch({
+      [OPEN_LIBRARY]: { body: { [`ISBN:${ISBN}`]: { title: "Known" } } },
+    });
+    await withKey(found.fetch).lookupIsbn(ISBN);
+    assert.equal(found.requested.length, 1);
+    const noKey = fakeFetch({ [OPEN_LIBRARY]: { body: {} } });
+    await createBibliography(client(noKey.fetch)).lookupIsbn(ISBN);
+    assert.equal(noKey.requested.length, 1);
+  });
+
+  it("never makes the answer worse when it fails, and reports the failure", async () => {
+    const errors: string[] = [];
+    const busy = fakeFetch({
+      [OPEN_LIBRARY]: { body: {} },
+      [GOOGLE]: { status: 503 },
+    });
+    assert.deepEqual(await withKey(busy.fetch, errors).lookupIsbn(ISBN), {
+      found: false,
+    });
+    const badKey = fakeFetch({
+      [OPEN_LIBRARY]: { body: {} },
+      [GOOGLE]: { status: 400 },
+    });
+    assert.deepEqual(await withKey(badKey.fetch, errors).lookupIsbn(ISBN), {
+      found: false,
+    });
+    assert.deepEqual(errors, [
+      "Google Books answered with an error (503).",
+      "Google Books answered 400.",
+    ]);
+  });
+
+  it("answers when Open Library is down, and otherwise keeps the outage", async () => {
+    const rescued = fakeFetch({
+      [OPEN_LIBRARY]: { status: 500 },
+      [GOOGLE]: { body: { items: [volume(ISBN, "Exact match")] } },
+    });
+    const result = await withKey(rescued.fetch).lookupIsbn(ISBN);
+    assert.equal(result.found && result.metadata.source, "Google Books");
+    const bothDown = fakeFetch({
+      [OPEN_LIBRARY]: { status: 500 },
+      [GOOGLE]: { status: 503 },
+    });
+    await assert.rejects(
+      withKey(bothDown.fetch).lookupIsbn(ISBN),
+      /Open Library answered with an error/,
     );
   });
 });

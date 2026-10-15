@@ -42,7 +42,8 @@ recorded licence.
 - **Reference checks run in the worker.** Saving a reference with new
   identifiers, or one not yet confirmed, sets it to "being checked" and queues a
   job. The worker asks Crossref (then the DOI system, for DOIs from other
-  agencies, or when Crossref is down), Open Library, and the page itself, and stores
+  agencies, or when Crossref is down), Open Library (then Google Books, when a
+  key is set), and the page itself, and stores
   "confirmed", "not found", or "could not finish". The check result is never
   accepted from a request. "Not found" (a mistake to fix) and "could not finish"
   (retried, then saving again retries) stay distinct. A page that answers 401 or
@@ -89,9 +90,15 @@ recorded licence.
 - Crossref, the DOI system, Open Library, and the Wayback Machine's CDX index
   are used without accounts; requests name the site and `CONTACT_EMAIL`, as
   Crossref and Open Library ask. A book Open Library does not know is "not
-  found"; the admin adds a link instead, such as the publisher's page. Google
-  Books would widen coverage but needs its own API key: without one it shares a
-  daily quota with every caller and was refused when tried (14 October 2026).
+  found"; the admin adds a link instead, such as the publisher's page.
+- Google Books is an optional backup for ISBNs, on when `GOOGLE_BOOKS_API_KEY`
+  is set (a free key from the project's Google Cloud project). Without a key it
+  shares a daily quota with every caller and was refused (14 October 2026).
+  With a key it answered, but its ISBN search found none of the well-known
+  books tried and often answered 503 (15 October 2026). So only an exact ISBN
+  match counts, and a failure never changes Open Library's answer; failures
+  are logged. It is asked only when Open Library does not find the book or is
+  down.
 - The Wayback Machine's simpler availability API answered "no copy" even for
   well-archived pages when tried, so copies are found through its CDX index.
 - The worker depends on the column names Payload generates for these two

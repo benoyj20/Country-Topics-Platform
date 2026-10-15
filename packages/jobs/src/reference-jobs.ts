@@ -136,7 +136,7 @@ export async function checkReferenceIdentifiers(
           : {
               outcome: "not_found",
               message:
-                "Not found in Open Library. Check the ISBN, or add a link such as the publisher's page.",
+                "No book catalogue we check knows this ISBN. Check it, or add a link such as the publisher's page.",
             };
       }),
     );

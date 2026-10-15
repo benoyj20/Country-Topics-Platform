@@ -1,4 +1,8 @@
-import { isPartialDate, type ReferenceKind } from "@countrytopics/domain";
+import {
+  isPartialDate,
+  normalizeIsbn,
+  type ReferenceKind,
+} from "@countrytopics/domain";
 import * as z from "zod";
 
 import {
@@ -13,7 +17,7 @@ import {
  * Every field comes from the registry's record; nothing is guessed.
  */
 export type ReferenceMetadata = {
-  source: "Crossref" | "doi.org" | "Open Library";
+  source: "Crossref" | "doi.org" | "Open Library" | "Google Books";
   kind?: ReferenceKind;
   title?: string;
   authors: string[];
@@ -86,6 +90,35 @@ const openLibraryBook = z.object({
   publish_date: z.string().optional(),
 });
 
+const googleBooksVolumes = z.object({
+  items: z
+    .array(
+      z.object({
+        volumeInfo: z.object({
+          title: z.string().optional(),
+          subtitle: z.string().optional(),
+          authors: z.array(z.string()).optional(),
+          publisher: z.string().optional(),
+          publishedDate: z.string().optional(),
+          industryIdentifiers: z
+            .array(z.object({ type: z.string(), identifier: z.string() }))
+            .optional(),
+        }),
+      }),
+    )
+    .optional(),
+});
+
+export type BibliographyOptions = {
+  /**
+   * Turns on Google Books as a backup for ISBNs Open Library does not know.
+   * Without a key Google shares one daily quota with every caller.
+   */
+  googleBooksApiKey?: string;
+  /** Told when the Google Books backup fails, so a bad key gets noticed. */
+  onBackupError?: (message: string) => void;
+};
+
 /** Crossref titles can contain JATS or HTML markup, such as <i>. */
 function plainText(value: string | undefined): string | undefined {
   const text = value
@@ -137,7 +170,10 @@ function doiPath(doi: string): string {
     .join("/");
 }
 
-export function createBibliography(client: SourceClient): Bibliography {
+export function createBibliography(
+  client: SourceClient,
+  { googleBooksApiKey, onBackupError }: BibliographyOptions = {},
+): Bibliography {
   async function crossref(doi: string): Promise<LookupResult> {
     const { status, body } = await requestJson(
       client,
@@ -217,6 +253,54 @@ export function createBibliography(client: SourceClient): Bibliography {
     };
   }
 
+  /**
+   * Google Books, as a best-effort backup. Its ISBN search often finds
+   * nothing and it often answers 503 (tried 15 October 2026), so only an
+   * exact ISBN match counts and any failure means "no answer".
+   */
+  async function googleBooks(isbn: string): Promise<LookupResult | null> {
+    if (!googleBooksApiKey) return null;
+    try {
+      // The key goes in a header, so it never appears in logged URLs. A plain
+      // search finds more than "isbn:"; the exact match is checked below.
+      const { status, body } = await requestJson(
+        client,
+        "Google Books",
+        `https://www.googleapis.com/books/v1/volumes?q=${isbn}&maxResults=20`,
+        { headers: { "X-goog-api-key": googleBooksApiKey } },
+      );
+      if (status !== 200) {
+        throw new SourceUnavailableError("Google Books", `answered ${status}`);
+      }
+      const volumes = parseOrUnavailable(
+        googleBooksVolumes,
+        body,
+        "Google Books",
+      );
+      const volume = volumes.items?.find((item) =>
+        item.volumeInfo.industryIdentifiers?.some(
+          (id) => normalizeIsbn(id.identifier) === isbn,
+        ),
+      )?.volumeInfo;
+      if (!volume) return { found: false };
+      return {
+        found: true,
+        metadata: {
+          source: "Google Books",
+          kind: "book",
+          title: joinTitle(volume.title, volume.subtitle),
+          authors: volume.authors ?? [],
+          publisher: volume.publisher,
+          publishedDate: dateFromText(volume.publishedDate),
+        },
+      };
+    } catch (error) {
+      if (!(error instanceof SourceUnavailableError)) throw error;
+      onBackupError?.(error.message);
+      return null;
+    }
+  }
+
   return {
     async lookupDoi(doi) {
       // The DOI system is the authority on whether a DOI exists, so it also
@@ -229,8 +313,21 @@ export function createBibliography(client: SourceClient): Bibliography {
       }
       return doiSystem(doi);
     },
-    // Google Books would widen coverage, but without an API key it shares
-    // one daily quota with every caller and is usually refused (ADR 0005).
-    lookupIsbn: openLibrary,
+    // Open Library first. Google Books, when configured, can only turn a
+    // "not found" or an outage into a found book; it never makes it worse.
+    async lookupIsbn(isbn) {
+      let outage: SourceUnavailableError | null = null;
+      try {
+        const result = await openLibrary(isbn);
+        if (result.found) return result;
+      } catch (error) {
+        if (!(error instanceof SourceUnavailableError)) throw error;
+        outage = error;
+      }
+      const backup = await googleBooks(isbn);
+      if (backup?.found) return backup;
+      if (outage) throw outage;
+      return { found: false };
+    },
   };
 }

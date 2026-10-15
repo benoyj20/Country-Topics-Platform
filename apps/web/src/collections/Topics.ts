@@ -7,9 +7,11 @@ import {
   topicChangeKind,
   topicStateAfterSave,
 } from "@countrytopics/domain";
+import { isDeepStrictEqual } from "node:util";
 import {
   type CollectionAfterChangeHook,
   type CollectionBeforeChangeHook,
+  type CollectionBeforeOperationHook,
   type CollectionConfig,
   type PayloadRequest,
   ValidationError,
@@ -26,12 +28,6 @@ import { richTextHasText } from "@/editor";
 import { fillSlug, slugField } from "./slug";
 
 const CHANGE_NOTE_MAX_LENGTH = 500;
-const FIRST_PUBLISH_NOTES: Record<TopicChangeKind, string> = {
-  published: "First published.",
-  archived: "Archived.",
-  updated: "Updated.",
-  restored: "Restored.",
-};
 
 const STATE_LABELS: Record<(typeof TOPIC_STATES)[number], string> = {
   draft: "Draft",
@@ -47,37 +43,161 @@ const systemField = {
   admin: { readOnly: true, position: "sidebar" },
 } as const;
 
+// Fields compared to say which ones a draft save changed, in the audit log.
+const AUDITED_FIELDS = [
+  "title",
+  "summary",
+  "body",
+  "countries",
+  "category",
+  "tags",
+  "people",
+  "readyForReview",
+  "archived",
+  "slug",
+] as const;
+
 type PendingChange = { kind: TopicChangeKind; note: string };
-const PENDING_CHANGE = "topicChange";
+const PENDING_CHANGES = "topicChanges";
+const NEW_TOPIC = "new";
+
+/**
+ * Change log entries waiting for afterChange, keyed by topic: a bulk publish
+ * saves several topics at once on one request. Always reached through
+ * req.context, because nested local API calls replace the context object
+ * (copying its keys).
+ */
+function pendingChanges(req: PayloadRequest): Map<string, PendingChange> {
+  const existing: unknown = req.context[PENDING_CHANGES];
+  if (existing instanceof Map) return existing;
+  const created = new Map<string, PendingChange>();
+  req.context[PENDING_CHANGES] = created;
+  return created;
+}
+
+function refuse(
+  req: PayloadRequest,
+  path: string,
+  label: string,
+  message: string,
+): never {
+  throw new ValidationError({
+    collection: "topics",
+    errors: [{ path, label, message }],
+    req,
+  });
+}
+
+/**
+ * Blocks, before anything is written, the operations that would take a
+ * published topic offline or replace it without a change log entry:
+ * - Unpublishing (one topic or in bulk). A published topic is archived instead.
+ * - Restoring a version over a published topic. It may be restored only as a
+ *   draft, and then published with a change note.
+ * A duplicate becomes a fresh draft; applyWorkflow gives it no publication
+ * history.
+ */
+const guardLiveVersion: CollectionBeforeOperationHook = async ({
+  args,
+  operation,
+  req,
+}) => {
+  const draft = "draft" in args && args.draft === true;
+  const data: unknown = "data" in args ? args.data : undefined;
+  const status =
+    data && typeof data === "object" && "_status" in data
+      ? data._status
+      : undefined;
+  if (
+    (operation === "update" || operation === "updateByID") &&
+    !draft &&
+    status === "draft"
+  ) {
+    refuse(
+      req,
+      "_status",
+      "Status",
+      "Topics are not unpublished. To take one out of lists, tick Archived, add a change note, and publish.",
+    );
+  }
+  if (operation === "restoreVersion" && !draft && "id" in args && args.id) {
+    const version = await req.payload.findVersionByID({
+      collection: "topics",
+      id: String(args.id),
+      depth: 0,
+      overrideAccess: true,
+      req,
+    });
+    const topicId = relationId(version?.parent);
+    const topic = topicId
+      ? await req.payload.findByID({
+          collection: "topics",
+          id: topicId,
+          depth: 0,
+          select: { firstPublishedAt: true },
+          disableErrors: true,
+          overrideAccess: true,
+          req,
+        })
+      : null;
+    if (topic?.firstPublishedAt) {
+      refuse(
+        req,
+        "changeNote",
+        "Change note",
+        "This topic is published, so a version can only be restored as a draft. Then publish it with a change note.",
+      );
+    }
+  }
+  if (
+    operation === "create" &&
+    "duplicateFromID" in args &&
+    args.duplicateFromID !== undefined &&
+    args.duplicateFromID !== null
+  ) {
+    const copied = data && typeof data === "object" ? data : {};
+    return {
+      ...args,
+      draft: true,
+      data: { ...copied, readyForReview: false, archived: false },
+    };
+  }
+  return args;
+};
 
 /**
  * Applies the workflow on every save: records who edited, keeps the state, and
- * on publish checks the change note and prepares the change log entry.
+ * on publish checks the content and change note and prepares the change log
+ * entry.
  */
 const applyWorkflow: CollectionBeforeChangeHook = async ({
   data,
+  operation,
   originalDoc,
   req,
 }) => {
+  const stored = operation === "update" ? originalDoc : undefined;
   // The system fields come from the stored document and this hook only.
   data.lastEditedBy = req.user?.id ?? null;
-  data.state = originalDoc?.state ?? "draft";
-  data.firstPublishedAt = originalDoc?.firstPublishedAt ?? null;
-  data.lastPublishedAt = originalDoc?.lastPublishedAt ?? null;
-  // A restore passes the old version's data, status included, and only later
-  // applies "restore as draft", so it is treated as a draft here;
-  // guardLiveVersion undoes a restore that ends up published.
+  data.state = stored?.state ?? "draft";
+  data.firstPublishedAt = stored?.firstPublishedAt ?? null;
+  data.lastPublishedAt = stored?.lastPublishedAt ?? null;
+  // A restore reaching this point is a draft restore (guardLiveVersion refuses
+  // the others), though its data still carries the old version's status.
   if (req.context.isRestoringVersion) return data;
+
+  const key = stored?.id ? String(stored.id) : NEW_TOPIC;
+  pendingChanges(req).delete(key);
   const publishing = data._status === "published";
-  const previouslyPublished = Boolean(originalDoc?.firstPublishedAt);
+  const previouslyPublished = Boolean(stored?.firstPublishedAt);
 
   // The live version, not the latest draft, says whether visitors currently
   // see the topic as archived.
   const live =
-    publishing && previouslyPublished && originalDoc?.id
+    publishing && previouslyPublished && stored?.id
       ? await req.payload.findByID({
           collection: "topics",
-          id: originalDoc.id,
+          id: stored.id,
           draft: false,
           depth: 0,
           select: { state: true },
@@ -89,39 +209,22 @@ const applyWorkflow: CollectionBeforeChangeHook = async ({
     publishing,
     previouslyPublished,
     previouslyArchived: live?.state === "archived",
-    archived: Boolean(data.archived ?? originalDoc?.archived),
-    readyForReview: Boolean(data.readyForReview ?? originalDoc?.readyForReview),
+    archived: Boolean(data.archived ?? stored?.archived),
+    readyForReview: Boolean(data.readyForReview ?? stored?.readyForReview),
   };
 
   const note =
     typeof data.changeNote === "string" ? data.changeNote.trim() : "";
   if (changeNoteRequired(save) && !note) {
-    throw new ValidationError({
-      collection: "topics",
-      errors: [
-        {
-          path: "changeNote",
-          label: "Change note",
-          message:
-            "Say what changed and why. The note is shown in the topic's public change log.",
-        },
-      ],
+    refuse(
       req,
-    });
+      "changeNote",
+      "Change note",
+      "Say what changed and why. The note is shown in the topic's public change log.",
+    );
   }
-
-  if (publishing && !richTextHasText(data.body ?? originalDoc?.body)) {
-    throw new ValidationError({
-      collection: "topics",
-      errors: [
-        {
-          path: "body",
-          label: "Body",
-          message: "Write the topic before publishing.",
-        },
-      ],
-      req,
-    });
+  if (publishing && !richTextHasText(data.body ?? stored?.body)) {
+    refuse(req, "body", "Body", "Write the topic before publishing.");
   }
 
   const state = topicStateAfterSave(save);
@@ -129,15 +232,14 @@ const applyWorkflow: CollectionBeforeChangeHook = async ({
   const kind = topicChangeKind(save);
   if (kind) {
     const now = new Date().toISOString();
-    data.firstPublishedAt = originalDoc?.firstPublishedAt ?? now;
+    data.firstPublishedAt = stored?.firstPublishedAt ?? now;
     data.lastPublishedAt = now;
     data.readyForReview = false;
-    const pending: PendingChange = {
+    // Only a first publish can have no note (changeNoteRequired).
+    pendingChanges(req).set(key, {
       kind,
-      note: note || FIRST_PUBLISH_NOTES[kind],
-    };
-    // req.context, not the hook's `context`: the lookup above replaces it.
-    req.context[PENDING_CHANGE] = pending;
+      note: note || (kind === "archived" ? "Archived." : "First published."),
+    });
   }
   return data;
 };
@@ -156,97 +258,85 @@ async function latestVersion(req: PayloadRequest, topic: string | number) {
   return docs[0] ?? null;
 }
 
-function refuse(req: PayloadRequest, path: string, message: string): never {
-  throw new ValidationError({
-    collection: "topics",
-    errors: [
-      {
-        path,
-        label: path === "changeNote" ? "Change note" : "Status",
-        message,
-      },
-    ],
-    req,
-  });
+/** A comparable form of a field: related documents reduced to their ids. */
+function comparable(field: (typeof AUDITED_FIELDS)[number], value: unknown) {
+  if (field === "countries" || field === "tags")
+    return Array.isArray(value) ? value.map(relationId) : [];
+  if (field === "category") return relationId(value);
+  if (field === "people")
+    return Array.isArray(value)
+      ? value.map((row: { individual?: unknown; role?: unknown }) => ({
+          individual: relationId(row?.individual),
+          role: row?.role ?? null,
+        }))
+      : [];
+  return value ?? null;
 }
 
 /**
- * Keeps the live version honest; throwing here rolls the save back.
- * - A restored version may go live only through a normal publish with a change
- *   note. The version just saved tells whether the restore published: after a
- *   draft restore, `doc` is still the live document.
- * - A published topic is never unpublished, which would take it offline with
- *   no change log entry; it is archived instead.
+ * Audits every save: creates, publishes (with a change log entry), draft saves
+ * (which fields changed), and draft restores.
  */
-const guardLiveVersion: CollectionAfterChangeHook = async ({ doc, req }) => {
-  if (req.context.isRestoringVersion) {
-    const restored = await latestVersion(req, doc.id);
-    if (restored?.version._status === "published") {
-      refuse(
-        req,
-        "changeNote",
-        "Restore the version as a draft, then publish it with a change note.",
-      );
-    }
-    return doc;
-  }
-  if (!doc.firstPublishedAt) return doc;
-  const live = await req.payload.findByID({
-    collection: "topics",
-    id: doc.id,
-    draft: false,
-    depth: 0,
-    select: { _status: true },
-    overrideAccess: true,
-    req,
-  });
-  if (live._status !== "published") {
-    refuse(
-      req,
-      "_status",
-      "A published topic cannot be unpublished. To take it out of lists, tick Archived, add a change note, and publish.",
-    );
-  }
-  return doc;
-};
-
-/** Writes the change log entry and the audit entry for a publish. */
-const recordPublish: CollectionAfterChangeHook = async ({
+const recordChange: CollectionAfterChangeHook = async ({
   doc,
   operation,
+  previousDoc,
   req,
 }) => {
+  const target = { targetCollection: "topics", targetId: String(doc.id) };
   if (operation === "create") {
     await recordAudit(req, {
       action: "topic.created",
-      targetCollection: "topics",
-      targetId: String(doc.id),
+      ...target,
       details: { title: doc.title },
     });
   }
-  const pending = req.context[PENDING_CHANGE] as PendingChange | undefined;
-  if (!pending) return;
-  delete req.context[PENDING_CHANGE];
-
+  const key = operation === "create" ? NEW_TOPIC : String(doc.id);
+  const pending = pendingChanges(req).get(key);
+  pendingChanges(req).delete(key);
   const latest = await latestVersion(req, doc.id);
   const version = latest ? String(latest.id) : null;
-  await req.payload.create({
-    collection: "topic-changes",
-    data: {
-      topic: doc.id,
-      kind: pending.kind,
-      note: pending.note,
-      version,
-      actor: req.user?.id ?? null,
-    },
-    overrideAccess: true,
-    req,
-  });
+
+  if (pending) {
+    await req.payload.create({
+      collection: "topic-changes",
+      data: {
+        topic: doc.id,
+        kind: pending.kind,
+        note: pending.note,
+        version,
+        actor: req.user?.id ?? null,
+      },
+      overrideAccess: true,
+      req,
+    });
+    await recordAudit(req, {
+      action: `topic.${pending.kind}`,
+      ...target,
+      details: { title: doc.title, note: pending.note, version },
+    });
+    return;
+  }
+  if (operation !== "update") return;
+  if (req.context.isRestoringVersion) {
+    await recordAudit(req, {
+      action: "topic.restored_as_draft",
+      ...target,
+      details: { title: doc.title, version },
+    });
+    return;
+  }
+  const fields = AUDITED_FIELDS.filter(
+    (field) =>
+      !isDeepStrictEqual(
+        comparable(field, previousDoc?.[field]),
+        comparable(field, doc[field]),
+      ),
+  );
   await recordAudit(req, {
-    action: `topic.${pending.kind}`,
-    targetCollection: "topics",
-    targetId: String(doc.id),
-    details: { title: doc.title, note: pending.note, version },
+    action: "topic.draft_saved",
+    ...target,
+    details: { title: doc.title, fields, version },
   });
 };
 
@@ -417,8 +507,9 @@ export const Topics: CollectionConfig = {
   ],
   hooks: {
     beforeValidate: [fillSlug("topics", "title")],
+    beforeOperation: [guardLiveVersion],
     beforeChange: [applyWorkflow],
-    afterChange: [guardLiveVersion, recordPublish],
+    afterChange: [recordChange],
     afterDelete: [
       async ({ doc, req }) => {
         await recordAudit(req, {

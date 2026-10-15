@@ -237,10 +237,15 @@ See [ADR 0004](adr/0004-topics-and-versions.md) for the design.
   admin, and version, and an audit entry; every version is kept (integration
   tests, 2026-10-14).
 - [x] Nothing published disappears: a published topic cannot be deleted or
-  unpublished, a version can only be restored as a draft (through the REST API,
-  as the admin panel does it), and change log entries cannot be created, edited,
-  or deleted through the API. The guard tests fail when the guard is removed
-  (integration tests, 2026-10-14).
+  unpublished (alone or in bulk); a version of a published topic can only be
+  restored as a draft, through the REST API as the admin panel does it, and a
+  draft version cannot be restored over it; a duplicate is a fresh draft; an
+  individual, tag, or category used by any topic version cannot be deleted (409);
+  change log entries cannot be created, edited, or deleted through the API. The
+  guard tests failed when the guards were removed (integration tests,
+  2026-10-14).
+- [x] Publishing two topics together gives each its own change log entry; draft
+  saves and restores are in the audit log (integration tests, 2026-10-14).
 - [x] Access: visitors, members, and admins without a confirmed authenticator code
   cannot read topics or the change log (403); verified moderators can read
   topics and versions but not write (integration tests, 2026-10-14).

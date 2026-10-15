@@ -27,8 +27,11 @@ export function isAllowedLinkUrl(value: string): boolean {
 }
 
 const validateLinkUrl: TextFieldSingleValidation = (value, { siblingData }) => {
-  if ((siblingData as { linkType?: string }).linkType === "internal")
-    return true;
+  const linkType =
+    siblingData && typeof siblingData === "object" && "linkType" in siblingData
+      ? siblingData.linkType
+      : undefined;
+  if (linkType === "internal") return true;
   return typeof value === "string" && isAllowedLinkUrl(value)
     ? true
     : "Enter a full link starting with https://, http://, or mailto:.";
@@ -56,7 +59,9 @@ export const editor = lexicalEditor({
       fields: ({ defaultFields }) =>
         defaultFields.map((field) =>
           "name" in field && field.name === "url" && field.type === "text"
-            ? ({ ...field, validate: validateLinkUrl } as typeof field)
+            ? // The url field is a single-value text field; TypeScript cannot
+              // narrow the TextField union (hasMany) from `type` alone.
+              ({ ...field, validate: validateLinkUrl } as typeof field)
             : field,
         ),
     }),

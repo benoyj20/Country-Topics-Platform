@@ -32,16 +32,24 @@ admins publish (product overview).
 - **Public change log.** Each publish adds an entry to the append-only
   `topic-changes` collection: first published, updated, archived, or restored,
   with the note, the admin, and the version it describes. Nobody can create,
-  edit, or delete entries through the API. Publishes are also in the audit log.
-- **Nothing published disappears.**
+  edit, or delete entries through the API, and the database refuses to delete a
+  topic that has entries. The audit log records every create, publish, draft
+  save (which fields changed), and restore.
+- **Nothing published disappears.** These are checked before anything is
+  written (a `beforeOperation` hook), so bulk actions cannot slip past them:
   - Only topics that were never published can be deleted.
-  - A published topic cannot be unpublished. Payload's Unpublish action is
-    refused; the topic is archived instead (tick Archived, add a note, publish),
-    which keeps its page and history.
-  - Restoring an old version is allowed only as a draft, so going live again
-    is a normal publish with a note. Payload runs the save hooks during a
-    restore before it applies "restore as draft", so the restore path is
-    checked after the save and rolled back if it went live.
+  - A published topic cannot be unpublished, alone or in bulk. It is archived
+    instead (tick Archived, add a note, publish), which keeps its page and
+    history.
+  - A version of a published topic can be restored only as a draft, so going
+    live again is a normal publish with a note. The admin panel offers "restore
+    as draft" for published versions only, so a draft version of a published
+    topic cannot be restored from the panel.
+  - A duplicate starts as a fresh draft with its own slug and no publication
+    history.
+  - An individual, category, or tag used by any version of a topic cannot be
+    deleted (the database would otherwise clear the links in published topics
+    and their history); it is edited instead.
 - **People in topics** are linked as subject, speaker, source, or mentioned,
   each individual at most once per role.
 - **Rich text** uses Payload's Lexical editor with a small feature set:

@@ -27,6 +27,7 @@ import {
 import { DIFFERENT_PERSON_LABEL } from "@/individuals/labels";
 
 import { fillSlug, slugField } from "./slug";
+import { keepWhileUsedByTopics } from "./topic-references";
 
 const NAME_MAX_LENGTH = 200;
 const MAX_ALIASES = 20;
@@ -339,7 +340,9 @@ export const Individuals: CollectionConfig = {
       unique: true,
       index: true,
       // Blank means unknown; stored as null so the unique index allows many.
+      // A copy is a different person, so it does not keep the id.
       hooks: {
+        beforeDuplicate: [() => null],
         beforeValidate: [
           ({ value }) =>
             typeof value === "string" && value.trim() ? value.trim() : null,
@@ -362,6 +365,7 @@ export const Individuals: CollectionConfig = {
   ],
   hooks: {
     beforeValidate: [fillSlug("individuals")],
+    beforeDelete: [keepWhileUsedByTopics("people.individual", "individual")],
     beforeChange: [checkDuplicates],
     ...auditHooks({
       collection: "individuals",

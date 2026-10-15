@@ -1,6 +1,8 @@
 import { MigrateUpArgs, MigrateDownArgs, sql } from '@payloadcms/db-postgres'
 
 export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
+  // Hand edit: a change log entry blocks deleting its topic (ON DELETE
+  // restrict). Payload generates "set null", which contradicts NOT NULL.
   await db.execute(sql`
    CREATE TYPE "public"."enum_topics_people_role" AS ENUM('subject', 'speaker', 'source', 'mentioned');
   CREATE TYPE "public"."enum_topics_state" AS ENUM('draft', 'in_review', 'published', 'updated', 'archived');
@@ -112,7 +114,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   ALTER TABLE "_topics_v_rels" ADD CONSTRAINT "_topics_v_rels_parent_fk" FOREIGN KEY ("parent_id") REFERENCES "public"."_topics_v"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "_topics_v_rels" ADD CONSTRAINT "_topics_v_rels_countries_fk" FOREIGN KEY ("countries_id") REFERENCES "public"."countries"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "_topics_v_rels" ADD CONSTRAINT "_topics_v_rels_tags_fk" FOREIGN KEY ("tags_id") REFERENCES "public"."tags"("id") ON DELETE cascade ON UPDATE no action;
-  ALTER TABLE "topic_changes" ADD CONSTRAINT "topic_changes_topic_id_topics_id_fk" FOREIGN KEY ("topic_id") REFERENCES "public"."topics"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "topic_changes" ADD CONSTRAINT "topic_changes_topic_id_topics_id_fk" FOREIGN KEY ("topic_id") REFERENCES "public"."topics"("id") ON DELETE restrict ON UPDATE no action;
   ALTER TABLE "topic_changes" ADD CONSTRAINT "topic_changes_actor_id_users_id_fk" FOREIGN KEY ("actor_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
   CREATE INDEX "topics_people_order_idx" ON "topics_people" USING btree ("_order");
   CREATE INDEX "topics_people_parent_id_idx" ON "topics_people" USING btree ("_parent_id");

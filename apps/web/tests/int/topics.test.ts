@@ -290,6 +290,7 @@ describe("publishing a topic", () => {
     expect(audit.docs.map((entry) => entry.action)).toEqual([
       "topic.created",
       "topic.published",
+      "topic.draft_saved",
       "topic.updated",
       "topic.archived",
       "topic.restored",
@@ -336,8 +337,17 @@ describe("publishing a topic", () => {
     const asPublished = await restore();
     expect(asPublished.status).toBe(400);
     expect(JSON.stringify(await asPublished.json())).toContain(
-      "Restore the version as a draft",
+      "can only be restored as a draft",
     );
+    // The local API cannot restore as a draft, so it is refused too.
+    await expect(
+      payload.restoreVersion({
+        collection: "topics",
+        id: String(firstPublished.id),
+        user: admin,
+        overrideAccess: false,
+      }),
+    ).rejects.toMatchObject(fieldError("changeNote"));
     expect((await restore("?draft=true")).status).toBe(200);
     const live = await payload.findByID({
       collection: "topics",
@@ -356,6 +366,44 @@ describe("publishing a topic", () => {
       "published",
       "updated",
     ]);
+    const restoredAudit = await payload.find({
+      collection: "audit-log",
+      where: {
+        action: { equals: "topic.restored_as_draft" },
+        targetId: { equals: draft.id },
+      },
+      overrideAccess: true,
+    });
+    expect(restoredAudit.docs).toHaveLength(1);
+
+    // A draft version cannot be restored over the live topic either (the
+    // admin panel offers no "as draft" choice for draft versions).
+    await saveDraft(draft.id, { title: "Fictional restored topic, draft" });
+    const { docs: drafts } = await payload.findVersions({
+      collection: "topics",
+      where: {
+        parent: { equals: draft.id },
+        "version.title": { equals: "Fictional restored topic, draft" },
+      },
+      overrideAccess: true,
+    });
+    const draftVersion = drafts[0];
+    if (!draftVersion) throw new Error("No draft version");
+    const overLive = await payloadRest(
+      "POST",
+      ["topics", "versions", String(draftVersion.id)],
+      jar,
+    );
+    expect(overLive.status).toBe(400);
+    const stillLive = await payload.findByID({
+      collection: "topics",
+      id: draft.id,
+      overrideAccess: true,
+    });
+    expect(stillLive).toMatchObject({
+      _status: "published",
+      title: "Fictional restored topic, renamed",
+    });
   });
 
   it("refuses to unpublish a published topic, which is archived instead", async () => {
@@ -382,10 +430,71 @@ describe("publishing a topic", () => {
       "published",
     ]);
 
+    // Nor in bulk, as the list view's Unpublish action does it.
+    await expect(
+      payload.update({
+        collection: "topics",
+        where: { id: { equals: draft.id } },
+        data: { _status: "draft" },
+        user: admin,
+        overrideAccess: false,
+      }),
+    ).rejects.toMatchObject(fieldError("_status"));
+    expect(
+      await payload.findByID({
+        collection: "topics",
+        id: draft.id,
+        overrideAccess: true,
+      }),
+    ).toMatchObject({ _status: "published" });
+
     // Saving a draft of changes is still fine.
     await expect(
       saveDraft(draft.id, { summary: "A revised fictional summary." }),
     ).resolves.toMatchObject({ summary: "A revised fictional summary." });
+  });
+
+  it("logs each topic once when several are published together", async () => {
+    const first = await createDraft(
+      publishable("Fictional bulk topic one") as TopicInput,
+    );
+    const second = await createDraft(
+      publishable("Fictional bulk topic two") as TopicInput,
+    );
+    const result = await payload.update({
+      collection: "topics",
+      where: { id: { in: [first.id, second.id] } },
+      data: { _status: "published" },
+      user: admin,
+      overrideAccess: false,
+    });
+    expect(result.errors).toEqual([]);
+    for (const topic of [first, second]) {
+      expect((await changes(topic.id)).map((entry) => entry.kind)).toEqual([
+        "published",
+      ]);
+    }
+  });
+
+  it("duplicates a published topic as a fresh draft", async () => {
+    const draft = await createDraft({ title: "Fictional original topic" });
+    await publish(draft.id, publishable(draft.title));
+    const copy = await payload.duplicate({
+      collection: "topics",
+      id: draft.id,
+      user: admin,
+      overrideAccess: false,
+    });
+    expect(copy).toMatchObject({ _status: "draft", state: "draft" });
+    expect(copy.firstPublishedAt ?? null).toBeNull();
+    expect(copy.slug).not.toBe("fictional-original-topic");
+    expect(await changes(copy.id)).toEqual([]);
+    await payload.delete({
+      collection: "topics",
+      id: copy.id,
+      user: admin,
+      overrideAccess: false,
+    });
   });
 
   it("links each individual once per role", async () => {
@@ -411,6 +520,43 @@ describe("publishing a topic", () => {
       "subject",
       "speaker",
     ]);
+
+    // Linked people, tags, and categories cannot be deleted from under it.
+    const tag = await payload.create({
+      collection: "tags",
+      data: { name: "Fictional linked tag", slug: "" },
+      overrideAccess: true,
+    });
+    const category = await payload.create({
+      collection: "categories",
+      data: { name: "Fictional linked category", slug: "" },
+      overrideAccess: true,
+    });
+    await publish(draft.id, {
+      tags: [tag.id],
+      category: category.id,
+      changeNote: "Added a tag and a category.",
+    });
+    for (const [collection, id] of [
+      ["individuals", individual],
+      ["tags", tag.id],
+      ["categories", category.id],
+    ] as const) {
+      await expect(
+        payload.delete({ collection, id, user: admin, overrideAccess: false }),
+        collection,
+      ).rejects.toMatchObject({ status: 409 });
+    }
+    // Removing the tag from the live topic is not enough: versions keep it.
+    await publish(draft.id, { tags: [], changeNote: "Removed the tag." });
+    await expect(
+      payload.delete({
+        collection: "tags",
+        id: tag.id,
+        user: admin,
+        overrideAccess: false,
+      }),
+    ).rejects.toMatchObject({ status: 409 });
   });
 });
 

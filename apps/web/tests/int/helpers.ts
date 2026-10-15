@@ -3,11 +3,13 @@ import { createSmtpSender } from "@countrytopics/email";
 import { createEmailWorker, createRedisConnection } from "@countrytopics/jobs";
 import { createOTP } from "@better-auth/utils/otp";
 import config from "@payload-config";
-import { REST_GET, REST_PATCH } from "@payloadcms/next/routes";
+import { REST_GET, REST_PATCH, REST_POST } from "@payloadcms/next/routes";
+import type { Payload } from "payload";
 import * as z from "zod";
 
 import { getAuth } from "@/auth/auth";
 import { serverEnv } from "@/env";
+import type { User } from "@/payload-types";
 
 export const SITE_URL = "http://localhost:3000";
 const MAILPIT_URL = process.env.TEST_MAILPIT_URL ?? "http://localhost:8025";
@@ -227,10 +229,16 @@ export async function signInAsVerifiedStaff(email: string): Promise<CookieJar> {
 
 const payloadGet = REST_GET(config);
 const payloadPatch = REST_PATCH(config);
+const payloadPost = REST_POST(config);
+const restHandlers = {
+  GET: payloadGet,
+  PATCH: payloadPatch,
+  POST: payloadPost,
+};
 
 /** Calls Payload's REST API (`/api/<slug...>`) with the browser's cookies. */
 export async function payloadRest(
-  method: "GET" | "PATCH",
+  method: "GET" | "PATCH" | "POST",
   slug: string[],
   jar: CookieJar,
   body?: unknown,
@@ -246,7 +254,7 @@ export async function payloadRest(
     },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
-  const handler = method === "GET" ? payloadGet : payloadPatch;
+  const handler = restHandlers[method];
   return handler(request, { params: Promise.resolve({ slug }) });
 }
 
@@ -256,4 +264,42 @@ export async function canAccessAdmin(jar: CookieJar): Promise<boolean> {
     .object({ canAccessAdmin: z.boolean().optional() })
     .parse(await response.json());
   return body.canAccessAdmin === true;
+}
+
+/**
+ * A staff or member profile as the sign-in strategy hands it to Payload, for
+ * local API calls with `overrideAccess: false`. `verified` means an
+ * authenticator code was confirmed for this session.
+ */
+export async function staffProfile(
+  payload: Payload,
+  name: string,
+  role: User["role"],
+  verified = true,
+): Promise<User> {
+  const created = await payload.create({
+    collection: "users",
+    data: { email: testEmail(name), role },
+    overrideAccess: true,
+  });
+  return {
+    ...created,
+    collection: "users",
+    twoFactorEnabled: verified,
+    twoFactorVerifiedAt: verified ? new Date().toISOString() : null,
+  };
+}
+
+/** The id of a seeded country, by its ISO 3166-1 alpha-2 code. */
+export async function countryId(
+  payload: Payload,
+  code: string,
+): Promise<string> {
+  const { docs } = await payload.find({
+    collection: "countries",
+    where: { code: { equals: code } },
+    overrideAccess: true,
+  });
+  if (!docs[0]) throw new Error(`Country ${code} is not seeded`);
+  return docs[0].id;
 }

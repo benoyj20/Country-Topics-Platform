@@ -67,6 +67,8 @@ export interface Config {
   };
   blocks: {};
   collections: {
+    topics: Topic;
+    'topic-changes': TopicChange;
     individuals: Individual;
     countries: Country;
     categories: Category;
@@ -81,6 +83,8 @@ export interface Config {
   };
   collectionsJoins: {};
   collectionsSelect: {
+    topics: TopicsSelect<false> | TopicsSelect<true>;
+    'topic-changes': TopicChangesSelect<false> | TopicChangesSelect<true>;
     individuals: IndividualsSelect<false> | IndividualsSelect<true>;
     countries: CountriesSelect<false> | CountriesSelect<true>;
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
@@ -126,6 +130,127 @@ export interface UserAuthOperations {
     email: string;
     password: string;
   };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "topics".
+ */
+export interface Topic {
+  id: string;
+  title: string;
+  /**
+   * One or two sentences, shown in lists and previews.
+   */
+  summary: string;
+  body: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  };
+  countries: (string | Country)[];
+  category?: (string | null) | Category;
+  tags?: (string | Tag)[] | null;
+  /**
+   * Who the topic is about (subject), who is quoted (speaker), who provided information (source), or who is only mentioned.
+   */
+  people?:
+    | {
+        individual: string | Individual;
+        role: 'subject' | 'speaker' | 'source' | 'mentioned';
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Required when publishing changes to a published topic. Shown in its public change log.
+   */
+  changeNote?: string | null;
+  /**
+   * Marks a draft as finished and waiting to be checked.
+   */
+  readyForReview?: boolean | null;
+  /**
+   * Takes the topic out of lists when published; its page and history stay.
+   */
+  archived?: boolean | null;
+  /**
+   * Used in links. Filled from the name when left empty; changing it later breaks old links.
+   */
+  slug: string;
+  state: 'draft' | 'in_review' | 'published' | 'updated' | 'archived';
+  firstPublishedAt?: string | null;
+  lastPublishedAt?: string | null;
+  lastEditedBy?: (string | null) | User;
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "countries".
+ */
+export interface Country {
+  id: string;
+  /**
+   * The name shown on the site.
+   */
+  name: string;
+  code: string;
+  alpha3: string;
+  numericCode: string;
+  isoName: string;
+  /**
+   * UN M49 region, used to group the country picker.
+   */
+  region?: string | null;
+  /**
+   * UN M49 sub-region.
+   */
+  subregion?: string | null;
+  /**
+   * Used in links. Filled from the name when left empty; changing it later breaks old links.
+   */
+  slug: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "categories".
+ */
+export interface Category {
+  id: string;
+  name: string;
+  description?: string | null;
+  /**
+   * Used in links. Filled from the name when left empty; changing it later breaks old links.
+   */
+  slug: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "tags".
+ */
+export interface Tag {
+  id: string;
+  name: string;
+  /**
+   * Used in links. Filled from the name when left empty; changing it later breaks old links.
+   */
+  slug: string;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -195,64 +320,6 @@ export interface Individual {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "countries".
- */
-export interface Country {
-  id: string;
-  /**
-   * The name shown on the site.
-   */
-  name: string;
-  code: string;
-  alpha3: string;
-  numericCode: string;
-  isoName: string;
-  /**
-   * UN M49 region, used to group the country picker.
-   */
-  region?: string | null;
-  /**
-   * UN M49 sub-region.
-   */
-  subregion?: string | null;
-  /**
-   * Used in links. Filled from the name when left empty; changing it later breaks old links.
-   */
-  slug: string;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "categories".
- */
-export interface Category {
-  id: string;
-  name: string;
-  description?: string | null;
-  /**
-   * Used in links. Filled from the name when left empty; changing it later breaks old links.
-   */
-  slug: string;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "tags".
- */
-export interface Tag {
-  id: string;
-  name: string;
-  /**
-   * Used in links. Filled from the name when left empty; changing it later breaks old links.
-   */
-  slug: string;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "users".
  */
 export interface User {
@@ -266,6 +333,23 @@ export interface User {
   updatedAt: string;
   createdAt: string;
   collection: 'users';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "topic-changes".
+ */
+export interface TopicChange {
+  id: string;
+  topic: string | Topic;
+  kind: 'published' | 'updated' | 'archived' | 'restored';
+  note: string;
+  /**
+   * The published version this entry describes.
+   */
+  version?: string | null;
+  actor?: (string | null) | User;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -330,6 +414,14 @@ export interface PayloadKv {
 export interface PayloadLockedDocument {
   id: string;
   document?:
+    | ({
+        relationTo: 'topics';
+        value: string | Topic;
+      } | null)
+    | ({
+        relationTo: 'topic-changes';
+        value: string | TopicChange;
+      } | null)
     | ({
         relationTo: 'individuals';
         value: string | Individual;
@@ -399,6 +491,49 @@ export interface PayloadMigration {
   batch?: number | null;
   updatedAt: string;
   createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "topics_select".
+ */
+export interface TopicsSelect<T extends boolean = true> {
+  title?: T;
+  summary?: T;
+  body?: T;
+  countries?: T;
+  category?: T;
+  tags?: T;
+  people?:
+    | T
+    | {
+        individual?: T;
+        role?: T;
+        id?: T;
+      };
+  changeNote?: T;
+  readyForReview?: T;
+  archived?: T;
+  slug?: T;
+  state?: T;
+  firstPublishedAt?: T;
+  lastPublishedAt?: T;
+  lastEditedBy?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "topic-changes_select".
+ */
+export interface TopicChangesSelect<T extends boolean = true> {
+  topic?: T;
+  kind?: T;
+  note?: T;
+  version?: T;
+  actor?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

@@ -31,9 +31,11 @@ pilot); moderators and admins also confirm a code from an authenticator app befo
 the admin panel opens. Sign-in emails are sent by the worker (`apps/worker`)
 through a job queue. In the admin panel, staff manage the ISO 3166-1 countries,
 categories, tags, and individuals, with a warning when an individual may already
-be in the database. There is a placeholder home page and a health check at
-`/api/v1/health`. Topics and the other features follow the
-[MVP plan](docs/mvp-plan.md); see the checklist for what is verified.
+be in the database. Admins write topics in a rich text editor, link them to
+countries and individuals, and publish them; every version is kept and each
+publish adds a change log entry. There is a placeholder home page and a health
+check at `/api/v1/health`. Evidence, public pages, and the other features follow
+the [MVP plan](docs/mvp-plan.md); see the checklist for what is verified.
 
 ```sh
 make dev-prototype
@@ -46,7 +48,7 @@ Open `http://localhost:4173` and click **Try demo**. See
 
 - `apps/web` — Next.js site, Payload admin, and `/api/v1`
 - `apps/worker` — background jobs on BullMQ (sign-in emails so far)
-- `packages/domain` — roles, sign-up rules, and name, slug, and date rules
+- `packages/domain` — roles, sign-up rules, name, slug, and date rules, and the topic workflow
 - `packages/email` — the email adapter (SMTP) and email templates
 - `packages/jobs` — job queues shared by the web app and the worker
 - `prototypes` — throwaway experiments; apps never import from here

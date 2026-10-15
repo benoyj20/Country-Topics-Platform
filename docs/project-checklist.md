@@ -260,6 +260,8 @@ See [ADR 0004](adr/0004-topics-and-versions.md) for the design.
   entries; no browser errors (2026-10-14). Lists opened directly show related
   names (countries, topics); in the long scripted run they stayed on "Loading…"
   without making their requests, as headless timers stall.
+- [x] CI ran these tests and the migration drift check: all passed on PR #8,
+  applying the nine migrations to the CI database (2026-10-14).
 - [ ] The developer writes and publishes one topic.
 - [ ] Not built yet: evidence and references (week 5), and with them the rule
   that published statements about named individuals need evidence and a

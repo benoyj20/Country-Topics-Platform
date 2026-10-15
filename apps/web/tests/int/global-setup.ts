@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { testDatabaseUrl } from "./test-database";
+import { testBucket, testDatabaseUrl } from "./test-database";
 
 const appRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -18,6 +18,8 @@ export default function setup(): void {
   Object.assign(process.env, {
     DATABASE_URL: testDatabaseUrl(process.env),
     DATABASE_REPLICA_URL: "",
+    // Uploads go to the test bucket, never the site's.
+    S3_BUCKET: testBucket(process.env),
     // The dev worker uses the default prefix; tests must not feed it jobs.
     QUEUE_PREFIX: "countrytopics-test",
     SITE_URL: "http://localhost:3000",

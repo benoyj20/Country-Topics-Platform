@@ -9,6 +9,9 @@ const valid = {
   BETTER_AUTH_SECRET: "b".repeat(32),
   SITE_URL: "http://localhost:3000",
   REDIS_URL: "redis://localhost:6379",
+  S3_BUCKET: "countrytopics",
+  S3_ACCESS_KEY_ID: "access-key",
+  S3_SECRET_ACCESS_KEY: "secret-key",
 };
 
 describe("readServerEnv", () => {
@@ -24,7 +27,37 @@ describe("readServerEnv", () => {
       inviteOnly: true,
       redisUrl: valid.REDIS_URL,
       queuePrefix: "countrytopics",
+      storage: {
+        endpoint: undefined,
+        region: "us-east-1",
+        bucket: "countrytopics",
+        accessKeyId: "access-key",
+        secretAccessKey: "secret-key",
+      },
+      contactEmail: undefined,
     });
+  });
+
+  it("reads an S3-compatible endpoint and refuses bad storage settings", () => {
+    expect(
+      readServerEnv({
+        ...valid,
+        S3_ENDPOINT: "http://localhost:8333",
+        S3_REGION: "auto",
+      }).storage,
+    ).toMatchObject({ endpoint: "http://localhost:8333", region: "auto" });
+    expect(() =>
+      readServerEnv({ ...valid, S3_ENDPOINT: "localhost:8333" }),
+    ).toThrow(/S3_ENDPOINT must/);
+    expect(() => readServerEnv({ ...valid, S3_BUCKET: "Bad_Bucket" })).toThrow(
+      /S3_BUCKET must/,
+    );
+    expect(() => readServerEnv({ ...valid, S3_SECRET_ACCESS_KEY: "" })).toThrow(
+      /S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY must be set/,
+    );
+    expect(() =>
+      readServerEnv({ ...valid, CONTACT_EMAIL: "not an address" }),
+    ).toThrow(/CONTACT_EMAIL/);
   });
 
   it("uses a replica only when it differs from the primary", () => {
@@ -42,7 +75,7 @@ describe("readServerEnv", () => {
 
   it("lists every problem by variable name", () => {
     expect(() => readServerEnv({ DATABASE_REPLICA_URL: "mysql://x" })).toThrow(
-      /DATABASE_URL must[\s\S]*DATABASE_REPLICA_URL must[\s\S]*PAYLOAD_SECRET must[\s\S]*SITE_URL must[\s\S]*BETTER_AUTH_SECRET must[\s\S]*REDIS_URL must/,
+      /DATABASE_URL must[\s\S]*DATABASE_REPLICA_URL must[\s\S]*PAYLOAD_SECRET must[\s\S]*SITE_URL must[\s\S]*BETTER_AUTH_SECRET must[\s\S]*REDIS_URL must[\s\S]*S3_BUCKET must/,
     );
   });
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { testDatabaseUrl } from "../int/test-database";
+import { testBucket, testDatabaseUrl } from "../int/test-database";
 
 describe("testDatabaseUrl", () => {
   it("accepts a database whose name ends in _test", () => {
@@ -22,6 +22,16 @@ describe("testDatabaseUrl", () => {
     expect(() => testDatabaseUrl({})).toThrow(/make env/);
     expect(() => testDatabaseUrl({ TEST_DATABASE_URL: "not a url" })).toThrow(
       /not a valid/,
+    );
+  });
+});
+
+describe("testBucket", () => {
+  it("defaults to the test bucket and refuses the site's bucket", () => {
+    expect(testBucket({})).toBe("countrytopics-test");
+    expect(testBucket({ TEST_S3_BUCKET: "other-test" })).toBe("other-test");
+    expect(() => testBucket({ TEST_S3_BUCKET: "countrytopics" })).toThrow(
+      /ending in -test/,
     );
   });
 });

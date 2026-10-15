@@ -7,6 +7,7 @@ import * as migration_20261014_223205_content_collections from './20261014_22320
 import * as migration_20261014_223300_name_similarity_indexes from './20261014_223300_name_similarity_indexes';
 import * as migration_20261014_223400_seed_countries from './20261014_223400_seed_countries';
 import * as migration_20261014_234019_topics from './20261014_234019_topics';
+import * as migration_20261015_033825_evidence_and_references from './20261015_033825_evidence_and_references';
 
 export const migrations = [
   {
@@ -52,6 +53,11 @@ export const migrations = [
   {
     up: migration_20261014_234019_topics.up,
     down: migration_20261014_234019_topics.down,
-    name: '20261014_234019_topics'
+    name: '20261014_234019_topics',
+  },
+  {
+    up: migration_20261015_033825_evidence_and_references.up,
+    down: migration_20261015_033825_evidence_and_references.down,
+    name: '20261015_033825_evidence_and_references'
   },
 ];

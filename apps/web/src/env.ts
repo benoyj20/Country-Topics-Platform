@@ -19,6 +19,19 @@ export type ServerEnv = {
   inviteOnly: boolean;
   redisUrl: string;
   queuePrefix: string;
+  /** S3-compatible storage for uploads. */
+  storage: StorageEnv;
+  /** Named in requests to bibliographic services; optional. */
+  contactEmail?: string;
+};
+
+export type StorageEnv = {
+  /** Unset for AWS itself; set for other S3-compatible services. */
+  endpoint?: string;
+  region: string;
+  bucket: string;
+  accessKeyId: string;
+  secretAccessKey: string;
 };
 
 /** Login tokens and sessions are signed with these secrets; shorter values are guessable. */
@@ -28,6 +41,9 @@ export const DEFAULT_QUEUE_PREFIX = "countrytopics";
 const POSTGRES_URL_PATTERN = /^postgres(ql)?:\/\//;
 const REDIS_URL_PATTERN = /^rediss?:\/\//;
 const QUEUE_PREFIX_PATTERN = /^[a-z0-9-]+$/;
+// AWS bucket naming rules, which other S3-compatible services follow.
+const BUCKET_PATTERN = /^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/;
+const DEFAULT_S3_REGION = "us-east-1";
 
 type Env = Record<string, string | undefined>;
 
@@ -94,6 +110,26 @@ function readInviteOnly(env: Env, problems: string[]): boolean {
   return true;
 }
 
+function readStorage(env: Env, problems: string[]): StorageEnv {
+  const endpoint = env.S3_ENDPOINT?.trim() || undefined;
+  if (endpoint && !/^https?:\/\/\S+$/.test(endpoint)) {
+    problems.push("S3_ENDPOINT must be empty (AWS) or an http(s) URL");
+  }
+  const region = env.S3_REGION?.trim() || DEFAULT_S3_REGION;
+  const bucket = env.S3_BUCKET?.trim() ?? "";
+  if (!BUCKET_PATTERN.test(bucket)) {
+    problems.push(
+      "S3_BUCKET must be a bucket name: 3-63 lowercase letters, digits, dots, or hyphens",
+    );
+  }
+  const accessKeyId = env.S3_ACCESS_KEY_ID?.trim() ?? "";
+  const secretAccessKey = env.S3_SECRET_ACCESS_KEY?.trim() ?? "";
+  if (!accessKeyId || !secretAccessKey) {
+    problems.push("S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY must be set");
+  }
+  return { endpoint, region, bucket, accessKeyId, secretAccessKey };
+}
+
 export function readServerEnv(env: Env = process.env): ServerEnv {
   const problems: string[] = [];
 
@@ -128,6 +164,13 @@ export function readServerEnv(env: Env = process.env): ServerEnv {
     );
   }
 
+  const storage = readStorage(env, problems);
+
+  const contactEmail = env.CONTACT_EMAIL?.trim() || undefined;
+  if (contactEmail && !/^[^@\s]+@[^@\s]+$/.test(contactEmail)) {
+    problems.push("CONTACT_EMAIL must be empty or an email address");
+  }
+
   if (problems.length > 0) {
     throw new Error(
       `Invalid server configuration:\n- ${problems.join("\n- ")}`,
@@ -148,6 +191,8 @@ export function readServerEnv(env: Env = process.env): ServerEnv {
     inviteOnly,
     redisUrl,
     queuePrefix,
+    storage,
+    contactEmail,
   };
 }
 

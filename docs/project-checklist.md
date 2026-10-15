@@ -217,9 +217,9 @@ See [ADR 0003](adr/0003-countries-and-individuals.md) for the design.
   in the admin panel, and four added by script at the developer's request, with
   names, aliases, descriptions, offices, and dates taken from Wikidata
   (2026-10-14).
-- [ ] Not built yet: photos with their licence (week 5, with uploads), public
-  pages for countries and individuals (week 7), and links from individuals to
-  topics (week 4).
+- [ ] Not built yet: public pages for countries and individuals (week 7).
+  Topics link individuals since week 4, and photos with their licence came with
+  uploads in week 5.
 
 ### Week 4: topics, workflow, versions, change log
 
@@ -262,7 +262,7 @@ See [ADR 0004](adr/0004-topics-and-versions.md) for the design.
   without making their requests, as headless timers stall.
 - [x] CI ran these tests and the migration drift check: all passed on PR #8,
   applying the nine migrations to the CI database (2026-10-14).
-- [ ] The developer writes and publishes one topic.
-- [ ] Not built yet: evidence and references (week 5), and with them the rule
-  that published statements about named individuals need evidence and a
-  reference, which must be in place before public pages (week 7).
+- [x] The developer tested writing and publishing a topic in the admin panel
+  (2026-10-14).
+- [x] Evidence and references, and the rule that a topic naming individuals
+  needs evidence and a confirmed reference, came in week 5 (below).

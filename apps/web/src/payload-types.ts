@@ -69,6 +69,9 @@ export interface Config {
   collections: {
     topics: Topic;
     'topic-changes': TopicChange;
+    references: Reference;
+    media: Media;
+    'link-archives': LinkArchive;
     individuals: Individual;
     countries: Country;
     categories: Category;
@@ -85,6 +88,9 @@ export interface Config {
   collectionsSelect: {
     topics: TopicsSelect<false> | TopicsSelect<true>;
     'topic-changes': TopicChangesSelect<false> | TopicChangesSelect<true>;
+    references: ReferencesSelect<false> | ReferencesSelect<true>;
+    media: MediaSelect<false> | MediaSelect<true>;
+    'link-archives': LinkArchivesSelect<false> | LinkArchivesSelect<true>;
     individuals: IndividualsSelect<false> | IndividualsSelect<true>;
     countries: CountriesSelect<false> | CountriesSelect<true>;
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
@@ -167,6 +173,41 @@ export interface Topic {
     | {
         individual: string | Individual;
         role: 'subject' | 'speaker' | 'source' | 'mentioned';
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * What shows it happened: documents, images, and web pages (copied to the Wayback Machine). A topic that names individuals needs at least one.
+   */
+  evidence?:
+    | {
+        kind: 'document' | 'image' | 'link';
+        /**
+         * Such as 'Ministry press release, 3 May 2024'.
+         */
+        title: string;
+        file?: (string | null) | Media;
+        url?: string | null;
+        /**
+         * Optional, such as an archive.today link, when the Wayback Machine cannot copy the page.
+         */
+        archiveUrl?: string | null;
+        note?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Papers, books, reports, and pages that support or contradict the topic, each with the passage that does. Only confirmed references can be published.
+   */
+  references?:
+    | {
+        reference: string | Reference;
+        stance: 'supports' | 'contradicts' | 'context';
+        /**
+         * The words in the reference that support, contradict, or explain the topic, quoted exactly.
+         */
+        passage: string;
+        locator?: string | null;
         id?: string | null;
       }[]
     | null;
@@ -293,6 +334,10 @@ export interface Individual {
       }[]
     | null;
   /**
+   * Optional. Only a photo we may publish; record its licence and credit on the file.
+   */
+  photo?: (string | null) | Media;
+  /**
    * Plain text. Keep to what the linked evidence and references support.
    */
   bio?: string | null;
@@ -315,6 +360,73 @@ export interface Individual {
    */
   slug: string;
   nameKey?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Documents and images used as evidence, and photos of individuals. Record the licence of every file.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "media".
+ */
+export interface Media {
+  id: string;
+  /**
+   * What the file shows or contains, for people who cannot see it and for search.
+   */
+  alt: string;
+  /**
+   * Only upload files we may publish (AGENTS.md: licensed photos only).
+   */
+  licence: 'public_domain' | 'cc_by' | 'cc_by_sa' | 'other_open' | 'permission' | 'own_work' | 'official_document';
+  /**
+   * Author or owner, as the licence asks, such as 'Photo: A. Example / CC BY 4.0'.
+   */
+  credit?: string | null;
+  /**
+   * Where the file came from, so others can check it.
+   */
+  sourceUrl?: string | null;
+  _objectKey?: string | null;
+  updatedAt: string;
+  createdAt: string;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  focalX?: number | null;
+  focalY?: number | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "references".
+ */
+export interface Reference {
+  id: string;
+  doi?: string | null;
+  isbn?: string | null;
+  /**
+   * Where to read it: the publisher's page or the report itself. Needed when there is no DOI or ISBN.
+   */
+  url?: string | null;
+  kind: 'article' | 'book' | 'chapter' | 'report' | 'web_page' | 'dataset' | 'other';
+  publishedDate?: string | null;
+  title: string;
+  /**
+   * One per line, as printed.
+   */
+  authors?: string | null;
+  containerTitle?: string | null;
+  publisher?: string | null;
+  /**
+   * Whether the DOI, ISBN, and link exist. Topics cite only confirmed references when published. Save again to retry a check.
+   */
+  checkStatus: 'pending' | 'resolved' | 'not_found' | 'failed';
+  checkMessage?: string | null;
+  checkedAt?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -348,6 +460,23 @@ export interface TopicChange {
    */
   version?: string | null;
   actor?: (string | null) | User;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Filled in by the worker: copies of evidence links and reference links in the Wayback Machine.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "link-archives".
+ */
+export interface LinkArchive {
+  id: string;
+  url: string;
+  status: 'archived' | 'not_archived' | 'failed';
+  archiveUrl?: string | null;
+  capturedAt?: string | null;
+  message?: string | null;
+  checkedAt?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -421,6 +550,18 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'topic-changes';
         value: string | TopicChange;
+      } | null)
+    | ({
+        relationTo: 'references';
+        value: string | Reference;
+      } | null)
+    | ({
+        relationTo: 'media';
+        value: string | Media;
+      } | null)
+    | ({
+        relationTo: 'link-archives';
+        value: string | LinkArchive;
       } | null)
     | ({
         relationTo: 'individuals';
@@ -510,6 +651,26 @@ export interface TopicsSelect<T extends boolean = true> {
         role?: T;
         id?: T;
       };
+  evidence?:
+    | T
+    | {
+        kind?: T;
+        title?: T;
+        file?: T;
+        url?: T;
+        archiveUrl?: T;
+        note?: T;
+        id?: T;
+      };
+  references?:
+    | T
+    | {
+        reference?: T;
+        stance?: T;
+        passage?: T;
+        locator?: T;
+        id?: T;
+      };
   changeNote?: T;
   readyForReview?: T;
   archived?: T;
@@ -537,6 +698,62 @@ export interface TopicChangesSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "references_select".
+ */
+export interface ReferencesSelect<T extends boolean = true> {
+  doi?: T;
+  isbn?: T;
+  url?: T;
+  kind?: T;
+  publishedDate?: T;
+  title?: T;
+  authors?: T;
+  containerTitle?: T;
+  publisher?: T;
+  checkStatus?: T;
+  checkMessage?: T;
+  checkedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "media_select".
+ */
+export interface MediaSelect<T extends boolean = true> {
+  alt?: T;
+  licence?: T;
+  credit?: T;
+  sourceUrl?: T;
+  _objectKey?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  url?: T;
+  thumbnailURL?: T;
+  filename?: T;
+  mimeType?: T;
+  filesize?: T;
+  width?: T;
+  height?: T;
+  focalX?: T;
+  focalY?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "link-archives_select".
+ */
+export interface LinkArchivesSelect<T extends boolean = true> {
+  url?: T;
+  status?: T;
+  archiveUrl?: T;
+  capturedAt?: T;
+  message?: T;
+  checkedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "individuals_select".
  */
 export interface IndividualsSelect<T extends boolean = true> {
@@ -559,6 +776,7 @@ export interface IndividualsSelect<T extends boolean = true> {
         endDate?: T;
         id?: T;
       };
+  photo?: T;
   bio?: T;
   links?:
     | T

@@ -33,9 +33,13 @@ through a job queue. In the admin panel, staff manage the ISO 3166-1 countries,
 categories, tags, and individuals, with a warning when an individual may already
 be in the database. Admins write topics in a rich text editor, link them to
 countries and individuals, and publish them; every version is kept and each
-publish adds a change log entry. There is a placeholder home page and a health
-check at `/api/v1/health`. Evidence, public pages, and the other features follow
-the [MVP plan](docs/mvp-plan.md); see the checklist for what is verified.
+publish adds a change log entry. Topics carry evidence (documents, images, and
+web pages copied to the Wayback Machine) and references with the passage they
+support; files are stored in S3-compatible storage, and the worker confirms each
+reference's DOI, ISBN, or link before it can be published. A topic that names an
+individual needs evidence and a confirmed reference. There is a placeholder home
+page and a health check at `/api/v1/health`. Public pages and the other features
+follow the [MVP plan](docs/mvp-plan.md); see the checklist for what is verified.
 
 ```sh
 make dev-prototype
@@ -47,12 +51,13 @@ Open `http://localhost:4173` and click **Try demo**. See
 ## Repository layout
 
 - `apps/web` — Next.js site, Payload admin, and `/api/v1`
-- `apps/worker` — background jobs on BullMQ (sign-in emails so far)
-- `packages/domain` — roles, sign-up rules, name, slug, and date rules, and the topic workflow
+- `apps/worker` — background jobs on BullMQ: sign-in emails, reference checks, link archiving
+- `packages/domain` — roles, sign-up rules, name, slug, date, DOI, and ISBN rules, the topic workflow, and the evidence rules
 - `packages/email` — the email adapter (SMTP) and email templates
-- `packages/jobs` — job queues shared by the web app and the worker
+- `packages/jobs` — job queues shared by the web app and the worker, and the worker's database writes
+- `packages/sources` — outside services: Crossref, the DOI system, Open Library, the Wayback Machine, and safe link checks
 - `prototypes` — throwaway experiments; apps never import from here
-- `deploy/compose` — local PostgreSQL (pgvector), Redis-compatible Valkey, Mailpit
+- `deploy/compose` — local PostgreSQL (pgvector), Redis-compatible Valkey, Mailpit, SeaweedFS (S3-compatible storage)
 - `deploy/scripts` — local setup helpers, such as the `make env` script
 - `docs` — plans, checklist, architecture decision records, and runbooks
 - `.claude` — repo-local Claude Code skills and review agents
@@ -69,9 +74,9 @@ Open `http://localhost:4173` and click **Try demo**. See
 ```sh
 make env         # creates .env, or adds missing variables; never changes set values
 make bootstrap   # pnpm install
-make infra-up    # PostgreSQL on 5433, Valkey on 6379, Mailpit on 1025/8025
+make infra-up    # PostgreSQL on 5433, Valkey on 6379, Mailpit on 1025/8025, S3 storage on 8333
 make migrate     # applies the database migrations
-make dev         # site at http://localhost:3000 and the email worker
+make dev         # site at http://localhost:3000 and the worker
 ```
 
 To become the first admin, put your address in `ADMIN_EMAILS` in `.env`, restart
@@ -82,7 +87,11 @@ then open the admin panel. Invite other people from the admin panel's
 `make reset-2fa EMAIL=their@address` and they can set up a new one. The dev server
 listens on `127.0.0.1` only.
 
-Mailpit's inbox is at `http://localhost:8025`. PostgreSQL uses host port 5433 so it
+Mailpit's inbox is at `http://localhost:8025`. Uploaded files go to the
+`countrytopics` bucket of the local SeaweedFS storage (data in a Docker volume). The
+worker checks references with Crossref, the DOI system, and Open Library and looks
+for copies of links in the Wayback Machine; to have it save new copies, put an
+Internet Archive account's keys in `WAYBACK_ACCESS_KEY` and `WAYBACK_SECRET_KEY`. PostgreSQL uses host port 5433 so it
 does not clash with other local projects on 5432. Run all checks with `make check`;
 its integration tests rebuild the separate `countrytopics_test` database and never
 touch development data.

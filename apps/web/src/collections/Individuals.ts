@@ -26,6 +26,7 @@ import {
 } from "@/individuals/duplicates";
 import { DIFFERENT_PERSON_LABEL } from "@/individuals/labels";
 
+import { IMAGE_MIME_TYPES } from "./Media";
 import { fillSlug, slugField } from "./slug";
 import { keepWhileUsedByTopics } from "./topic-references";
 
@@ -302,6 +303,16 @@ export const Individuals: CollectionConfig = {
       ],
     },
     {
+      name: "photo",
+      type: "upload",
+      relationTo: "media",
+      filterOptions: { mimeType: { in: IMAGE_MIME_TYPES } },
+      admin: {
+        description:
+          "Optional. Only a photo we may publish; record its licence and credit on the file.",
+      },
+    },
+    {
       name: "bio",
       type: "textarea",
       maxLength: 5000,
@@ -376,6 +387,7 @@ export const Individuals: CollectionConfig = {
         summary: doc.summary ?? null,
         bio: doc.bio ?? null,
         wikidataId: doc.wikidataId ?? null,
+        photo: relationId(doc.photo),
         aliases: aliasNames(doc.aliases),
         countries: Array.isArray(doc.countries)
           ? doc.countries.map((row: Record<string, unknown>) => ({

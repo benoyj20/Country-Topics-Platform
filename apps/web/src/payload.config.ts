@@ -1,4 +1,5 @@
 import { postgresAdapter } from "@payloadcms/db-postgres";
+import { s3Storage } from "@payloadcms/storage-s3";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildConfig } from "payload";
@@ -8,6 +9,9 @@ import { Categories } from "./collections/Categories";
 import { Countries } from "./collections/Countries";
 import { Individuals } from "./collections/Individuals";
 import { Invitations } from "./collections/Invitations";
+import { LinkArchives } from "./collections/LinkArchives";
+import { Media, UPLOAD_MAX_BYTES } from "./collections/Media";
+import { References } from "./collections/References";
 import { Tags } from "./collections/Tags";
 import { TopicChanges } from "./collections/TopicChanges";
 import { Topics } from "./collections/Topics";
@@ -35,6 +39,9 @@ export default buildConfig({
   collections: [
     Topics,
     TopicChanges,
+    References,
+    Media,
+    LinkArchives,
     Individuals,
     Countries,
     Categories,
@@ -44,6 +51,32 @@ export default buildConfig({
     AuditLog,
   ],
   editor,
+  plugins: [
+    // Uploads live in S3-compatible storage (AGENTS.md: stateless app
+    // containers). Files are still served through Payload, so its access
+    // control applies to them.
+    s3Storage({
+      collections: { media: true },
+      bucket: env.storage.bucket,
+      config: {
+        endpoint: env.storage.endpoint,
+        region: env.storage.region,
+        credentials: {
+          accessKeyId: env.storage.accessKeyId,
+          secretAccessKey: env.storage.secretAccessKey,
+        },
+        // Non-AWS services (SeaweedFS locally, R2, MinIO) expect the bucket
+        // in the path rather than the host name.
+        forcePathStyle: Boolean(env.storage.endpoint),
+      },
+    }),
+  ],
+  upload: {
+    // Refuse oversized files instead of storing them cut short.
+    limits: { fileSize: UPLOAD_MAX_BYTES },
+    abortOnLimit: true,
+    responseOnLimit: "Files can be at most 20 MB.",
+  },
   serverURL: env.siteUrl,
   cors: [env.siteUrl],
   csrf: [env.siteUrl],

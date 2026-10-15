@@ -38,9 +38,9 @@ const validateLinkUrl: TextFieldSingleValidation = (value, { siblingData }) => {
 };
 
 // The editor for topic bodies and any later rich text. Only the features the
-// site renders are enabled: no uploads (evidence comes in week 5), no embedded
-// relationships, and links limited to web pages, email, topics, and
-// individuals. The default link check accepts `javascript:` URLs, so the URL
+// site renders are enabled: no uploads (evidence is listed beside the text,
+// with its licence and archive), no embedded relationships, and links limited
+// to web pages, email, topics, and individuals. The default link check accepts `javascript:` URLs, so the URL
 // field gets a stricter one.
 export const editor = lexicalEditor({
   features: () => [
@@ -70,13 +70,46 @@ export const editor = lexicalEditor({
   ],
 });
 
-type LexicalNode = { type?: unknown; text?: unknown; children?: unknown };
+type LexicalNode = {
+  type?: unknown;
+  text?: unknown;
+  children?: unknown;
+  fields?: unknown;
+};
 
 /** Whether a Lexical document contains any non-blank text. */
 export function richTextHasText(value: unknown): boolean {
   const root = (value as { root?: LexicalNode } | null | undefined)?.root;
   const visit = (node: LexicalNode): boolean => {
     if (typeof node.text === "string" && node.text.trim()) return true;
+    return Array.isArray(node.children)
+      ? node.children.some((child: LexicalNode) => visit(child))
+      : false;
+  };
+  return root ? visit(root) : false;
+}
+
+/**
+ * Whether a Lexical document links to any document of a collection, such as
+ * an individual: a topic that links a person names them.
+ */
+export function richTextLinksTo(value: unknown, collection: string): boolean {
+  const root = (value as { root?: LexicalNode } | null | undefined)?.root;
+  const visit = (node: LexicalNode): boolean => {
+    const fields = node.fields;
+    if (
+      fields &&
+      typeof fields === "object" &&
+      "linkType" in fields &&
+      fields.linkType === "internal" &&
+      "doc" in fields &&
+      fields.doc &&
+      typeof fields.doc === "object" &&
+      "relationTo" in fields.doc &&
+      fields.doc.relationTo === collection
+    ) {
+      return true;
+    }
     return Array.isArray(node.children)
       ? node.children.some((child: LexicalNode) => visit(child))
       : false;

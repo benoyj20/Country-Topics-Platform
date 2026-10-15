@@ -26,7 +26,9 @@ below in the same PR. Never record passwords, keys, or secrets here; name the
 | Email provider (Brevo or Resend, not chosen) | Magic-link and notification email for the pilot | Personal (planned) | Not set up | `SMTP_URL`, `EMAIL_FROM` (Mailpit locally) | [Email provider](#4-email-provider) |
 | Cloudflare | Turnstile (week 10), tunnel and CDN (week 12) | Personal (planned) | Not set up | Turnstile site and secret keys, tunnel token (names added when built) | [Cloudflare](#5-cloudflare-and-domain) |
 | Domain (optional) | Stable pilot address | Not bought | — | Cloudflare, OAuth redirect URLs | [Domain](#5-cloudflare-and-domain) |
-| Object storage (Cloudflare R2 or S3, planned) | Uploads (week 5) and backups (week 11) | Not set up | — | Storage credentials (names added when built) | [Other services](#6-other-services) |
+| Object storage: SeaweedFS in Compose locally; Cloudflare R2 or S3 for the pilot and production (not chosen) | Uploads (evidence files and photos) since week 5; backups (week 11) | Local only, no account | 2026-10-14 (local) | `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` (local values in `.env.example`) | [Other services](#6-other-services); copy the bucket with `rclone` |
+| Internet Archive account (optional) | Asking the Wayback Machine to save evidence links (Save Page Now); without it the worker only finds existing copies | Not set up (create under the project owner when needed) | Not set up | `WAYBACK_ACCESS_KEY`, `WAYBACK_SECRET_KEY` (from https://archive.org/account/s3.php) | [Other services](#6-other-services) |
+| Crossref, doi.org, Open Library, Wayback Machine CDX APIs | Checking and looking up DOIs and ISBNs; finding copies of links | No accounts; requests name the site and a contact address | 2026-10-14 | `SITE_URL`, `CONTACT_EMAIL` | Set `CONTACT_EMAIL` to a project address, not a personal one |
 | Sentry (planned, week 11) | Error tracking | Not set up | — | Sentry DSN (name added when built) | [Other services](#6-other-services) |
 | Cloud free tiers for the scale rehearsal (planned, week 11) | Managed PostgreSQL, Redis, container host | Not set up | — | Deployment configuration | [Other services](#6-other-services) |
 
@@ -125,6 +127,12 @@ For storage, Sentry, and cloud hosting accounts: add the new owner as an admin o
 move the project or bucket to the new owner's account, create new credentials,
 update the configuration, and delete the old credentials. Copy backups before
 closing any old storage account.
+
+Internet Archive keys belong to one archive.org account and cannot be shared:
+create an account for the new owner, generate keys at
+https://archive.org/account/s3.php, update `WAYBACK_ACCESS_KEY` and
+`WAYBACK_SECRET_KEY`, restart the worker, and delete the old account's keys.
+Copies already saved stay in the Wayback Machine.
 
 ### 7. After every step
 

@@ -41,7 +41,6 @@ let payload: Payload;
 let stopEmailWorker: (() => Promise<void>) | undefined;
 let worker: Awaited<ReturnType<typeof workerSide>>;
 let admin: User;
-let moderator: User;
 let adminJar: CookieJar;
 let moderatorJar: CookieJar;
 let kenya: string;
@@ -131,7 +130,7 @@ beforeAll(async () => {
   stopEmailWorker = startEmailWorker();
   worker = await workerSide();
   admin = await staffProfile(payload, "evidence-admin", "admin");
-  moderator = await staffProfile(payload, "evidence-moderator", "moderator");
+  await staffProfile(payload, "evidence-moderator", "moderator");
   adminJar = await signInAsVerifiedStaff(testEmail("evidence-admin"));
   moderatorJar = await signInAsVerifiedStaff(testEmail("evidence-moderator"));
   kenya = await countryId(payload, "KE");

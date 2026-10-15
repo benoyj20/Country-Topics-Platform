@@ -266,3 +266,62 @@ See [ADR 0004](adr/0004-topics-and-versions.md) for the design.
   (2026-10-14).
 - [x] Evidence and references, and the rule that a topic naming individuals
   needs evidence and a confirmed reference, came in week 5 (below).
+
+### Week 5: evidence, references, file storage, link archiving
+
+See [ADR 0005](adr/0005-evidence-and-references.md) for the design.
+
+- [x] Files: images (JPEG, PNG, WebP) and PDFs are stored in S3-compatible
+  storage (SeaweedFS locally) and served only to staff, with
+  `X-Content-Type-Options: nosniff` and `private, no-store`; a text file named
+  `.png`, an SVG, and a file without a licence are refused; a file used by a
+  topic or as an individual's photo cannot be deleted (409), and a PDF cannot be
+  a photo (integration tests, 2026-10-14).
+- [x] References: DOIs and ISBNs are normalised (doi.org links, ISBN-10 to
+  ISBN-13 with check digits); a reference needs a DOI, an ISBN, or a link; the
+  same DOI cannot be used twice; saving queues a check, and the check result
+  cannot be set through a request. The worker's result is stored only for the
+  identifiers it checked, so a late job for an old DOI cannot confirm a new one;
+  "not found" and "could not finish" stay distinct (integration and unit tests,
+  2026-10-14).
+- [x] "Look up" fills a reference from its DOI or ISBN; only verified admins can
+  call it, responses are not cached, and a service that does not answer gives a
+  clear 503 (integration tests with a fake service, 2026-10-14).
+- [x] Publishing: a topic that names an individual (in its people list or by a
+  link in its text) needs evidence and a reference; every cited reference must
+  be confirmed and have a passage; archiving a published topic is never blocked
+  by a reference edited since; references cited by any topic version cannot be
+  deleted (409) (integration and unit tests, 2026-10-14).
+- [x] Evidence links are queued for the Wayback Machine from the first draft
+  save; a link's first copy is never replaced; archived links can be read by
+  staff but written only by the worker (integration tests, 2026-10-14).
+- [x] Link checks reach only public addresses on ports 80 and 443 (also after
+  redirects and for IP literals such as 169.254.169.254), follow at most five
+  redirects, and tell gone pages (404) from sites that refuse bots (403) and
+  busy ones (503) (unit tests against a local server, 2026-10-14).
+- [x] The guard tests failed when the evidence rule, the identifier match on
+  check results, and the keep-the-first-copy rule were removed (2026-10-14).
+- [x] Every migration rolls back with `payload migrate:down` to an empty database
+  and applies again (test database, 2026-10-14).
+- [x] Live services, checked once by hand with public sample identifiers:
+  Crossref (its sample DOI 10.5555/12345678), the DOI system (10.1000/182), Open
+  Library (ISBN 978-0-306-40615-7), and the Wayback Machine's CDX index answered
+  as the adapters expect. Two findings changed the design: the Wayback
+  "availability" API answered "no copy" even for example.com, and Google Books
+  refused keyless requests (shared quota exhausted), so it is not used
+  (2026-10-14).
+- [x] Real browser (headless Edge, production build on the test database, the
+  worker running against it): a PNG uploaded with its licence and served with
+  the headers above; "Look up" filled a reference from Crossref and another from
+  Open Library; a third reference with only a link; the worker confirmed all
+  three against the live services; a topic naming an individual was refused
+  without evidence ("The following fields are invalid (2): Evidence,
+  References"), then published with a web page as evidence and a confirmed
+  reference; the evidence row showed the Wayback Machine copy found by the
+  worker. The only browser error was a server action cut off by the script's
+  navigation (2026-10-15).
+- [ ] CI runs these tests and the migration drift check on the PR.
+- [ ] The developer adds three references to a topic.
+- [ ] Not built yet: video snippets and transcript excerpts as evidence (week 6),
+  and saving new Wayback Machine copies, which needs an Internet Archive account
+  (`WAYBACK_ACCESS_KEY`, `WAYBACK_SECRET_KEY`).

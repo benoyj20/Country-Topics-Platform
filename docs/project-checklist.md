@@ -15,8 +15,8 @@ lazy-loaded privacy-enhanced player and synced transcript highlighting.
 
 The site itself (`apps/web`) so far has sign-in (Google and email links,
 invite-only), roles, staff authenticator checks, the admin panel with countries,
-categories, tags, and individuals, a placeholder home page, and a health check;
-see Weeks 1 to 3 below.
+categories, tags, individuals, and versioned topics with a change log, a
+placeholder home page, and a health check; see Weeks 1 to 4 below.
 
 The snippet flow is a standalone prototype in `prototypes/youtube-snippet`. It has no
 database, accounts, or persistence beyond the browser's `localStorage`, and it is
@@ -213,7 +213,56 @@ See [ADR 0003](adr/0003-countries-and-individuals.md) for the design.
   (2026-10-14).
 - [x] CI ran these tests and the migration drift check: all passed on PR #7,
   applying the eight migrations to the CI database (2026-10-14).
-- [ ] The developer adds five individuals in the admin panel.
+- [x] Five individuals in the development database: one added by the developer
+  in the admin panel, and four added by script at the developer's request, with
+  names, aliases, descriptions, offices, and dates taken from Wikidata
+  (2026-10-14).
 - [ ] Not built yet: photos with their licence (week 5, with uploads), public
   pages for countries and individuals (week 7), and links from individuals to
   topics (week 4).
+
+### Week 4: topics, workflow, versions, change log
+
+See [ADR 0004](adr/0004-topics-and-versions.md) for the design.
+
+- [x] Drafts save without the publishing checks, record who saved them, and can
+  be marked ready for review (state "In review") (integration tests, 2026-10-14).
+- [x] Publishing needs a summary, body text, and a country; links in the body
+  must be `http`, `https`, or `mailto` (a `javascript:` link is refused); each
+  individual is linked at most once per role (integration and unit tests,
+  2026-10-14).
+- [x] Lifecycle: first publish, a draft of changes that leaves the live version
+  untouched, a second publish refused without a change note and accepted with
+  one, archive, and restore. Each publish adds a change log entry with its note,
+  admin, and version, and an audit entry; every version is kept (integration
+  tests, 2026-10-14).
+- [x] Nothing published disappears: a published topic cannot be deleted or
+  unpublished (alone or in bulk); a version of a published topic can only be
+  restored as a draft, through the REST API as the admin panel does it, and a
+  draft version cannot be restored over it; a duplicate is a fresh draft; an
+  individual, tag, or category used by any topic version cannot be deleted (409);
+  change log entries cannot be created, edited, or deleted through the API. The
+  guard tests failed when the guards were removed (integration tests,
+  2026-10-14).
+- [x] Publishing two topics together gives each its own change log entry; draft
+  saves and restores are in the audit log (integration tests, 2026-10-14).
+- [x] Access: visitors, members, and admins without a confirmed authenticator code
+  cannot read topics or the change log (403); verified moderators can read
+  topics and versions but not write (integration tests, 2026-10-14).
+- [x] Every migration rolls back with `payload migrate:down` and applies again
+  (test database, 2026-10-14).
+- [x] Real browser (headless Edge, production build on the test database): a
+  topic written in the editor with Kenya as its country and published (state
+  "Published"); after editing the title, "Publish changes" without a note is
+  refused ("The following field is invalid: Change note"), and with a note it
+  publishes (state "Updated") and the note box empties; the Versions tab lists
+  the current and the previous published version; the change log lists both
+  entries; no browser errors (2026-10-14). Lists opened directly show related
+  names (countries, topics); in the long scripted run they stayed on "Loading…"
+  without making their requests, as headless timers stall.
+- [x] CI ran these tests and the migration drift check: all passed on PR #8,
+  applying the nine migrations to the CI database (2026-10-14).
+- [ ] The developer writes and publishes one topic.
+- [ ] Not built yet: evidence and references (week 5), and with them the rule
+  that published statements about named individuals need evidence and a
+  reference, which must be in place before public pages (week 7).

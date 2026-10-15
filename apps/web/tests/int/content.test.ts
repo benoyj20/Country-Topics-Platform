@@ -10,9 +10,11 @@ import * as z from "zod";
 import type { User } from "@/payload-types";
 
 import {
+  countryId,
   payloadRest,
   signInAsVerifiedStaff,
   signInWithEmailLink,
+  staffProfile,
   startEmailWorker,
   testEmail,
   UUID_V7_PATTERN,
@@ -27,35 +29,6 @@ let member: User;
 let unverifiedAdmin: User;
 let kenya: string;
 let ghana: string;
-
-/** A staff or member profile, as the sign-in strategy would hand it to Payload. */
-async function profile(
-  name: string,
-  role: User["role"],
-  verified = true,
-): Promise<User> {
-  const created = await payload.create({
-    collection: "users",
-    data: { email: testEmail(name), role },
-    overrideAccess: true,
-  });
-  return {
-    ...created,
-    collection: "users",
-    twoFactorEnabled: verified,
-    twoFactorVerifiedAt: verified ? new Date().toISOString() : null,
-  };
-}
-
-async function countryId(code: string): Promise<string> {
-  const { docs } = await payload.find({
-    collection: "countries",
-    where: { code: { equals: code } },
-    overrideAccess: true,
-  });
-  if (!docs[0]) throw new Error(`Country ${code} is not seeded`);
-  return docs[0].id;
-}
 
 async function auditEntries(action: string, targetId: string) {
   const { docs } = await payload.find({
@@ -100,12 +73,17 @@ function duplicateError(name: string) {
 beforeAll(async () => {
   payload = await getPayload({ config });
   stopEmailWorker = startEmailWorker();
-  admin = await profile("content-admin", "admin");
-  moderator = await profile("content-moderator", "moderator");
-  member = await profile("content-member", "member");
-  unverifiedAdmin = await profile("content-unverified", "admin", false);
-  kenya = await countryId("KE");
-  ghana = await countryId("GH");
+  admin = await staffProfile(payload, "content-admin", "admin");
+  moderator = await staffProfile(payload, "content-moderator", "moderator");
+  member = await staffProfile(payload, "content-member", "member");
+  unverifiedAdmin = await staffProfile(
+    payload,
+    "content-unverified",
+    "admin",
+    false,
+  );
+  kenya = await countryId(payload, "KE");
+  ghana = await countryId(payload, "GH");
 });
 
 afterAll(async () => {

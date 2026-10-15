@@ -19,6 +19,8 @@ export const slugField: TextField = {
     typeof value === "string" && isSlug(value)
       ? true
       : "Use lowercase letters, digits, and single hyphens, like public-health.",
+  // A copy gets its own slug, filled from its name by fillSlug.
+  hooks: { beforeDuplicate: [() => ""] },
   admin: {
     position: "sidebar",
     description:
@@ -35,16 +37,16 @@ export function fillSlug(
   collection: CollectionSlug,
   sourceField = "name",
 ): CollectionBeforeValidateHook {
-  return async ({ data, originalDoc, req }) => {
+  return async ({ data, operation, originalDoc, req }) => {
+    // On create, originalDoc is set only for a duplicate, and is the source.
+    const stored = operation === "update" ? originalDoc : undefined;
     if (!data || data.slug) return data;
     // An update that does not send the slug keeps the stored one.
-    if (data.slug === undefined && originalDoc?.slug) return data;
-    const source: unknown = data[sourceField] ?? originalDoc?.[sourceField];
+    if (data.slug === undefined && stored?.slug) return data;
+    const source: unknown = data[sourceField] ?? stored?.[sourceField];
     const base = typeof source === "string" ? slugify(source) : "";
     if (!base) return data;
-    const notSelf = originalDoc?.id
-      ? [{ id: { not_equals: originalDoc.id } }]
-      : [];
+    const notSelf = stored?.id ? [{ id: { not_equals: stored.id } }] : [];
     for (let n = 1; n <= MAX_SUFFIX; n++) {
       const suffix = n === 1 ? "" : `-${n}`;
       const candidate =

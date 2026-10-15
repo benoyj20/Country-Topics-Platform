@@ -9,7 +9,10 @@ import { Countries } from "./collections/Countries";
 import { Individuals } from "./collections/Individuals";
 import { Invitations } from "./collections/Invitations";
 import { Tags } from "./collections/Tags";
+import { TopicChanges } from "./collections/TopicChanges";
+import { Topics } from "./collections/Topics";
 import { Users } from "./collections/Users";
+import { editor } from "./editor";
 import { serverEnv } from "./env";
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -30,6 +33,8 @@ export default buildConfig({
     },
   },
   collections: [
+    Topics,
+    TopicChanges,
     Individuals,
     Countries,
     Categories,
@@ -38,6 +43,7 @@ export default buildConfig({
     Invitations,
     AuditLog,
   ],
+  editor,
   serverURL: env.siteUrl,
   cors: [env.siteUrl],
   csrf: [env.siteUrl],

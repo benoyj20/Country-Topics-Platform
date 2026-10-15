@@ -4,6 +4,7 @@ import { verifiedAdminsOnly, verifiedStaffOnly } from "@/access";
 import { auditHooks } from "@/audit";
 
 import { fillSlug, slugField } from "./slug";
+import { keepWhileUsedByTopics } from "./topic-references";
 
 // Broad subject areas for topics (week 4), such as health or elections. Tags
 // are the finer labels.
@@ -28,6 +29,7 @@ export const Categories: CollectionConfig = {
   ],
   hooks: {
     beforeValidate: [fillSlug("categories")],
+    beforeDelete: [keepWhileUsedByTopics("category", "category")],
     ...auditHooks({
       collection: "categories",
       action: "category",

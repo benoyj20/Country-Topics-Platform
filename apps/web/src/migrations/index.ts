@@ -6,6 +6,7 @@ import * as migration_20261014_213300_better_auth_tables from './20261014_213300
 import * as migration_20261014_223205_content_collections from './20261014_223205_content_collections';
 import * as migration_20261014_223300_name_similarity_indexes from './20261014_223300_name_similarity_indexes';
 import * as migration_20261014_223400_seed_countries from './20261014_223400_seed_countries';
+import * as migration_20261014_234019_topics from './20261014_234019_topics';
 
 export const migrations = [
   {
@@ -47,5 +48,10 @@ export const migrations = [
     up: migration_20261014_223400_seed_countries.up,
     down: migration_20261014_223400_seed_countries.down,
     name: '20261014_223400_seed_countries',
+  },
+  {
+    up: migration_20261014_234019_topics.up,
+    down: migration_20261014_234019_topics.down,
+    name: '20261014_234019_topics'
   },
 ];

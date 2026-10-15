@@ -3,6 +3,7 @@ import {
   type IdentifierCheck,
   referenceCheckResult,
   type ReferenceCheckStatus,
+  URL_MAX_LENGTH,
 } from "@countrytopics/domain";
 import {
   type Bibliography,
@@ -15,7 +16,6 @@ import * as z from "zod";
 import type { QueueSettings } from "./email-jobs.ts";
 
 export const REFERENCE_QUEUE_NAME = "references";
-export const URL_MAX_LENGTH = 2048;
 
 /**
  * Checks a reference's identifiers as they were when it was saved. The result
@@ -153,7 +153,7 @@ export type JobAttempt = {
 /**
  * Runs one reference check. Throws to have BullMQ retry while the reference
  * is not visible yet or a service could not answer; on the final attempt it
- * records "could not finish" instead.
+ * records "could not finish" instead, whatever went wrong.
  */
 export async function processReferenceCheck(
   job: ReferenceCheckJob,
@@ -167,9 +167,23 @@ export async function processReferenceCheck(
     throw new Error("The reference is not saved yet; trying again.");
   }
 
-  const result = referenceCheckResult(
-    await checkReferenceIdentifiers(job, checkers),
-  );
+  let result: ReferenceCheckResult;
+  try {
+    result = referenceCheckResult(
+      await checkReferenceIdentifiers(job, checkers),
+    );
+  } catch (error) {
+    // On the last attempt, say the check could not finish rather than leave
+    // the reference "being checked" for ever; the job still fails, for the logs.
+    if (isFinal) {
+      await store.saveReferenceCheck(job, {
+        status: "failed",
+        message:
+          "The check failed unexpectedly. Save the reference to try again.",
+      });
+    }
+    throw error;
+  }
   if (result.status === "failed" && !isFinal) {
     throw new Error(`Reference check will be retried: ${result.message}`);
   }

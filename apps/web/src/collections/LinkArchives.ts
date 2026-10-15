@@ -1,6 +1,7 @@
 import {
   LINK_ARCHIVE_STATUSES,
   type LinkArchiveStatus,
+  URL_MAX_LENGTH,
 } from "@countrytopics/domain";
 import type { CollectionConfig } from "payload";
 
@@ -39,7 +40,7 @@ export const LinkArchives: CollectionConfig = {
       type: "text",
       required: true,
       unique: true,
-      maxLength: 2048,
+      maxLength: URL_MAX_LENGTH,
     },
     {
       name: "status",

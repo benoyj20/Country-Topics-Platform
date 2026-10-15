@@ -2,6 +2,7 @@ import { isPartialDate, type ReferenceKind } from "@countrytopics/domain";
 import * as z from "zod";
 
 import {
+  parseOrUnavailable,
   requestJson,
   type SourceClient,
   SourceUnavailableError,
@@ -50,6 +51,7 @@ const CROSSREF_KINDS: Record<string, ReferenceKind> = {
 
 const crossrefWork = z.object({
   message: z.object({
+    DOI: z.string(),
     type: z.string().optional(),
     title: z.array(z.string()).optional(),
     subtitle: z.array(z.string()).optional(),
@@ -83,22 +85,6 @@ const openLibraryBook = z.object({
   publishers: z.array(z.object({ name: z.string() })).optional(),
   publish_date: z.string().optional(),
 });
-
-/** A 200 response in an unexpected shape means the service changed, not that the record is missing. */
-function parseOrUnavailable<T>(
-  schema: z.ZodType<T>,
-  body: unknown,
-  source: string,
-): T {
-  const parsed = schema.safeParse(body);
-  if (!parsed.success) {
-    throw new SourceUnavailableError(
-      source,
-      "sent a response in an unexpected format",
-    );
-  }
-  return parsed.data;
-}
 
 /** Crossref titles can contain JATS or HTML markup, such as <i>. */
 function plainText(value: string | undefined): string | undefined {
@@ -136,8 +122,19 @@ function dateFromText(text: string | undefined): string | undefined {
   return year;
 }
 
+/**
+ * The DOI as URL path segments. "." and ".." segments are encoded too, or the
+ * URL parser would resolve them and ask about a different DOI.
+ */
 function doiPath(doi: string): string {
-  return doi.split("/").map(encodeURIComponent).join("/");
+  return doi
+    .split("/")
+    .map((segment) =>
+      segment === "." || segment === ".."
+        ? "%2E".repeat(segment.length)
+        : encodeURIComponent(segment),
+    )
+    .join("/");
 }
 
 export function createBibliography(client: SourceClient): Bibliography {
@@ -150,6 +147,8 @@ export function createBibliography(client: SourceClient): Bibliography {
     // 404 for unknown DOIs; other 4xx for malformed ones.
     if (status !== 200) return { found: false };
     const work = parseOrUnavailable(crossrefWork, body, "Crossref").message;
+    // Only a record for the DOI asked about counts.
+    if (work.DOI.toLowerCase() !== doi) return { found: false };
     return {
       found: true,
       metadata: {

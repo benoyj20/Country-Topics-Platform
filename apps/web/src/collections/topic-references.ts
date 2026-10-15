@@ -42,8 +42,13 @@ export function keepWhileUsed(
       }),
     );
     if (counts.some(({ totalDocs }) => totalDocs > 0)) {
+      const users = usages.some(
+        ({ collection }) => collection === "individuals",
+      )
+        ? "topics, their history, or individuals"
+        : "topics or their history";
       throw new APIError(
-        `This ${label} is used by topics or their history, or by individuals, so it cannot be deleted. Edit it instead.`,
+        `This ${label} is used by ${users}, so it cannot be deleted. Edit it instead.`,
         409,
         undefined,
         true,

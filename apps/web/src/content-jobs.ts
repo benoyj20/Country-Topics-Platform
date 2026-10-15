@@ -59,9 +59,9 @@ export async function queueLinkArchives(
     req,
   });
   const archived = new Set(docs.map((doc) => doc.url));
-  for (const url of unique.filter((url) => !archived.has(url))) {
-    await enqueueOrFail(req, "link archive", () =>
-      linkQueue().enqueue({ url }),
-    );
-  }
+  const waiting = unique.filter((url) => !archived.has(url));
+  if (waiting.length === 0) return;
+  await enqueueOrFail(req, "link archive", () =>
+    linkQueue().enqueueMany(waiting.map((url) => ({ url }))),
+  );
 }

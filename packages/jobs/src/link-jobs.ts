@@ -1,5 +1,6 @@
-import type { LinkArchiveStatus } from "@countrytopics/domain";
+import { type LinkArchiveStatus, URL_MAX_LENGTH } from "@countrytopics/domain";
 import {
+  ArchiveRefusedError,
   type Snapshot,
   SourceUnavailableError,
   type WebArchive,
@@ -11,7 +12,6 @@ import * as z from "zod";
 
 import type { QueueSettings } from "./email-jobs.ts";
 import type { JobAttempt } from "./reference-jobs.ts";
-import { URL_MAX_LENGTH } from "./reference-jobs.ts";
 
 export const LINK_QUEUE_NAME = "links";
 
@@ -52,7 +52,8 @@ export type LinkArchiveStore = {
 };
 
 export type LinkQueue = {
-  enqueue(job: LinkArchiveJob): Promise<void>;
+  /** Adds the jobs in one round trip; links already waiting are not added twice. */
+  enqueueMany(jobs: LinkArchiveJob[]): Promise<void>;
   close(): Promise<void>;
 };
 
@@ -67,12 +68,15 @@ export function createLinkQueue({
 }: QueueSettings): LinkQueue {
   const queue = new Queue(LINK_QUEUE_NAME, { connection, prefix });
   return {
-    async enqueue(job) {
-      const data = linkArchiveJobSchema.parse(job);
-      await queue.add("archive-link", data, {
-        ...LINK_JOB_OPTIONS,
-        jobId: linkJobId(data.url),
-      });
+    async enqueueMany(jobs) {
+      const data = jobs.map((job) => linkArchiveJobSchema.parse(job));
+      await queue.addBulk(
+        data.map((job) => ({
+          name: "archive-link",
+          data: job,
+          opts: { ...LINK_JOB_OPTIONS, jobId: linkJobId(job.url) },
+        })),
+      );
     },
     close: () => queue.close(),
   };
@@ -94,46 +98,73 @@ function archived(snapshot: Snapshot, message: string): LinkArchiveRecord {
   };
 }
 
+/** Asks Save Page Now for a fresh copy and waits for it, or for its refusal. */
+async function capture(
+  url: string,
+  archive: WebArchive,
+  wait: (ms: number) => Promise<unknown>,
+): Promise<Snapshot | { refused: string }> {
+  const request = await archive.requestCapture(url);
+  if ("refused" in request) return request;
+  for (let poll = 0; poll < CAPTURE_MAX_POLLS; poll += 1) {
+    await wait(CAPTURE_POLL_INTERVAL_MS);
+    const status = await archive.captureStatus(request.jobId);
+    if (status.state === "saved") return status.snapshot;
+    if (status.state === "refused") return { refused: status.message };
+  }
+  throw new SourceUnavailableError(
+    "The Wayback Machine",
+    "is still saving the page",
+  );
+}
+
 /**
  * Saves a fresh copy when keys are configured (an older copy may not show
- * what the admin cited), otherwise or when saving is refused falls back to
- * the closest existing copy.
+ * what the admin cited). When there are no keys, or saving is refused or fails
+ * for now, it falls back to the latest existing copy.
  */
 async function archiveLink(
   url: string,
   { archive, wait = sleep }: LinkArchiveDeps,
 ): Promise<LinkArchiveRecord> {
   let refusal: string | null = null;
+  let captureError: SourceUnavailableError | null = null;
   if (archive.canCapture) {
-    const request = await archive.requestCapture(url);
-    if ("refused" in request) {
-      refusal = request.refused;
-    } else {
-      for (let poll = 0; poll < CAPTURE_MAX_POLLS && !refusal; poll += 1) {
-        await wait(CAPTURE_POLL_INTERVAL_MS);
-        const status = await archive.captureStatus(request.jobId);
-        if (status.state === "saved") {
-          return archived(status.snapshot, "Saved by the Wayback Machine.");
-        }
-        if (status.state === "refused") refusal = status.message;
+    try {
+      const result = await capture(url, archive, wait);
+      if (!("refused" in result)) {
+        return archived(result, "Saved by the Wayback Machine.");
       }
-      if (!refusal) {
-        throw new SourceUnavailableError(
-          "The Wayback Machine",
-          "is still saving the page",
-        );
-      }
+      refusal = result.refused;
+    } catch (error) {
+      if (!(error instanceof SourceUnavailableError)) throw error;
+      captureError = error;
     }
   }
-  const snapshot = await archive.findSnapshot(url);
+
+  let snapshot: Snapshot | null;
+  try {
+    snapshot = await archive.findSnapshot(url);
+  } catch (error) {
+    if (!(error instanceof ArchiveRefusedError)) throw error;
+    return {
+      status: "not_archived",
+      archiveUrl: null,
+      capturedAt: null,
+      message: `${error.message} Paste a copy from another archive.`,
+    };
+  }
+  const notSaved = refusal ?? captureError?.message;
   if (snapshot) {
     return archived(
       snapshot,
-      refusal
-        ? `A new copy could not be saved (${refusal}); this is the closest earlier copy.`
+      notSaved
+        ? `A new copy could not be saved (${notSaved}); this is the closest earlier copy.`
         : "The closest copy in the Wayback Machine.",
     );
   }
+  // Saving may work on a later try.
+  if (captureError) throw captureError;
   return {
     status: "not_archived",
     archiveUrl: null,
@@ -143,8 +174,8 @@ async function archiveLink(
 }
 
 /**
- * Runs one archive job. Throws to have BullMQ retry while the Internet
- * Archive cannot answer; on the final attempt it records "failed" instead.
+ * Runs one archive job. Throws to have BullMQ retry; on the final attempt it
+ * records "failed" instead, so the link never stays waiting without a reason.
  */
 export async function processLinkArchive(
   { url }: LinkArchiveJob,
@@ -153,20 +184,22 @@ export async function processLinkArchive(
 ): Promise<"saved" | "skipped"> {
   if ((await deps.store.linkArchiveStatus(url)) === "archived")
     return "skipped";
-  let record: LinkArchiveRecord;
   try {
-    record = await archiveLink(url, deps);
+    await deps.store.saveLinkArchive(url, await archiveLink(url, deps));
+    return "saved";
   } catch (error) {
-    if (!(error instanceof SourceUnavailableError) || !isFinal) throw error;
-    record = {
+    if (!isFinal) throw error;
+    const temporary = error instanceof SourceUnavailableError;
+    await deps.store.saveLinkArchive(url, {
       status: "failed",
       archiveUrl: null,
       capturedAt: null,
-      message: `${error.message} Save the topic again later to retry.`,
-    };
+      message: `${temporary ? error.message : "Archiving failed unexpectedly."} Save the topic again later to retry.`,
+    });
+    // An unexpected error is still reported as a failed job, for the logs.
+    if (!temporary) throw error;
+    return "saved";
   }
-  await deps.store.saveLinkArchive(url, record);
-  return "saved";
 }
 
 export type LinkWorkerOptions = QueueSettings &

@@ -23,6 +23,9 @@ describe("isPublicAddress", () => {
       "fd00::1",
       "::ffff:127.0.0.1",
       "::ffff:7f00:1",
+      "::7f00:1",
+      "::ffff:0:a9fe:a9fe",
+      "fec0::1",
       "2001:db8::1",
       "not an address",
     ]) {
@@ -58,6 +61,8 @@ describe("checkUrl", () => {
         "/forbidden": () => response.writeHead(403).end(),
         "/busy": () => response.writeHead(503).end(),
         "/redirect": () => response.writeHead(302, { Location: "/ok" }).end(),
+        "/bad-redirect": () =>
+          response.writeHead(301, { Location: "http://[bad" }).end(),
         "/loop": () => response.writeHead(302, { Location: "/loop" }).end(),
         "/to-metadata": () =>
           response
@@ -106,6 +111,13 @@ describe("checkUrl", () => {
     assert.deepEqual(await checkUrl(`${base}/loop`, local), {
       outcome: "failed",
       message: "The link redirects too many times.",
+    });
+  });
+
+  it("reports a redirect to an invalid address", async () => {
+    assert.deepEqual(await checkUrl(`${base}/bad-redirect`, local), {
+      outcome: "not_found",
+      message: "The site redirects to an invalid address.",
     });
   });
 

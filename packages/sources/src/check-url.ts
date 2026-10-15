@@ -162,7 +162,14 @@ export async function checkUrl(
           message: "The link redirects too many times.",
         };
       }
-      url = new URL(location, url);
+      try {
+        url = new URL(location, url);
+      } catch {
+        return {
+          outcome: "not_found",
+          message: "The site redirects to an invalid address.",
+        };
+      }
       continue;
     }
     if (status >= 200 && status < 300) {

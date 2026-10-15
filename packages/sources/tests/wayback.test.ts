@@ -6,7 +6,7 @@ import {
   type SourceClient,
   SourceUnavailableError,
 } from "../src/http.ts";
-import { createWebArchive } from "../src/wayback.ts";
+import { ArchiveRefusedError, createWebArchive } from "../src/wayback.ts";
 
 // Synthetic responses shaped like the Wayback Machine CDX API and
 // Save Page Now 2; example.org is a reserved documentation domain.
@@ -64,6 +64,14 @@ describe("findSnapshot", () => {
     await assert.rejects(
       createWebArchive(client(odd.fetch)).findSnapshot(PAGE),
       SourceUnavailableError,
+    );
+  });
+
+  it("reports sites the archive refuses to show as refused, not temporary", async () => {
+    const blocked = fakeFetch(() => ({ status: 403, body: {} }));
+    await assert.rejects(
+      createWebArchive(client(blocked.fetch)).findSnapshot(PAGE),
+      ArchiveRefusedError,
     );
   });
 });

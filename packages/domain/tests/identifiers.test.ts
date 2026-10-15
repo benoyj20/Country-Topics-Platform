@@ -34,6 +34,8 @@ describe("normalizeDoi", () => {
       "10.1000/has space",
       "https://example.org/10.1000/182",
       "https://doi.org/%E0%A4%A",
+      "10.1234/../../works/10.1000/182",
+      "10.1234/./x",
       `10.1000/${"a".repeat(300)}`,
     ]) {
       assert.equal(normalizeDoi(input), null, input);

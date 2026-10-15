@@ -1,5 +1,4 @@
 import {
-  isHttpUrl,
   isPartialDate,
   normalizeDoi,
   normalizeIsbn,
@@ -7,6 +6,7 @@ import {
   REFERENCE_KINDS,
   type ReferenceCheckStatus,
   type ReferenceKind,
+  URL_MAX_LENGTH,
 } from "@countrytopics/domain";
 import { SourceUnavailableError } from "@countrytopics/sources";
 import type {
@@ -26,8 +26,8 @@ import { queueLinkArchives, queueReferenceCheck } from "@/content-jobs";
 import { bibliography } from "@/sources";
 
 import { keepWhileUsedByTopics } from "./topic-references";
+import { httpUrl } from "./url-field";
 
-const URL_MAX_LENGTH = 2048;
 const NO_STORE = { "Cache-Control": "no-store" };
 
 const KIND_LABELS: Record<ReferenceKind, string> = {
@@ -252,11 +252,7 @@ export const References: CollectionConfig = {
         value: unknown,
         { siblingData }: { siblingData: Record<string, unknown> },
       ) => {
-        if (typeof value === "string") {
-          return value.length <= URL_MAX_LENGTH && isHttpUrl(value)
-            ? true
-            : "Enter a full link starting with https:// or http://, at most 2048 characters.";
-        }
+        if (typeof value === "string") return httpUrl(value);
         return siblingData.doi || siblingData.isbn
           ? true
           : "Give a DOI, an ISBN, or a link, so the reference can be checked.";

@@ -5,13 +5,13 @@ import {
   EVIDENCE_KINDS,
   type EvidenceKind,
   evidenceProblems,
-  isHttpUrl,
   TOPIC_PERSON_ROLES,
   TOPIC_STATES,
   type TopicChangeKind,
   type TopicSave,
   topicChangeKind,
   topicStateAfterSave,
+  URL_MAX_LENGTH,
 } from "@countrytopics/domain";
 import { isDeepStrictEqual } from "node:util";
 import {
@@ -34,9 +34,9 @@ import { richTextHasText, richTextLinksTo } from "@/editor";
 
 import { DOCUMENT_MIME_TYPES, IMAGE_MIME_TYPES } from "./Media";
 import { fillSlug, slugField } from "./slug";
+import { httpUrl, optionalHttpUrl } from "./url-field";
 
 const CHANGE_NOTE_MAX_LENGTH = 500;
-const URL_MAX_LENGTH = 2048;
 
 const EVIDENCE_KIND_LABELS: Record<EvidenceKind, string> = {
   document: "Document (PDF)",
@@ -471,15 +471,6 @@ const archiveEvidenceLinks: CollectionAfterChangeHook = async ({
   );
 };
 
-function optionalHttpUrl(value: unknown): true | string {
-  if (value === null || value === undefined || value === "") return true;
-  return typeof value === "string" &&
-    value.length <= URL_MAX_LENGTH &&
-    isHttpUrl(value)
-    ? true
-    : "Enter a full link starting with https:// or http://, at most 2048 characters.";
-}
-
 function evidenceKind(siblingData: unknown): unknown {
   return siblingData && typeof siblingData === "object" && "kind" in siblingData
     ? siblingData.kind
@@ -652,7 +643,7 @@ export const Topics: CollectionConfig = {
           type: "text",
           maxLength: URL_MAX_LENGTH,
           validate: (value: unknown) =>
-            value ? optionalHttpUrl(value) : "Enter the page's link.",
+            value ? httpUrl(value) : "Enter the page's link.",
           admin: {
             condition: (_, siblingData) => evidenceKind(siblingData) === "link",
           },

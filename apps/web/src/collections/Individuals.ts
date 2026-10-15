@@ -1,9 +1,9 @@
 import {
-  isHttpUrl,
   isPartialDate,
   isPartialDateRangeValid,
   isWikidataId,
   personNameKey,
+  URL_MAX_LENGTH,
 } from "@countrytopics/domain";
 import {
   type CollectionBeforeChangeHook,
@@ -29,10 +29,10 @@ import { DIFFERENT_PERSON_LABEL } from "@/individuals/labels";
 import { IMAGE_MIME_TYPES } from "./Media";
 import { fillSlug, slugField } from "./slug";
 import { keepWhileUsedByTopics } from "./topic-references";
+import { httpUrl } from "./url-field";
 
 const NAME_MAX_LENGTH = 200;
 const MAX_ALIASES = 20;
-const URL_MAX_LENGTH = 2048;
 const NO_STORE = { "Cache-Control": "no-store" };
 
 type AliasRow = { name?: unknown };
@@ -334,13 +334,7 @@ export const Individuals: CollectionConfig = {
           type: "text",
           required: true,
           maxLength: URL_MAX_LENGTH,
-          // A custom validate replaces Payload's, so the length is checked here.
-          validate: (value: unknown) =>
-            typeof value === "string" &&
-            value.length <= URL_MAX_LENGTH &&
-            isHttpUrl(value)
-              ? true
-              : "Enter a full link starting with https:// or http://, at most 2048 characters.",
+          validate: httpUrl,
         },
       ],
     },

@@ -1,5 +1,6 @@
 import type { LinkArchiveStatus } from "@countrytopics/domain";
 import {
+  ArchiveRefusedError,
   type Bibliography,
   type CaptureStatus,
   SourceUnavailableError,
@@ -203,6 +204,41 @@ function linkStore(status: LinkArchiveStatus | null = null) {
 
 const noWait = async () => undefined;
 
+describe("processReferenceCheck on its last attempt", () => {
+  it("records an unexpected error as a check that could not finish", async () => {
+    const { store, saved } = fakeStore("pending");
+    const broken = checkers({
+      lookupDoi: async () => {
+        throw new TypeError("parser bug");
+      },
+    });
+    await assert.rejects(
+      processReferenceCheck(
+        job,
+        { checkers: broken, store },
+        { isFinal: false },
+      ),
+      TypeError,
+    );
+    assert.equal(saved.length, 0);
+    await assert.rejects(
+      processReferenceCheck(
+        job,
+        { checkers: broken, store },
+        { isFinal: true },
+      ),
+      TypeError,
+    );
+    assert.deepEqual(saved, [
+      {
+        status: "failed",
+        message:
+          "The check failed unexpectedly. Save the reference to try again.",
+      },
+    ]);
+  });
+});
+
 describe("linkArchiveJobSchema and linkJobId", () => {
   it("accepts web links and gives each link one job id", () => {
     assert.equal(linkArchiveJobSchema.safeParse({ url: URL }).success, true);
@@ -314,6 +350,86 @@ describe("processLinkArchive", () => {
     await processLinkArchive({ url: URL }, deps, { isFinal: true });
     assert.equal(saved[0]?.status, "failed");
     assert.match(saved[0]?.message ?? "", /limiting requests/);
+  });
+
+  it("falls back to an existing copy when saving fails for now", async () => {
+    const { store, saved } = linkStore();
+    const busy = async (): Promise<never> => {
+      throw new SourceUnavailableError(
+        "The Wayback Machine",
+        "is limiting requests",
+      );
+    };
+    const withCopy = fakeArchive({
+      canCapture: true,
+      requestCapture: busy,
+      findSnapshot: async () => SNAPSHOT,
+    });
+    await processLinkArchive(
+      { url: URL },
+      { archive: withCopy, store, wait: noWait },
+      { isFinal: false },
+    );
+    assert.equal(saved[0]?.status, "archived");
+    assert.match(
+      saved[0]?.message ?? "",
+      /could not be saved \(The Wayback Machine is limiting requests\.\)/,
+    );
+
+    // With no copy to fall back on, it tries again later.
+    const noCopy = fakeArchive({ canCapture: true, requestCapture: busy });
+    await assert.rejects(
+      processLinkArchive(
+        { url: URL },
+        { archive: noCopy, store, wait: noWait },
+        { isFinal: false },
+      ),
+      SourceUnavailableError,
+    );
+  });
+
+  it("records sites the archive refuses, without retrying", async () => {
+    const { store, saved } = linkStore();
+    const archive = fakeArchive({
+      findSnapshot: async () => {
+        throw new ArchiveRefusedError(
+          "The Wayback Machine refuses to show copies of this page (403).",
+        );
+      },
+    });
+    await processLinkArchive(
+      { url: URL },
+      { archive, store, wait: noWait },
+      { isFinal: false },
+    );
+    assert.deepEqual(saved, [
+      {
+        status: "not_archived",
+        archiveUrl: null,
+        capturedAt: null,
+        message:
+          "The Wayback Machine refuses to show copies of this page (403). Paste a copy from another archive.",
+      },
+    ]);
+  });
+
+  it("records an unexpected error as failed on the last attempt", async () => {
+    const { store, saved } = linkStore();
+    const archive = fakeArchive({
+      findSnapshot: async () => {
+        throw new TypeError("parser bug");
+      },
+    });
+    await assert.rejects(
+      processLinkArchive(
+        { url: URL },
+        { archive, store, wait: noWait },
+        { isFinal: true },
+      ),
+      TypeError,
+    );
+    assert.equal(saved[0]?.status, "failed");
+    assert.match(saved[0]?.message ?? "", /failed unexpectedly/);
   });
 
   it("leaves links that are already archived alone", async () => {

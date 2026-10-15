@@ -1,3 +1,5 @@
+import type * as z from "zod";
+
 export type Fetch = typeof fetch;
 
 /** Bounds each request to an outside service. */
@@ -50,7 +52,14 @@ async function readLimited(
   const chunks: Uint8Array[] = [];
   let total = 0;
   for (;;) {
-    const { done, value } = await reader.read();
+    let chunk: Awaited<ReturnType<typeof reader.read>>;
+    try {
+      chunk = await reader.read();
+    } catch {
+      // The time limit ran out or the connection dropped mid-answer.
+      throw new SourceUnavailableError(source, "stopped answering");
+    }
+    const { done, value } = chunk;
     if (done) break;
     total += value.byteLength;
     if (total > MAX_RESPONSE_BYTES) {
@@ -60,6 +69,25 @@ async function readLimited(
     chunks.push(value);
   }
   return Buffer.concat(chunks).toString("utf8");
+}
+
+/**
+ * Parses a 200 response. One in an unexpected shape means the service
+ * changed, not that the record is missing.
+ */
+export function parseOrUnavailable<T>(
+  schema: z.ZodType<T>,
+  body: unknown,
+  source: string,
+): T {
+  const parsed = schema.safeParse(body);
+  if (!parsed.success) {
+    throw new SourceUnavailableError(
+      source,
+      "sent a response in an unexpected format",
+    );
+  }
+  return parsed.data;
 }
 
 export type JsonResponse = {

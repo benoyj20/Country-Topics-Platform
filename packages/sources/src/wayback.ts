@@ -1,6 +1,7 @@
 import * as z from "zod";
 
 import {
+  parseOrUnavailable,
   requestJson,
   type SourceClient,
   SourceUnavailableError,
@@ -22,6 +23,17 @@ export type Snapshot = {
   capturedAt: string;
 };
 
+/**
+ * The Wayback Machine will not keep or show copies of this page, for example
+ * because the site asked to be excluded. Trying again will not help.
+ */
+export class ArchiveRefusedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ArchiveRefusedError";
+  }
+}
+
 export type CaptureStatus =
   | { state: "pending" }
   | { state: "saved"; snapshot: Snapshot }
@@ -35,6 +47,7 @@ export type CaptureStatus =
 export type WebArchive = {
   /** Whether keys are configured, so new copies can be requested. */
   canCapture: boolean;
+  /** Throws ArchiveRefusedError for pages the archive refuses to show. */
   findSnapshot(url: string): Promise<Snapshot | null>;
   /** Starts saving a page; returns the job to poll. */
   requestCapture(url: string): Promise<{ jobId: string } | { refused: string }>;
@@ -98,17 +111,6 @@ function snapshotAt(timestamp: string, url: string): Snapshot | null {
   };
 }
 
-function parse<T>(schema: z.ZodType<T>, body: unknown): T {
-  const parsed = schema.safeParse(body);
-  if (!parsed.success) {
-    throw new SourceUnavailableError(
-      SOURCE,
-      "sent a response in an unexpected format",
-    );
-  }
-  return parsed.data;
-}
-
 /** Turns a capture error into a refusal, or throws when it is temporary. */
 function refusal(
   statusExt: string | undefined,
@@ -149,10 +151,16 @@ export function createWebArchive(
         SOURCE,
         `https://web.archive.org/cdx/search/cdx?${query}`,
       );
+      // Errors 429 and 5xx were thrown as temporary; other 4xx are final.
+      if (status >= 400) {
+        throw new ArchiveRefusedError(
+          `The Wayback Machine refuses to show copies of this page (${status}).`,
+        );
+      }
       if (status !== 200) {
         throw new SourceUnavailableError(SOURCE, `answered ${status}`);
       }
-      const [, latest] = parse(cdxRows, body);
+      const [, latest] = parseOrUnavailable(cdxRows, body, SOURCE);
       const [timestamp, original] = latest ?? [];
       return timestamp && original ? snapshotAt(timestamp, original) : null;
     },
@@ -176,7 +184,7 @@ export function createWebArchive(
       if (status !== 200) {
         throw new SourceUnavailableError(SOURCE, `answered ${status}`);
       }
-      const answer = parse(captureRequest, body);
+      const answer = parseOrUnavailable(captureRequest, body, SOURCE);
       if (answer.job_id) return { jobId: answer.job_id };
       return { refused: refusal(answer.status_ext, answer.message) };
     },
@@ -193,7 +201,7 @@ export function createWebArchive(
       if (status !== 200) {
         throw new SourceUnavailableError(SOURCE, `answered ${status}`);
       }
-      const job = parse(captureJob, body);
+      const job = parseOrUnavailable(captureJob, body, SOURCE);
       if (job.status === "pending") return { state: "pending" };
       if (job.status === "success" && job.timestamp && job.original_url) {
         const snapshot = snapshotAt(job.timestamp, job.original_url);

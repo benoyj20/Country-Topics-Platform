@@ -22,7 +22,14 @@ export function normalizeDoi(input: string): string | null {
     return null;
   }
   value = value.toLowerCase();
-  return value.length <= DOI_MAX_LENGTH && DOI_PATTERN.test(value)
+  // "." and ".." segments would change the path when the DOI is put into a
+  // registry's URL; real DOIs do not use them.
+  const pathTricks = value
+    .split("/")
+    .some((segment) => segment === "." || segment === "..");
+  return value.length <= DOI_MAX_LENGTH &&
+    DOI_PATTERN.test(value) &&
+    !pathTricks
     ? value
     : null;
 }

@@ -49,6 +49,7 @@ describe("lookupDoi", () => {
         body: {
           status: "ok",
           message: {
+            DOI: "10.5555/SYNTHETIC-1",
             type: "journal-article",
             title: ["A <i>synthetic</i> study"],
             subtitle: ["for tests"],
@@ -181,6 +182,47 @@ describe("lookupIsbn", () => {
     await assert.rejects(
       createBibliography(client(down.fetch)).lookupIsbn(ISBN),
       /Open Library answered with an error \(500\)/,
+    );
+  });
+});
+
+describe("lookup hardening", () => {
+  it("treats a connection that dies mid-answer as unavailable", async () => {
+    const dying: Fetch = async () =>
+      new Response(
+        new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode('{"message":'));
+            controller.error(new TypeError("terminated"));
+          },
+        }),
+        { status: 200 },
+      );
+    await assert.rejects(
+      createBibliography(client(dying)).lookupIsbn(ISBN),
+      /Open Library stopped answering/,
+    );
+  });
+
+  it("ignores a Crossref record for a different DOI", async () => {
+    const { fetch } = fakeFetch({
+      [CROSSREF]: {
+        body: { message: { DOI: "10.5555/other", title: ["Another work"] } },
+      },
+      [HANDLE]: { status: 404, body: { responseCode: 100 } },
+    });
+    assert.deepEqual(
+      await createBibliography(client(fetch)).lookupDoi("10.5555/synthetic-1"),
+      { found: false },
+    );
+  });
+
+  it("encodes dot segments so a DOI cannot point the request elsewhere", async () => {
+    const { fetch, requested } = fakeFetch({});
+    await createBibliography(client(fetch)).lookupDoi("10.5555/../works/x");
+    assert.equal(
+      requested[0]?.url,
+      "https://api.crossref.org/works/10.5555/%2E%2E/works/x",
     );
   });
 });

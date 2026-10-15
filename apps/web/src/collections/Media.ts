@@ -1,17 +1,17 @@
-import { isHttpUrl } from "@countrytopics/domain";
+import { URL_MAX_LENGTH } from "@countrytopics/domain";
 import type { CollectionConfig } from "payload";
 
 import { verifiedAdminsOnly, verifiedStaffOnly } from "@/access";
 import { auditHooks } from "@/audit";
 
 import { keepWhileUsed } from "./topic-references";
+import { optionalHttpUrl } from "./url-field";
 
 /** Photos and pictures; no SVG, which can carry scripts. */
 export const IMAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
 export const DOCUMENT_MIME_TYPES = ["application/pdf"];
 /** Larger files belong on their publisher's site, linked and archived. */
 export const UPLOAD_MAX_BYTES = 20 * 1024 * 1024;
-const URL_MAX_LENGTH = 2048;
 
 const LICENCES = [
   { value: "public_domain", label: "Public domain or CC0" },
@@ -93,16 +93,7 @@ export const Media: CollectionConfig = {
       label: "Source link",
       type: "text",
       maxLength: URL_MAX_LENGTH,
-      // A custom validate replaces Payload's, so the length is checked here.
-      validate: (value: unknown) =>
-        value === null ||
-        value === undefined ||
-        value === "" ||
-        (typeof value === "string" &&
-          value.length <= URL_MAX_LENGTH &&
-          isHttpUrl(value))
-          ? true
-          : "Enter a full link starting with https:// or http://, at most 2048 characters.",
+      validate: optionalHttpUrl,
       admin: {
         description: "Where the file came from, so others can check it.",
       },

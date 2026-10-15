@@ -24,8 +24,10 @@ for (const [network, prefix] of [
   blocked.addSubnet(network, prefix, "ipv4");
 }
 for (const [network, prefix] of [
-  ["::", 128],
-  ["::1", 128],
+  // IPv4-compatible (::a.b.c.d, which includes :: and ::1) and IPv4-translated
+  // (::ffff:0:a.b.c.d) forms can encode private IPv4 addresses.
+  ["::", 96],
+  ["::ffff:0:0:0", 96],
   ["64:ff9b::", 96],
   ["64:ff9b:1::", 48],
   ["100::", 64],
@@ -34,6 +36,8 @@ for (const [network, prefix] of [
   ["2002::", 16],
   ["fc00::", 7],
   ["fe80::", 10],
+  // Deprecated site-local addresses, still routed on some old networks.
+  ["fec0::", 10],
   ["ff00::", 8],
 ] as const) {
   blocked.addSubnet(network, prefix, "ipv6");

@@ -82,7 +82,9 @@ recorded licence.
 - Topics that name people can only be published with evidence and confirmed
   references, so public pages (week 7) can rely on the rule.
 - Without Internet Archive keys, links are archived only if the Wayback Machine
-  already holds a copy. The keys come from a free archive.org account
+  already holds a copy. Saving fresh copies is an optional feature for after the
+  pilot (v2, `docs/mvp-plan.md`): the code is in place and turns on when the
+  keys from a free archive.org account are set
   (`docs/runbooks/ownership-transfer.md`).
 - Crossref, the DOI system, Open Library, and the Wayback Machine's CDX index
   are used without accounts; requests name the site and `CONTACT_EMAIL`, as

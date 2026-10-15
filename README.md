@@ -90,8 +90,10 @@ listens on `127.0.0.1` only.
 Mailpit's inbox is at `http://localhost:8025`. Uploaded files go to the
 `countrytopics` bucket of the local SeaweedFS storage (data in a Docker volume). The
 worker checks references with Crossref, the DOI system, and Open Library and looks
-for copies of links in the Wayback Machine; to have it save new copies, put an
-Internet Archive account's keys in `WAYBACK_ACCESS_KEY` and `WAYBACK_SECRET_KEY`. PostgreSQL uses host port 5433 so it
+for existing copies of links in the Wayback Machine. Saving fresh copies is an
+optional feature planned for after the pilot; it turns on when an Internet
+Archive account's keys are set in `WAYBACK_ACCESS_KEY` and `WAYBACK_SECRET_KEY`.
+PostgreSQL uses host port 5433 so it
 does not clash with other local projects on 5432. Run all checks with `make check`;
 its integration tests rebuild the separate `countrytopics_test` database and never
 touch development data.

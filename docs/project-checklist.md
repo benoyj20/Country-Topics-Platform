@@ -320,7 +320,9 @@ See [ADR 0005](adr/0005-evidence-and-references.md) for the design.
   reference; the evidence row showed the Wayback Machine copy found by the
   worker. The only browser error was a server action cut off by the script's
   navigation (2026-10-15).
-- [ ] CI runs these tests and the migration drift check on the PR.
+- [x] CI ran these tests and the migration drift check: all passed on PR #9,
+  applying the ten migrations to the CI database and storing uploads in its
+  SeaweedFS service (2026-10-15).
 - [ ] The developer adds three references to a topic.
 - [ ] Not built yet: video snippets and transcript excerpts as evidence (week 6),
   and saving new Wayback Machine copies, which needs an Internet Archive account

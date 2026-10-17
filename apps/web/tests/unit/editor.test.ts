@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { isAllowedLinkUrl, richTextHasText, richTextLinksTo } from "@/editor";
+import {
+  isAllowedLinkUrl,
+  richTextHasText,
+  richTextLinkedIds,
+  richTextLinksTo,
+} from "@/editor";
 
 const doc = (...children: unknown[]) => ({ root: { type: "root", children } });
 const paragraph = (text: string) => ({
@@ -64,6 +69,20 @@ describe("richTextLinksTo", () => {
     ).toBe(true);
   });
 
+  it("counts a link whose document is missing: its text still names someone", () => {
+    expect(
+      richTextLinksTo(
+        doc(
+          link({
+            linkType: "internal",
+            doc: { relationTo: "individuals", value: null },
+          }),
+        ),
+        "individuals",
+      ),
+    ).toBe(true);
+  });
+
   it("ignores links elsewhere and plain text", () => {
     expect(
       richTextLinksTo(
@@ -79,5 +98,39 @@ describe("richTextLinksTo", () => {
       ),
     ).toBe(false);
     expect(richTextLinksTo(null, "individuals")).toBe(false);
+  });
+});
+
+describe("richTextLinkedIds", () => {
+  const linkTo = (relationTo: string, value: unknown) => ({
+    type: "link",
+    fields: { linkType: "internal", doc: { relationTo, value } },
+    children: [{ type: "text", text: "x" }],
+  });
+
+  it("lists each linked document of the collection once, stored or populated", () => {
+    expect(
+      richTextLinkedIds(
+        doc(
+          { type: "paragraph", children: [linkTo("individuals", "a")] },
+          {
+            type: "quote",
+            children: [
+              linkTo("individuals", { id: "b", name: "Populated" }),
+              linkTo("individuals", "a"),
+              linkTo("topics", "t"),
+            ],
+          },
+        ),
+        "individuals",
+      ),
+    ).toEqual(["a", "b"]);
+  });
+
+  it("skips links without a document", () => {
+    expect(
+      richTextLinkedIds(doc(linkTo("individuals", null)), "individuals"),
+    ).toEqual([]);
+    expect(richTextLinkedIds(undefined, "individuals")).toEqual([]);
   });
 });

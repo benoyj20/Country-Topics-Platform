@@ -1,0 +1,254 @@
+/* The public pages: topic lists, topic pages, profiles. Colours come from
+   the site's tokens in app/(frontend)/styles.css. */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 2.5rem;
+}
+
+.section > h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.lede {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.meta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chip {
+  display: inline-block;
+  padding: 0.1rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.85rem;
+}
+
+a.chip {
+  text-decoration: none;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.05rem 0.5rem;
+  border-radius: 0.3rem;
+  background: var(--surface);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.supports {
+  background: var(--supports);
+}
+
+.contradicts {
+  background: var(--contradicts);
+}
+
+.topics {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.topicCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.topicCard h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.topicCard p {
+  margin: 0;
+}
+
+/* A dt and dd kept together in a grid of terms. */
+.pair {
+  display: contents;
+}
+
+.names {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Rich text from the topic's body. */
+.body {
+  overflow-wrap: anywhere;
+}
+
+.body blockquote {
+  margin: 1rem 0;
+  padding-left: 1rem;
+  border-left: 3px solid var(--line);
+  color: var(--muted);
+}
+
+.body hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.item h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.item p {
+  margin: 0;
+}
+
+.figure {
+  margin: 0;
+}
+
+.figure img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.4rem;
+  background: var(--surface);
+}
+
+.figure figcaption {
+  margin-top: 0.4rem;
+}
+
+.credit {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+.passage {
+  margin: 0;
+  padding: 0.5rem 0.9rem;
+  border-left: 3px solid var(--line);
+  background: var(--surface);
+  font-style: italic;
+  overflow-wrap: anywhere;
+}
+
+.identifiers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.bio {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.statements {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.backing {
+  font-size: 0.95rem;
+}
+
+.backing > summary {
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.backing[open] > summary {
+  margin-bottom: 0.75rem;
+}
+
+.backing > ol + ol {
+  margin-top: 1.5rem;
+}
+
+.changes {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.changes li + li {
+  margin-top: 0.5rem;
+}
+
+.profile {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 1.5rem;
+  align-items: flex-start;
+}
+
+.profile .figure {
+  flex: 0 0 9rem;
+}
+
+.profileText {
+  display: flex;
+  flex: 1 1 16rem;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.profileText h1,
+.profileText p {
+  margin: 0;
+}

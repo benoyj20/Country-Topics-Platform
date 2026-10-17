@@ -17,8 +17,9 @@ the worker checks the video with YouTube → the snippet is used as topic eviden
 The site itself (`apps/web`) so far has sign-in (Google and email links,
 invite-only), roles, staff authenticator checks, the admin panel with countries,
 categories, tags, individuals, versioned topics with a change log, evidence and
-references, video snippets, a placeholder home page, and a health check; see
-Weeks 1 to 6 below.
+references, video snippets, public pages for visitors (home, countries,
+topics, individuals, and the files they show), and a health check; see Weeks
+1 to 7 below.
 
 The snippet flow began as a standalone prototype in `prototypes/youtube-snippet`
 (plain JavaScript, no database); its typed version is in the site since MVP week 6.
@@ -220,9 +221,10 @@ See [ADR 0003](adr/0003-countries-and-individuals.md) for the design.
   in the admin panel, and four added by script at the developer's request, with
   names, aliases, descriptions, offices, and dates taken from Wikidata
   (2026-10-14).
-- [ ] Not built yet: public pages for countries and individuals (week 7).
-  Topics link individuals since week 4, and photos with their licence came with
-  uploads in week 5.
+- [x] Public pages for countries and individuals came in week 7 (below);
+  profiles show who a person is, the topics that name them, and only the
+  profile statements that carry their own evidence and confirmed sources;
+  the one-line description, bio, and country roles are staff notes.
 
 ### Week 4: topics, workflow, versions, change log
 
@@ -421,5 +423,97 @@ See [ADR 0006](adr/0006-snippets-and-transcripts.md) for the design.
   check pending" for good because a `make dev` started before the day's
   changes still ran the old queue code; after restarting it, saving again
   queued the check.
-- [ ] Not built yet: public topic pages showing snippets (week 7), periodic
-  re-checks of videos, and transcript excerpts without a video.
+- [x] Public topic pages showing snippets came in week 7 (below).
+- [ ] Not built yet: periodic re-checks of videos, and transcript excerpts
+  without a video.
+
+### Week 7: public pages and caching
+
+See [ADR 0007](adr/0007-public-pages-and-caching.md) for the design.
+
+- [x] Visibility: a topic is public once published, and visitors see its live
+  version, never a later draft; an archived topic keeps its page but leaves
+  the home, country, and individual lists; drafts and unknown slugs have no
+  page. An individual has a page while a published topic names them (in its
+  people, by a link in its text, or as a snippet's speaker), and not
+  otherwise. A file is public as evidence of a published topic or as a
+  public individual's photo; an unused file and the photo of a person no
+  topic names are not (integration tests, 2026-10-17).
+- [x] Public fields only: page data carries no editor, check details, pasted
+  transcript text outside the clip, staff email, or later draft; links in a
+  topic's text to a draft topic become plain text (integration tests,
+  2026-10-17).
+- [x] Profile statements: each is shown only with its own evidence and its
+  own sources, every source confirmed and every snippet's video found
+  playable; a statement without evidence, without sources, with a source
+  still being checked, or with an unchecked video is left out while the
+  others show; editing a confirmed source hides its statement again; the
+  one-line description, bio, and country roles never appear; a snippet in a
+  statement names its speaker only when the speaker has a public page;
+  evidence and references a statement uses cannot be deleted (409); a
+  statement's file is public only while the statement is shown on a public
+  profile (integration and unit tests, 2026-10-17).
+- [x] A second code review of the branch, run at the developer's request
+  after the profile change, found ten issues; all were fixed, each with a
+  test where behavior changed (2026-10-17): the file check now refreshes
+  when a reference changes; profile snippets hide non-public speakers; the
+  one-line description is staff-only; made-up file ids no longer reach the
+  cache; the speaker guard also needs every reference confirmed; country
+  pages list everyone their topics name; a body link with a missing
+  document still names someone; shared helpers replace two copies.
+- [x] Topics record the individuals their text links to, on every save and,
+  by the migration, for existing topics and versions; such an individual
+  cannot be deleted (409). On the test database the migration's statements
+  rebuilt exactly the six rows the save hook had recorded (one live topic,
+  five versions), and the migration rolled back and applied again on the
+  development database (integration tests and SQL check, 2026-10-17).
+- [x] Purges: publishing a topic purges the topic pages and lists, a draft
+  save does not, and a change to any other shown collection purges its pages
+  (integration tests with Next.js's request APIs replaced by recorders,
+  2026-10-17). Outside a web request, as in a script, a save goes ahead
+  without a purge (unit test against the real Next.js `after()`).
+- [x] Fixed on the way: an update sent without the draft flag rewrote a
+  published topic's live version with no change note or change log entry
+  (a gap since week 4); it is now saved as a draft (integration test).
+- [x] Snippet speakers count as people a topic names: publishing a topic
+  that quotes a speaker needs a reference, and a speaker cannot be added to
+  a snippet that a published topic without a reference uses (integration
+  tests, 2026-10-17).
+- [x] Files are read through the storage plugin's handler, so range
+  requests (206) and revalidation (304) work (integration tests,
+  2026-10-17).
+- [x] The guard tests failed when the published filter, the purge on
+  publish, the recording of body links, the speaker rule, the draft rule,
+  and the profile statement rule were removed (2026-10-17).
+- [x] Real browser and HTTP (headless Edge and `fetch`, production build on
+  the test database, the worker running against it with the YouTube key):
+  topic, home, country, and individual pages answered 200 with
+  `s-maxage=3600, stale-while-revalidate=…`, and a second visit was a cache
+  hit; the topic page showed the person, the image, the archived link, the
+  snippet, and the reference; the image came from `/files/[id]` as
+  `image/png`, `public, max-age=3600`, `nosniff`; an unknown topic and file
+  gave 404; no staff email in the pages. Publishing a new title showed it on
+  the topic page and the home page on the next request, with the change
+  note; a draft save did not change the page; editing the individual's
+  summary showed on their page; a profile statement appeared only once it
+  had evidence and a confirmed source, with both under "Evidence and
+  sources". No YouTube script or player before a click,
+  then the privacy-enhanced player; the header said "Your account" when
+  signed in and "Sign in" after clearing cookies; at 390 px the topic, home,
+  country, and individual pages had no horizontal scroll; no browser errors
+  (2026-10-17).
+- [x] Found in the developer's manual test: a profile whose links already
+  included its Wikidata page listed it twice (React's duplicate key
+  warning). Links are now listed once each, with the Wikidata item added
+  only when no link goes there (unit tests, 2026-10-17).
+- [x] The developer browsed as a visitor in `make dev`: home, country,
+  topic, and individual pages, the archived topic with its snippet player,
+  a private profile's 404, phone width in the browser's device mode, profile
+  statements (a backed one shown, an unbacked one and the bio hidden), and
+  the signed-in header link; everything worked after the duplicate Wikidata
+  link fix (reported by the developer, 2026-10-17).
+- [ ] Before running two web containers (week 11): a shared Redis cache
+  handler, so purges reach every instance and no cache sits on local disk.
+- [ ] Not built yet: paging past 50 topics, filters and search (week 8), a
+  public JSON API, and serving video thumbnails through the site (decided
+  with the consent banner after the pilot).

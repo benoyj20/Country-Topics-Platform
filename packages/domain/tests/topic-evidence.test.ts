@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import {
   evidenceProblems,
   referenceCheckResult,
+  statementIsBacked,
   type SnippetEvidence,
   type TopicEvidence,
 } from "../src/topic-evidence.ts";
@@ -151,5 +152,49 @@ describe("referenceCheckResult", () => {
 
   it("treats a reference with nothing to check as not found", () => {
     assert.equal(referenceCheckResult([]).status, "not_found");
+  });
+});
+
+describe("statementIsBacked", () => {
+  const confirmed = { title: "R", checkStatus: "resolved" as const };
+  const statement = (overrides: Partial<TopicEvidence>) => ({
+    evidenceCount: 1,
+    references: [confirmed],
+    snippets: [],
+    ...overrides,
+  });
+
+  it("needs evidence and a reference, every reference confirmed", () => {
+    assert.equal(statementIsBacked(statement({})), true);
+    assert.equal(statementIsBacked(statement({ evidenceCount: 0 })), false);
+    assert.equal(statementIsBacked(statement({ references: [] })), false);
+    assert.equal(
+      statementIsBacked(
+        statement({
+          references: [confirmed, { title: "S", checkStatus: "pending" }],
+        }),
+      ),
+      false,
+    );
+  });
+
+  it("needs every snippet's video to have been found playable", () => {
+    const snippet = (confirmedVideo: boolean): SnippetEvidence => ({
+      caption: "C",
+      end_s: 10,
+      video: {
+        checkStatus: confirmedVideo ? "playable" : "pending",
+        confirmed: confirmedVideo,
+        duration_s: 60,
+      },
+    });
+    assert.equal(
+      statementIsBacked(statement({ snippets: [snippet(true)] })),
+      true,
+    );
+    assert.equal(
+      statementIsBacked(statement({ snippets: [snippet(false)] })),
+      false,
+    );
   });
 });

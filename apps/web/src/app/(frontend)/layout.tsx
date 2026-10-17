@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { RefreshSession } from "@/components/RefreshSession";
+import { AccountLink } from "@/components/AccountLink";
 
 import "./styles.css";
 
@@ -17,8 +18,15 @@ export default function FrontendLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body>
+        <header className="site-header">
+          <nav aria-label="Site">
+            <Link href="/" className="site-name">
+              Country Topics
+            </Link>
+            <AccountLink />
+          </nav>
+        </header>
         <main>{children}</main>
-        <RefreshSession />
       </body>
     </html>
   );

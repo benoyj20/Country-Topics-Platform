@@ -1,7 +1,8 @@
 # 0006: Video snippets, videos, and transcripts
 
 - Date: 2026-10-16
-- Status: Accepted
+- Status: Accepted; the last consequence (a speaker does not count as named)
+  is superseded by [ADR 0007](0007-public-pages-and-caching.md)
 
 ## Context
 

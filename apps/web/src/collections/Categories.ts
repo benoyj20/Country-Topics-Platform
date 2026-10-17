@@ -2,6 +2,7 @@ import type { CollectionConfig } from "payload";
 
 import { verifiedAdminsOnly, verifiedStaffOnly } from "@/access";
 import { auditHooks } from "@/audit";
+import { PUBLIC_TAGS, purgeOnChange } from "@/public-cache";
 
 import { fillSlug, slugField } from "./slug";
 import { keepWhileUsedByTopics } from "./topic-references";
@@ -27,7 +28,7 @@ export const Categories: CollectionConfig = {
     { name: "description", type: "textarea", maxLength: 500 },
     slugField,
   ],
-  hooks: {
+  hooks: purgeOnChange(PUBLIC_TAGS.categories, {
     beforeValidate: [fillSlug("categories")],
     beforeDelete: [keepWhileUsedByTopics("category", "category")],
     ...auditHooks({
@@ -39,5 +40,5 @@ export const Categories: CollectionConfig = {
         description: doc.description ?? null,
       }),
     }),
-  },
+  }),
 };

@@ -21,12 +21,20 @@ import {
 } from "payload";
 
 import { verifiedAdminsOnly, verifiedStaffOnly } from "@/access";
+import { rows } from "@/array-rows";
 import { auditHooks, relationId } from "@/audit";
 import { queueVideoCheck } from "@/content-jobs";
+import { PUBLIC_TAGS, purgeOnChange } from "@/public-cache";
 import { lockForTransaction } from "@/transaction-lock";
 
 import { refuse } from "./refuse";
-import { isUsed, keepWhileUsedByTopics } from "./topic-references";
+import { isUsed, keepWhileUsed, type Usage } from "./topic-references";
+
+/** Where snippets are used as evidence. */
+const SNIPPET_USES: Usage[] = [
+  { collection: "topics", field: "evidence.snippet" },
+  { collection: "individuals", field: "statements.evidence.snippet" },
+];
 
 /** A video is asked about again when a snippet of it is saved this long after. */
 const VIDEO_RECHECK_AFTER_MS = 24 * 60 * 60 * 1000;
@@ -145,16 +153,14 @@ const prepareSnippet: CollectionBeforeChangeHook = async ({
     if (
       stored &&
       stored.youtubeId !== youtubeId &&
-      (await isUsed(req, stored.id, [
-        { collection: "topics", field: "evidence.snippet" },
-      ]))
+      (await isUsed(req, stored.id, SNIPPET_USES))
     ) {
       refuse(
         "snippets",
         req,
         "youtubeId",
         "YouTube video",
-        "Topics use this snippet, so its video cannot change. Make a new snippet for the other video.",
+        "Topics or profiles use this snippet as evidence, so its video cannot change. Make a new snippet for the other video.",
       );
     }
     const video = await videoFor(req, youtubeId);
@@ -180,6 +186,76 @@ const prepareSnippet: CollectionBeforeChangeHook = async ({
         "endS",
         "End",
         `End is past the end of the video (${formatTime(duration_s)}).`,
+      );
+    }
+  }
+
+  // A speaker counts as someone the topics using the snippet name, and a
+  // topic that names someone is published only with a reference (ADR 0007).
+  // A speaker added later must not slip past that check on topics already
+  // published.
+  const speaker = relationId(
+    "speaker" in data ? data.speaker : stored?.speaker,
+  );
+  if (stored && speaker && speaker !== relationId(stored.speaker)) {
+    const { docs } = await req.payload.find({
+      collection: "topics",
+      draft: false,
+      where: {
+        and: [
+          { _status: { equals: "published" } },
+          { "evidence.snippet": { equals: stored.id } },
+        ],
+      },
+      select: { title: true, references: true },
+      pagination: false,
+      depth: 0,
+      overrideAccess: true,
+      req,
+    });
+    // As the publish check asks: at least one reference, every one confirmed.
+    const referenceIds = [
+      ...new Set(
+        docs.flatMap((topic) =>
+          rows(topic.references).flatMap((row) => {
+            const id = relationId(row.reference);
+            return id ? [id] : [];
+          }),
+        ),
+      ),
+    ];
+    const { docs: references } =
+      referenceIds.length > 0
+        ? await req.payload.find({
+            collection: "references",
+            where: { id: { in: referenceIds } },
+            select: { checkStatus: true },
+            depth: 0,
+            pagination: false,
+            overrideAccess: true,
+            req,
+          })
+        : { docs: [] };
+    const confirmed = new Set(
+      references
+        .filter((reference) => reference.checkStatus === "resolved")
+        .map((reference) => String(reference.id)),
+    );
+    const unreferenced = docs.filter((topic) => {
+      const cited = rows(topic.references).map((row) =>
+        relationId(row.reference),
+      );
+      return (
+        cited.length === 0 || cited.some((id) => !id || !confirmed.has(id))
+      );
+    });
+    if (unreferenced.length > 0) {
+      refuse(
+        "snippets",
+        req,
+        "speaker",
+        "Speaker",
+        `Published topics use this snippet without a confirmed reference: ${unreferenced.map((topic) => `"${topic.title}"`).join(", ")}. Naming a speaker names them in those topics, so give each a confirmed reference and publish it first.`,
       );
     }
   }
@@ -454,10 +530,10 @@ export const Snippets: CollectionConfig = {
       },
     },
   ],
-  hooks: {
-    beforeDelete: [keepWhileUsedByTopics("evidence.snippet", "snippet")],
+  hooks: purgeOnChange(PUBLIC_TAGS.snippets, {
+    beforeDelete: [keepWhileUsed("snippet", SNIPPET_USES)],
     beforeChange: [prepareSnippet],
     afterChange: [checkVideo, ...audit.afterChange],
     afterDelete: audit.afterDelete,
-  },
+  }),
 };

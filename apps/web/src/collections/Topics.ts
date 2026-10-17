@@ -1,9 +1,6 @@
 import {
   CLAIM_STANCES,
-  type ClaimStance,
   changeNoteRequired,
-  EVIDENCE_KINDS,
-  type EvidenceKind,
   evidenceProblems,
   type SnippetEvidence,
   TOPIC_PERSON_ROLES,
@@ -12,7 +9,6 @@ import {
   type TopicSave,
   topicChangeKind,
   topicStateAfterSave,
-  URL_MAX_LENGTH,
 } from "@countrytopics/domain";
 import { isDeepStrictEqual } from "node:util";
 import {
@@ -29,38 +25,27 @@ import {
   verifiedAdminsOnly,
   verifiedStaffOnly,
 } from "@/access";
+import { rows } from "@/array-rows";
 import { recordAudit, relationId } from "@/audit";
+import {
+  PERSON_ROLE_LABELS,
+  STANCE_LABELS,
+  TOPIC_STATE_LABELS,
+} from "@/content-labels";
 import { queueLinkArchives } from "@/content-jobs";
-import { richTextHasText, richTextLinksTo } from "@/editor";
+import { richTextHasText, richTextLinkedIds, richTextLinksTo } from "@/editor";
+import { PUBLIC_TAGS, purgePublicPages } from "@/public-cache";
+import { snippetEvidence } from "@/snippet-evidence";
 
-import { DOCUMENT_MIME_TYPES, IMAGE_MIME_TYPES } from "./Media";
+import {
+  evidenceField,
+  evidenceLinkUrls,
+  tidyEvidenceRows,
+} from "./evidence-field";
 import { refuse } from "./refuse";
 import { fillSlug, slugField } from "./slug";
-import { httpUrl, optionalHttpUrl } from "./url-field";
 
 const CHANGE_NOTE_MAX_LENGTH = 500;
-const EVIDENCE_TITLE_MAX_LENGTH = 200;
-
-const EVIDENCE_KIND_LABELS: Record<EvidenceKind, string> = {
-  document: "Document (PDF)",
-  image: "Image",
-  link: "Web page",
-  snippet: "Video snippet",
-};
-
-const STANCE_LABELS: Record<ClaimStance, string> = {
-  supports: "Supports",
-  contradicts: "Contradicts",
-  context: "Context",
-};
-
-const STATE_LABELS: Record<(typeof TOPIC_STATES)[number], string> = {
-  draft: "Draft",
-  in_review: "In review",
-  published: "Published",
-  updated: "Updated",
-  archived: "Archived",
-};
 
 // Set only by the hooks below; never from the request.
 const systemField = {
@@ -106,6 +91,9 @@ function pendingChanges(req: PayloadRequest): Map<string, PendingChange> {
  * Blocks, before anything is written, the operations that would take a
  * published topic offline or replace it without a change log entry:
  * - Unpublishing (one topic or in bulk). A published topic is archived instead.
+ * - An update that neither publishes nor says "draft". Payload writes the
+ *   live version for any update without `draft`, which would skip the change
+ *   note, the change log, and the public page purge; it becomes a draft save.
  * - Restoring a version over a published topic. It may be restored only as a
  *   draft, and then published with a change note.
  * A duplicate becomes a fresh draft; applyWorkflow gives it no publication
@@ -134,6 +122,13 @@ const guardLiveVersion: CollectionBeforeOperationHook = async ({
       "Status",
       "Topics are not unpublished. To take one out of lists, tick Archived, add a change note, and publish.",
     );
+  }
+  if (
+    (operation === "update" || operation === "updateByID") &&
+    !draft &&
+    status !== "published"
+  ) {
+    return { ...args, draft: true };
   }
   if (operation === "restoreVersion" && !draft && "id" in args && args.id) {
     const version = await req.payload.findVersionByID({
@@ -289,21 +284,14 @@ async function latestVersion(req: PayloadRequest, topic: string | number) {
   return docs[0] ?? null;
 }
 
-/** The rows of an array field, or none. */
-function rows(value: unknown): Record<string, unknown>[] {
-  return Array.isArray(value)
-    ? value.filter(
-        (row): row is Record<string, unknown> =>
-          Boolean(row) && typeof row === "object",
-      )
-    : [];
-}
-
-/** The snippets a topic's evidence uses, with their videos' checks. */
-async function snippetEvidence(
+/**
+ * The snippets a topic's evidence uses, with their videos' checks, and
+ * whether any names a speaker: quoting a person names them (ADR 0007).
+ */
+async function topicSnippets(
   req: PayloadRequest,
   evidence: unknown,
-): Promise<SnippetEvidence[]> {
+): Promise<{ snippets: SnippetEvidence[]; quotesSomeone: boolean }> {
   const snippetIds = [
     ...new Set(
       rows(evidence).flatMap((row) => {
@@ -312,11 +300,11 @@ async function snippetEvidence(
       }),
     ),
   ];
-  if (snippetIds.length === 0) return [];
+  if (snippetIds.length === 0) return { snippets: [], quotesSomeone: false };
   const { docs: snippets } = await req.payload.find({
     collection: "snippets",
     where: { id: { in: snippetIds } },
-    select: { caption: true, endS: true, video: true },
+    select: { caption: true, endS: true, video: true, speaker: true },
     pagination: false,
     depth: 0,
     overrideAccess: true,
@@ -342,21 +330,16 @@ async function snippetEvidence(
   const snippetsById = new Map(
     snippets.map((snippet) => [String(snippet.id), snippet]),
   );
-  return snippetIds.map((id) => {
-    const snippet = snippetsById.get(id);
-    const video = videosById.get(relationId(snippet?.video) ?? "");
-    return {
-      caption: snippet?.caption ?? "Unknown snippet",
-      end_s: snippet?.endS ?? 0,
-      video: video
-        ? {
-            checkStatus: video.checkStatus,
-            confirmed: Boolean(video.confirmedAt),
-            duration_s: video.durationS ?? null,
-          }
-        : null,
-    };
-  });
+  return {
+    snippets: snippetIds.map((id) => {
+      const snippet = snippetsById.get(id);
+      return snippetEvidence(
+        snippet,
+        videosById.get(relationId(snippet?.video) ?? ""),
+      );
+    }),
+    quotesSomeone: snippets.some((snippet) => relationId(snippet.speaker)),
+  };
 }
 
 /**
@@ -388,16 +371,18 @@ async function evidenceErrors(
         })
       : { docs: [] };
   const cited = new Map(docs.map((doc) => [String(doc.id), doc]));
+  const { snippets, quotesSomeone } = await topicSnippets(req, topic.evidence);
   return evidenceProblems({
     namesIndividuals:
       rows(topic.people).length > 0 ||
-      richTextLinksTo(topic.body, "individuals"),
+      richTextLinksTo(topic.body, "individuals") ||
+      quotesSomeone,
     evidenceCount: rows(topic.evidence).length,
     references: citedIds.map((id) => ({
       title: cited.get(id)?.title ?? "Unknown reference",
       checkStatus: cited.get(id)?.checkStatus ?? null,
     })),
-    snippets: await snippetEvidence(req, topic.evidence),
+    snippets,
   }).map(({ field, message }) => ({
     path: field,
     label: field === "evidence" ? "Evidence" : "References",
@@ -462,6 +447,9 @@ const recordChange: CollectionAfterChangeHook = async ({
   const version = latest ? String(latest.id) : null;
 
   if (pending) {
+    // Every publish has a change log entry, so this is where the live
+    // version changes; draft saves leave visitors' pages alone.
+    purgePublicPages([PUBLIC_TAGS.topics]);
     await req.payload.create({
       collection: "topic-changes",
       data: {
@@ -504,17 +492,43 @@ const recordChange: CollectionAfterChangeHook = async ({
   });
 };
 
+/**
+ * Keeps the individuals linked in the body as a relationship, so a public
+ * page can ask which topics name a person without reading every body.
+ */
+const recordBodyLinks: CollectionBeforeChangeHook = async ({
+  data,
+  originalDoc,
+  req,
+}) => {
+  const linked = richTextLinkedIds(
+    data.body ?? originalDoc?.body,
+    "individuals",
+  );
+  // Only individuals that still exist: before body links were recorded, an
+  // individual linked only in a body could be deleted, and the relationship
+  // refuses ids it cannot find.
+  const { docs } =
+    linked.length > 0
+      ? await req.payload.find({
+          collection: "individuals",
+          where: { id: { in: linked } },
+          select: { slug: true },
+          depth: 0,
+          pagination: false,
+          overrideAccess: true,
+          req,
+        })
+      : { docs: [] };
+  const existing = new Set(docs.map((doc) => String(doc.id)));
+  data.linkedIndividuals = linked.filter((id) => existing.has(id));
+  return data;
+};
+
 /** Clears the fields that do not apply to each evidence row's kind. */
 const tidyEvidence: CollectionBeforeChangeHook = ({ data }) => {
-  if (Array.isArray(data.evidence)) {
-    data.evidence = rows(data.evidence).map((row) => {
-      if (row.kind === "link") return { ...row, file: null, snippet: null };
-      const notLink = { ...row, url: null, archiveUrl: null };
-      return row.kind === "snippet"
-        ? { ...notLink, file: null }
-        : { ...notLink, snippet: null };
-    });
-  }
+  if (Array.isArray(data.evidence))
+    data.evidence = tidyEvidenceRows(data.evidence);
   return data;
 };
 
@@ -523,20 +537,11 @@ const archiveEvidenceLinks: CollectionAfterChangeHook = async ({
   doc,
   req,
 }) => {
-  await queueLinkArchives(
-    req,
-    rows(doc.evidence).flatMap((row) => (row.kind === "link" ? [row.url] : [])),
-  );
+  await queueLinkArchives(req, evidenceLinkUrls(doc.evidence));
 };
 
-function evidenceKind(siblingData: unknown): unknown {
-  return siblingData && typeof siblingData === "object" && "kind" in siblingData
-    ? siblingData.kind
-    : undefined;
-}
-
 // F3: an event, policy, or public claim about one or more countries. Every save
-// is kept as a version; visitors (from week 7) see only the published one.
+// is kept as a version; visitors see only the published one.
 export const Topics: CollectionConfig = {
   slug: "topics",
   admin: {
@@ -635,139 +640,18 @@ export const Topics: CollectionConfig = {
               type: "select",
               required: true,
               defaultValue: "subject",
-              options: TOPIC_PERSON_ROLES.map((role) => ({
-                label: role[0]?.toUpperCase() + role.slice(1),
-                value: role,
-              })),
-            },
-          ],
-        },
-      ],
-    },
-    {
-      name: "evidence",
-      type: "array",
-      labels: { singular: "Evidence", plural: "Evidence" },
-      admin: {
-        description:
-          "What shows it happened: documents, images, web pages (copied to the Wayback Machine), and video snippets. A topic that names individuals needs at least one.",
-      },
-      fields: [
-        {
-          type: "row",
-          fields: [
-            {
-              name: "kind",
-              type: "select",
-              required: true,
-              defaultValue: "document",
-              options: EVIDENCE_KINDS.map((value) => ({
+              options: TOPIC_PERSON_ROLES.map((value) => ({
                 value,
-                label: EVIDENCE_KIND_LABELS[value],
+                label: PERSON_ROLE_LABELS[value],
               })),
-            },
-            {
-              name: "title",
-              type: "text",
-              maxLength: EVIDENCE_TITLE_MAX_LENGTH,
-              // A snippet already has a caption, shown when this is empty.
-              // This replaces Payload's text check, so it checks the length.
-              validate: (
-                value: unknown,
-                { siblingData }: { siblingData: unknown },
-              ) => {
-                if (
-                  typeof value === "string" &&
-                  value.length > EVIDENCE_TITLE_MAX_LENGTH
-                ) {
-                  return `Keep the title to ${EVIDENCE_TITLE_MAX_LENGTH} characters.`;
-                }
-                return value || evidenceKind(siblingData) === "snippet"
-                  ? true
-                  : "Give the evidence a title.";
-              },
-              admin: {
-                description:
-                  "Such as 'Ministry press release, 3 May 2024'. Optional for snippets, which show their caption.",
-              },
             },
           ],
         },
-        {
-          name: "file",
-          type: "upload",
-          relationTo: "media",
-          required: true,
-          // Images for image evidence, PDFs for documents; checked on save.
-          filterOptions: ({ siblingData }) => ({
-            mimeType: {
-              in:
-                evidenceKind(siblingData) === "image"
-                  ? IMAGE_MIME_TYPES
-                  : DOCUMENT_MIME_TYPES,
-            },
-          }),
-          admin: {
-            condition: (_, siblingData) => {
-              const kind = evidenceKind(siblingData);
-              return kind !== "link" && kind !== "snippet";
-            },
-          },
-        },
-        {
-          name: "snippet",
-          type: "relationship",
-          relationTo: "snippets",
-          required: true,
-          index: true,
-          admin: {
-            condition: (_, siblingData) =>
-              evidenceKind(siblingData) === "snippet",
-            description:
-              "A clip of a YouTube video with its transcript, made under Snippets.",
-          },
-        },
-        {
-          name: "url",
-          label: "Link",
-          type: "text",
-          maxLength: URL_MAX_LENGTH,
-          validate: (value: unknown) =>
-            value ? httpUrl(value) : "Enter the page's link.",
-          admin: {
-            condition: (_, siblingData) => evidenceKind(siblingData) === "link",
-          },
-        },
-        {
-          name: "archiveStatus",
-          type: "ui",
-          admin: {
-            condition: (_, siblingData) => evidenceKind(siblingData) === "link",
-            components: {
-              Field: "/components/admin/LinkArchiveStatus#LinkArchiveStatus",
-            },
-          },
-        },
-        {
-          name: "archiveUrl",
-          label: "Copy in another archive",
-          type: "text",
-          maxLength: URL_MAX_LENGTH,
-          validate: optionalHttpUrl,
-          admin: {
-            condition: (_, siblingData) => evidenceKind(siblingData) === "link",
-            description:
-              "Optional, such as an archive.today link, when the Wayback Machine cannot copy the page.",
-          },
-        },
-        {
-          name: "note",
-          label: "What it shows",
-          type: "textarea",
-          maxLength: 1000,
-        },
       ],
     },
+    evidenceField(
+      "What shows it happened: documents, images, web pages (copied to the Wayback Machine), and video snippets. A topic that names individuals needs at least one.",
+    ),
     {
       name: "references",
       type: "array",
@@ -868,10 +752,19 @@ export const Topics: CollectionConfig = {
       defaultValue: "draft",
       index: true,
       options: TOPIC_STATES.map((value) => ({
-        label: STATE_LABELS[value],
+        label: TOPIC_STATE_LABELS[value],
         value,
       })),
       ...systemField,
+    },
+    {
+      name: "linkedIndividuals",
+      type: "relationship",
+      relationTo: "individuals",
+      hasMany: true,
+      // Kept by recordBodyLinks from the body's links; not shown in the form.
+      access: systemField.access,
+      admin: { hidden: true },
     },
     { name: "firstPublishedAt", type: "date", index: true, ...systemField },
     { name: "lastPublishedAt", type: "date", ...systemField },
@@ -885,7 +778,7 @@ export const Topics: CollectionConfig = {
   hooks: {
     beforeValidate: [fillSlug("topics", "title")],
     beforeOperation: [guardLiveVersion],
-    beforeChange: [tidyEvidence, applyWorkflow],
+    beforeChange: [tidyEvidence, recordBodyLinks, applyWorkflow],
     afterChange: [recordChange, archiveEvidenceLinks],
     afterDelete: [
       async ({ doc, req }) => {

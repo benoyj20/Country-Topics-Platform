@@ -89,9 +89,64 @@ export function richTextHasText(value: unknown): boolean {
   return root ? visit(root) : false;
 }
 
+/** The document an internal link points to, as stored or populated. */
+export type InternalLinkTarget = { relationTo: string; id: string };
+
+/** The target of a link node's fields, when it is an internal link. */
+export function internalLinkTarget(fields: unknown): InternalLinkTarget | null {
+  if (
+    !fields ||
+    typeof fields !== "object" ||
+    !("linkType" in fields) ||
+    fields.linkType !== "internal" ||
+    !("doc" in fields) ||
+    !fields.doc ||
+    typeof fields.doc !== "object" ||
+    !("relationTo" in fields.doc) ||
+    typeof fields.doc.relationTo !== "string" ||
+    !("value" in fields.doc)
+  ) {
+    return null;
+  }
+  const value = fields.doc.value;
+  const id =
+    typeof value === "string"
+      ? value
+      : value && typeof value === "object" && "id" in value
+        ? String(value.id)
+        : null;
+  return id ? { relationTo: fields.doc.relationTo, id } : null;
+}
+
+/** Every document a Lexical document links to, each once, in reading order. */
+export function richTextLinkTargets(value: unknown): InternalLinkTarget[] {
+  const root = (value as { root?: LexicalNode } | null | undefined)?.root;
+  const found = new Map<string, InternalLinkTarget>();
+  const visit = (node: LexicalNode) => {
+    const target = internalLinkTarget(node.fields);
+    if (target) found.set(`${target.relationTo}:${target.id}`, target);
+    if (Array.isArray(node.children)) {
+      for (const child of node.children as LexicalNode[]) visit(child);
+    }
+  };
+  if (root) visit(root);
+  return [...found.values()];
+}
+
+/** The ids of the documents of one collection that a Lexical document links to. */
+export function richTextLinkedIds(
+  value: unknown,
+  collection: string,
+): string[] {
+  return richTextLinkTargets(value)
+    .filter((target) => target.relationTo === collection)
+    .map((target) => target.id);
+}
+
 /**
  * Whether a Lexical document links to any document of a collection, such as
- * an individual: a topic that links a person names them.
+ * an individual: a topic that links a person names them. A link whose
+ * document is missing still counts, since its text still names someone.
  */
 export function richTextLinksTo(value: unknown, collection: string): boolean {
   const root = (value as { root?: LexicalNode } | null | undefined)?.root;

@@ -3,8 +3,12 @@
   --text: #1a1a1a;
   --muted: #555;
   --background: #fafafa;
+  --surface: #eef0f3;
+  --line: #d5d9de;
   --accent: #1f5fbf;
   --accent-text: #fff;
+  --supports: #d7f0dc;
+  --contradicts: #f8dcd8;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -12,8 +16,12 @@
     --text: #ececec;
     --muted: #aaa;
     --background: #121212;
+    --surface: #1f2226;
+    --line: #3a3f45;
     --accent: #6ea2ff;
     --accent-text: #0b1a33;
+    --supports: #1f3d27;
+    --contradicts: #4a2420;
   }
 }
 
@@ -25,14 +33,34 @@ body {
   line-height: 1.5;
 }
 
-main {
-  max-width: 40rem;
-  margin: 0 auto;
-  padding: 4rem 1rem;
+a {
+  color: var(--accent);
 }
 
-.home p {
-  color: var(--muted);
+.site-header {
+  border-bottom: 1px solid var(--line);
+}
+
+.site-header nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  max-width: 48rem;
+  margin: 0 auto;
+  padding: 0.75rem 1rem;
+}
+
+.site-name {
+  color: var(--text);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+main {
+  max-width: 48rem;
+  margin: 0 auto;
+  padding: 2rem 1rem 4rem;
 }
 
 .button {

@@ -1,6 +1,7 @@
 "use client";
 
 import { formatTime, type TranscriptSegment } from "@countrytopics/domain";
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import styles from "./SnippetPlayer.module.css";
@@ -28,6 +29,10 @@ export type SnippetPlayerProps = {
   end_s: number;
   caption: string;
   speaker?: string | null;
+  /** The speaker's page, when visitors can open it. */
+  speakerHref?: string | null;
+  /** The language of the transcript, such as en or sw. */
+  language?: string | null;
   videoTitle?: string | null;
   channel?: string | null;
   /** The transcript inside the clip, in video time; empty when there is none. */
@@ -49,6 +54,8 @@ export function SnippetPlayer({
   end_s,
   caption,
   speaker,
+  speakerHref,
+  language,
   videoTitle,
   channel,
   segments,
@@ -162,18 +169,26 @@ export function SnippetPlayer({
     [youtubeId, start_s, end_s],
   );
 
-  const source = [
-    speaker ? `Speaker: ${speaker}` : null,
-    `From “${videoTitle ?? youtubeId}”${channel ? ` · ${channel}` : ""}`,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  const source = `From “${videoTitle ?? youtubeId}”${channel ? ` · ${channel}` : ""}`;
 
   return (
     <article className={styles.snippet}>
       <header className={styles.header}>
         <h3 className={styles.caption}>{caption || "Untitled snippet"}</h3>
-        <p className={styles.muted}>{source}</p>
+        <p className={styles.muted}>
+          {speaker ? (
+            <>
+              Speaker:{" "}
+              {speakerHref ? (
+                <Link href={speakerHref}>{speaker}</Link>
+              ) : (
+                speaker
+              )}{" "}
+              ·{" "}
+            </>
+          ) : null}
+          {source}
+        </p>
       </header>
       <div className={styles.body}>
         <div className={styles.stage}>
@@ -233,7 +248,11 @@ export function SnippetPlayer({
         </div>
         <div className={styles.transcript}>
           {segments.length > 0 ? (
-            <ol ref={listRef} className={styles.lines}>
+            <ol
+              ref={listRef}
+              className={styles.lines}
+              lang={language ?? undefined}
+            >
               {segments.map((segment, index) => (
                 <li
                   key={`${segment.start_s}-${index}`}

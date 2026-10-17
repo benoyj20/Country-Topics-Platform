@@ -98,7 +98,10 @@ export function referenceCheckResult(checks: IdentifierCheck[]): {
 }
 
 export type TopicEvidence = {
-  /** The topic links an individual, in its list of people or in its text. */
+  /**
+   * The topic names an individual: in its list of people, by a link in its
+   * text, or as the speaker of a snippet it uses as evidence.
+   */
   namesIndividuals: boolean;
   evidenceCount: number;
   /** The references the topic cites, with their check status. */
@@ -210,4 +213,19 @@ export function evidenceProblems(topic: TopicEvidence): EvidenceProblem[] {
     });
   }
   return problems;
+}
+
+/**
+ * Whether a statement on an individual's profile may be shown publicly: it
+ * passes the same check as publishing a topic that names someone (evidence,
+ * at least one reference, every reference confirmed, every snippet's video
+ * found playable). Checked on every read, since a reference edited later is
+ * "being checked" again.
+ */
+export function statementIsBacked(
+  statement: Omit<TopicEvidence, "namesIndividuals">,
+): boolean {
+  return (
+    evidenceProblems({ ...statement, namesIndividuals: true }).length === 0
+  );
 }

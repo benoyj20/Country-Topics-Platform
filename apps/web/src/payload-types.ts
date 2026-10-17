@@ -236,6 +236,7 @@ export interface Topic {
    */
   slug: string;
   state: 'draft' | 'in_review' | 'published' | 'updated' | 'archived';
+  linkedIndividuals?: (string | Individual)[] | null;
   firstPublishedAt?: string | null;
   lastPublishedAt?: string | null;
   lastEditedBy?: (string | null) | User;
@@ -323,11 +324,11 @@ export interface Individual {
     | null;
   notADuplicate?: boolean | null;
   /**
-   * One line that tells people with the same name apart, such as 'Economist' or 'Minister of Finance'.
+   * One line that tells people with the same name apart in the admin panel, such as 'Economist' or 'Minister of Finance'. Seen by staff only; to say it publicly, add it as a statement below.
    */
   summary?: string | null;
   /**
-   * Countries this person is linked to, their role there, and when.
+   * Countries this person is linked to, their role there, and when. Seen by staff only; to say a role on the public profile, add it as a statement below, with its evidence and sources.
    */
   countries?:
     | {
@@ -346,9 +347,59 @@ export interface Individual {
    */
   photo?: (string | null) | Media;
   /**
-   * Plain text. Keep to what the linked evidence and references support.
+   * Notes for staff, never shown publicly. What the public profile says goes under Statements, each with its evidence and sources.
    */
   bio?: string | null;
+  /**
+   * What the public profile says about this person, one fact per statement. Each statement is shown only with its own evidence and sources, every source confirmed and every video found playable; until then it stays hidden, and the others are still shown.
+   */
+  statements?:
+    | {
+        /**
+         * One fact, such as 'Minister of Finance from May 2019 to March 2022.' Say only what the evidence and sources below show.
+         */
+        text: string;
+        /**
+         * What shows the statement is true: an official document, an archived web page, a photo, or a video snippet. At least one.
+         */
+        evidence?:
+          | {
+              kind: 'document' | 'image' | 'link' | 'snippet';
+              /**
+               * Such as 'Ministry press release, 3 May 2024'. Optional for snippets, which show their caption.
+               */
+              title?: string | null;
+              file?: (string | null) | Media;
+              /**
+               * A clip of a YouTube video with its transcript, made under Snippets.
+               */
+              snippet?: (string | null) | Snippet;
+              url?: string | null;
+              /**
+               * Optional, such as an archive.today link, when the Wayback Machine cannot copy the page.
+               */
+              archiveUrl?: string | null;
+              note?: string | null;
+              id?: string | null;
+            }[]
+          | null;
+        /**
+         * References that support the statement, each with the passage that does. At least one, all confirmed.
+         */
+        sources?:
+          | {
+              reference: string | Reference;
+              /**
+               * The words in the reference that support the statement, quoted exactly.
+               */
+              passage: string;
+              locator?: string | null;
+              id?: string | null;
+            }[]
+          | null;
+        id?: string | null;
+      }[]
+    | null;
   /**
    * Official pages and other profiles.
    */
@@ -760,6 +811,7 @@ export interface TopicsSelect<T extends boolean = true> {
   archived?: T;
   slug?: T;
   state?: T;
+  linkedIndividuals?: T;
   firstPublishedAt?: T;
   lastPublishedAt?: T;
   lastEditedBy?: T;
@@ -905,6 +957,32 @@ export interface IndividualsSelect<T extends boolean = true> {
       };
   photo?: T;
   bio?: T;
+  statements?:
+    | T
+    | {
+        text?: T;
+        evidence?:
+          | T
+          | {
+              kind?: T;
+              title?: T;
+              file?: T;
+              snippet?: T;
+              url?: T;
+              archiveUrl?: T;
+              note?: T;
+              id?: T;
+            };
+        sources?:
+          | T
+          | {
+              reference?: T;
+              passage?: T;
+              locator?: T;
+              id?: T;
+            };
+        id?: T;
+      };
   links?:
     | T
     | {

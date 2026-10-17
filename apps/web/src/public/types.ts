@@ -153,3 +153,48 @@ export type HomePage = {
   /** Countries with at least one listed topic, by name. */
   countries: CountryLink[];
 };
+
+/** A listed topic in browse results. */
+export type BrowseTopic = TopicSummary & { referenceCount: number };
+
+/** One value of a browse facet. */
+export type BrowseFacetValue = {
+  /** The slug or code that goes in the URL. */
+  value: string;
+  label: string;
+  /**
+   * The topics choosing it would show, given the other filters; null for a
+   * chosen value outside the most common ones, which are the ones counted.
+   */
+  count: number | null;
+  /** A country's region, to group countries by. */
+  group: string | null;
+};
+
+export type BrowseFacets = {
+  country: BrowseFacetValue[];
+  category: BrowseFacetValue[];
+  tag: BrowseFacetValue[];
+  person: BrowseFacetValue[];
+  evidence: BrowseFacetValue[];
+  language: BrowseFacetValue[];
+  /** Topics citing a reference, given the other filters. */
+  references: number;
+};
+
+/** A page of browse results; the first page also has the total and facets. */
+export type BrowseResult = {
+  topics: BrowseTopic[];
+  nextCursor: string | null;
+  total: number | null;
+  facets: BrowseFacets | null;
+};
+
+type Labelled<T> = T & { id: string };
+
+/** Every country, category, and tag browsing can filter by, with its id. */
+export type BrowseTerms = {
+  countries: Labelled<CountryLink & { region: string | null }>[];
+  categories: Labelled<TermLink>[];
+  tags: Labelled<TermLink>[];
+};

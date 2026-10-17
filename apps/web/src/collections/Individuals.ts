@@ -28,7 +28,9 @@ import {
   nameKeys,
 } from "@/individuals/duplicates";
 import { DIFFERENT_PERSON_LABEL } from "@/individuals/labels";
+import { namingTopics } from "@/public/naming";
 import { PUBLIC_TAGS, purgeOnChange } from "@/public-cache";
+import { reindexTopicsOnChange } from "@/search-index";
 
 import {
   evidenceField,
@@ -520,7 +522,14 @@ export const Individuals: CollectionConfig = {
       ]),
     ],
     beforeChange: [checkDuplicates, tidyStatements],
-    afterChange: [archiveStatementLinks, ...audit.afterChange],
+    afterChange: [
+      archiveStatementLinks,
+      ...audit.afterChange,
+      reindexTopicsOnChange("individuals", {
+        searched: (doc) => [doc.name, rows(doc.aliases).map((a) => a.name)],
+        topicsShowing: (req, id) => namingTopics(req.payload, [id]),
+      }),
+    ],
     afterDelete: audit.afterDelete,
   }),
 };

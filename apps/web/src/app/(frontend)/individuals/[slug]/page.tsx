@@ -7,6 +7,7 @@ import { FileCredit } from "@/components/public/FileCredit";
 import { SourceList } from "@/components/public/ReferenceList";
 import styles from "@/components/public/public.module.css";
 import { TopicList } from "@/components/public/TopicList";
+import { browseHref } from "@/public/browse-query";
 import { individualPage } from "@/public/cached";
 import type { IndividualPage } from "@/public/types";
 
@@ -94,6 +95,7 @@ export default async function IndividualPageView({ params }: Props) {
         <TopicList
           topics={individual.topics}
           empty="No current topics name this person; archived topics may still link here."
+          moreHref={browseHref({ person: [individual.slug] })}
         />
       </section>
 

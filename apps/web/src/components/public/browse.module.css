@@ -1,0 +1,170 @@
+/* The /topics browser. Colours come from the site's tokens in
+   app/(frontend)/styles.css. */
+
+.search {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.search input {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+.flush {
+  margin: 0;
+}
+
+.filters {
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.filters summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.facets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 1fr));
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+
+.facet {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.facet legend {
+  padding: 0;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+
+.group {
+  margin: 0.4rem 0 0.1rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.options {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.option {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  padding: 0.15rem 0;
+  overflow-wrap: anywhere;
+}
+
+.count {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.dates label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.9rem;
+}
+
+.chosen {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chip {
+  padding: 0.15rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.clear {
+  padding: 0.15rem 0.3rem;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.85rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+}
+
+.total {
+  flex: 1 1 auto;
+  margin: 0;
+  font-weight: 600;
+}
+
+.sort {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.sort select {
+  padding: 0.45rem 0.5rem;
+  border: 1px solid var(--muted);
+  border-radius: 0.4rem;
+  background: var(--background);
+  color: var(--text);
+  font: inherit;
+}
+
+.copied {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.copyField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+/* Results from the previous request, shown while the next loads. */
+.stale {
+  opacity: 0.6;
+}
+
+.more {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}

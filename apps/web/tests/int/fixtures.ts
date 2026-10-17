@@ -6,6 +6,7 @@ import {
   processVideoCheck,
   REFERENCE_QUEUE_NAME,
   type ReferenceCheckers,
+  SEARCH_QUEUE_NAME,
   VIDEO_QUEUE_NAME,
 } from "@countrytopics/jobs";
 import type { VideoLookup, YouTube } from "@countrytopics/sources";
@@ -132,11 +133,16 @@ export async function workerSide() {
       connection,
       prefix: env.queuePrefix,
     }),
+    search: new Queue(SEARCH_QUEUE_NAME, {
+      connection,
+      prefix: env.queuePrefix,
+    }),
   };
   await Promise.all(
     Object.values(queues).map((queue) => queue.obliterate({ force: true })),
   );
   return {
+    pool,
     store: createContentStore(pool),
     queues,
     async close() {

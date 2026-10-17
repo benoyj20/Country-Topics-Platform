@@ -12,6 +12,7 @@ import * as migration_20261017_025328_snippets_and_videos from './20261017_02532
 import * as migration_20261017_035339_check_requests from './20261017_035339_check_requests';
 import * as migration_20261017_050139_linked_individuals from './20261017_050139_linked_individuals';
 import * as migration_20261017_063102_profile_statements from './20261017_063102_profile_statements';
+import * as migration_20261017_090000_search_topics from './20261017_090000_search_topics';
 
 export const migrations = [
   {
@@ -83,5 +84,10 @@ export const migrations = [
     up: migration_20261017_063102_profile_statements.up,
     down: migration_20261017_063102_profile_statements.down,
     name: '20261017_063102_profile_statements'
+  },
+  {
+    up: migration_20261017_090000_search_topics.up,
+    down: migration_20261017_090000_search_topics.down,
+    name: '20261017_090000_search_topics',
   },
 ];

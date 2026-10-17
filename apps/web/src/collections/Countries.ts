@@ -3,6 +3,7 @@ import type { CollectionConfig } from "payload";
 import { nobody, verifiedAdminsOnly, verifiedStaffOnly } from "@/access";
 import { auditHooks } from "@/audit";
 import { PUBLIC_TAGS, purgeOnChange } from "@/public-cache";
+import { reindexTopicsOnChange } from "@/search-index";
 
 import { slugField } from "./slug";
 
@@ -13,6 +14,18 @@ const readOnlyCode = {
   access: { create: () => false, update: () => false },
   admin: { readOnly: true },
 } as const;
+
+const audit = auditHooks({
+  collection: "countries",
+  action: "country",
+  snapshot: (doc) => ({
+    code: doc.code,
+    name: doc.name,
+    slug: doc.slug,
+    region: doc.region ?? null,
+    subregion: doc.subregion ?? null,
+  }),
+});
 
 export const Countries: CollectionConfig = {
   slug: "countries",
@@ -95,18 +108,14 @@ export const Countries: CollectionConfig = {
     },
     slugField,
   ],
-  hooks: purgeOnChange(
-    PUBLIC_TAGS.countries,
-    auditHooks({
-      collection: "countries",
-      action: "country",
-      snapshot: (doc) => ({
-        code: doc.code,
-        name: doc.name,
-        slug: doc.slug,
-        region: doc.region ?? null,
-        subregion: doc.subregion ?? null,
+  hooks: purgeOnChange(PUBLIC_TAGS.countries, {
+    afterChange: [
+      ...audit.afterChange,
+      reindexTopicsOnChange("countries", {
+        searched: (doc) => doc.name,
+        topicsShowing: async (_req, id) => ({ countries: { in: [id] } }),
       }),
-    }),
-  ),
+    ],
+    afterDelete: audit.afterDelete,
+  }),
 };

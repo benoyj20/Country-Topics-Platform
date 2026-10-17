@@ -1,6 +1,8 @@
 import {
   clipProblems,
   formatTime,
+  isLanguageTag,
+  LANGUAGE_TAG_MAX_LENGTH,
   parseYouTubeUrl,
   roundToTenths,
   secondsOrNull,
@@ -25,6 +27,7 @@ import { rows } from "@/array-rows";
 import { auditHooks, relationId } from "@/audit";
 import { queueVideoCheck } from "@/content-jobs";
 import { PUBLIC_TAGS, purgeOnChange } from "@/public-cache";
+import { reindexTopicsOnChange } from "@/search-index";
 import { lockForTransaction } from "@/transaction-lock";
 
 import { refuse } from "./refuse";
@@ -38,8 +41,6 @@ const SNIPPET_USES: Usage[] = [
 
 /** A video is asked about again when a snippet of it is saved this long after. */
 const VIDEO_RECHECK_AFTER_MS = 24 * 60 * 60 * 1000;
-const LANGUAGE_TAG = /^[a-z]{2,3}(-[a-z0-9]{1,8})*$/i;
-const LANGUAGE_MAX_LENGTH = 35;
 const VIDEO_CHECKS = "videoChecks";
 
 const TIMEBASE_LABELS: Record<TranscriptTimebase, string> = {
@@ -418,12 +419,10 @@ export const Snippets: CollectionConfig = {
           type: "text",
           required: true,
           defaultValue: "en",
-          maxLength: LANGUAGE_MAX_LENGTH,
-          // Replaces Payload's text check, so the length is checked here too.
+          maxLength: LANGUAGE_TAG_MAX_LENGTH,
+          // Replaces Payload's text check; isLanguageTag checks the length too.
           validate: (value: unknown) =>
-            typeof value === "string" &&
-            value.length <= LANGUAGE_MAX_LENGTH &&
-            LANGUAGE_TAG.test(value)
+            typeof value === "string" && isLanguageTag(value)
               ? true
               : "Use a language code, such as en, sw, or pt-BR.",
           admin: { description: "Of what is said, such as en or sw." },
@@ -533,7 +532,21 @@ export const Snippets: CollectionConfig = {
   hooks: purgeOnChange(PUBLIC_TAGS.snippets, {
     beforeDelete: [keepWhileUsed("snippet", SNIPPET_USES)],
     beforeChange: [prepareSnippet],
-    afterChange: [checkVideo, ...audit.afterChange],
+    afterChange: [
+      checkVideo,
+      ...audit.afterChange,
+      reindexTopicsOnChange("snippets", {
+        searched: (doc) => [
+          relationId(doc.speaker),
+          doc.language,
+          doc.caption,
+          rows(doc.transcript).map((line) => line.text),
+        ],
+        topicsShowing: async (_req, id) => ({
+          "evidence.snippet": { equals: id },
+        }),
+      }),
+    ],
     afterDelete: audit.afterDelete,
   }),
 };

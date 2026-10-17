@@ -5,6 +5,7 @@ import {
   clipLines,
   clipProblems,
   formatTime,
+  isLanguageTag,
   parseTime,
   parseTranscript,
   parseYouTubeUrl,
@@ -257,5 +258,26 @@ describe("snippetTranscript", () => {
       snippetTranscript({ ...clip, timebase: "video", text }).problem ?? "",
       /under 2000 characters/,
     );
+  });
+});
+
+describe("isLanguageTag", () => {
+  it("accepts language codes with optional subtags", () => {
+    for (const tag of ["en", "sw", "pt-BR", "zh-Hant-TW", "yue"]) {
+      assert.ok(isLanguageTag(tag), tag);
+    }
+  });
+
+  it("refuses anything else", () => {
+    for (const tag of [
+      "",
+      "e",
+      "english",
+      "en_GB",
+      "en-",
+      `en-${"a".repeat(40)}`,
+    ]) {
+      assert.equal(isLanguageTag(tag), false, tag);
+    }
   });
 });

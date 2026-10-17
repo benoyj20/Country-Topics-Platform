@@ -4,4 +4,6 @@ export * from "./link-jobs.ts";
 export * from "./pending-checks.ts";
 export * from "./redis.ts";
 export * from "./reference-jobs.ts";
+export * from "./search-jobs.ts";
+export * from "./topic-search-source.ts";
 export * from "./video-jobs.ts";

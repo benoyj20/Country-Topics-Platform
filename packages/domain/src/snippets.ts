@@ -385,3 +385,11 @@ export function snippetTranscript({
   }
   return { segments, parsed: lines.length, dropped, skipped, problem };
 }
+
+export const LANGUAGE_TAG_MAX_LENGTH = 35;
+const LANGUAGE_TAG = /^[a-z]{2,3}(-[a-z0-9]{1,8})*$/i;
+
+/** A snippet's language: a BCP 47 style tag, such as en, sw, or pt-BR. */
+export function isLanguageTag(value: string): boolean {
+  return value.length <= LANGUAGE_TAG_MAX_LENGTH && LANGUAGE_TAG.test(value);
+}

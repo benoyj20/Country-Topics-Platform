@@ -1,7 +1,9 @@
+import Form from "next/form";
 import Link from "next/link";
 
 import styles from "@/components/public/public.module.css";
 import { TopicList } from "@/components/public/TopicList";
+import { browseHref } from "@/public/browse-query";
 import { homePage } from "@/public/cached";
 
 // Cached for everyone and purged when content changes (ADR 0007); equal to
@@ -20,9 +22,38 @@ export default async function HomePage() {
         them.
       </p>
 
+      {/* Next.js's form: a client-side navigation to /topics?q=..., and a
+          plain GET form before the page's script loads. */}
+      <Form role="search" action="/topics" className={styles.searchForm}>
+        <label htmlFor="home-q" className={styles.visuallyHidden}>
+          Search topics
+        </label>
+        <input
+          id="home-q"
+          name="q"
+          type="search"
+          maxLength={200}
+          placeholder="Search topics, people, and what they said"
+        />
+        <button type="submit" className="button">
+          Search
+        </button>
+      </Form>
+
       <section className={styles.section} aria-labelledby="latest">
         <h2 id="latest">Latest topics</h2>
-        <TopicList topics={topics} empty="No topics are published yet." />
+        <TopicList
+          topics={topics}
+          empty="No topics are published yet."
+          moreHref={browseHref()}
+        />
+        {topics.items.length > 0 ? (
+          <p className={styles.meta}>
+            <Link href={browseHref()}>
+              Browse all topics by country, person, and evidence
+            </Link>
+          </p>
+        ) : null}
       </section>
 
       {countries.length > 0 ? (

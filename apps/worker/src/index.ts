@@ -6,10 +6,14 @@ import {
   createRedisConnection,
   createReferenceQueue,
   createReferenceWorker,
+  createSearchQueue,
+  createSearchWorker,
+  createTopicSearchSource,
   createVideoQueue,
   createVideoWorker,
   requeuePendingChecks,
 } from "@countrytopics/jobs";
+import { createPostgresTopicSearch } from "@countrytopics/search";
 import {
   checkUrl,
   createBibliography,
@@ -65,6 +69,12 @@ const workers: Record<string, ReturnType<typeof createEmailWorker>> = {
       env.wayback,
     ),
   }),
+  // The search index is a table in the same database (ADR 0008).
+  search: createSearchWorker({
+    ...queues,
+    source: createTopicSearchSource(pool),
+    index: createPostgresTopicSearch(pool),
+  }),
   videos: createVideoWorker({
     ...queues,
     store,
@@ -103,6 +113,10 @@ const checkQueues = {
   }),
   videos: createVideoQueue({ connection: producer, prefix: env.queuePrefix }),
 };
+const searchQueue = createSearchQueue({
+  connection: producer,
+  prefix: env.queuePrefix,
+});
 requeuePendingChecks(store, checkQueues, (message) => console.warn(message))
   .then(({ references, videos }) =>
     console.log(
@@ -116,6 +130,18 @@ requeuePendingChecks(store, checkQueues, (message) => console.warn(message))
     ),
   );
 
+// The search index is rebuilt from the database now, which fills it after a
+// migration or a lost job, and then every hour; one schedule is shared by
+// every worker.
+searchQueue
+  .scheduleRebuilds()
+  .catch((error: unknown) =>
+    console.error(
+      "Could not schedule search index rebuilds:",
+      error instanceof Error ? error.message : error,
+    ),
+  );
+
 // Containers stop with SIGTERM; finish in-flight jobs, then release Redis and
 // the database.
 async function shutDown(signal: string): Promise<void> {
@@ -124,6 +150,7 @@ async function shutDown(signal: string): Promise<void> {
   await Promise.all([
     checkQueues.references.close(),
     checkQueues.videos.close(),
+    searchQueue.close(),
   ]);
   await Promise.all([connection.quit(), producer.quit(), pool.end()]);
   process.exit(0);

@@ -40,9 +40,14 @@ reference's DOI, ISBN, or link before it can be published. Admins cut video
 snippets from YouTube videos with a pasted transcript, preview them with the
 transcript highlighted as the clip plays, and use them as evidence once the worker
 has found the video playable. A topic that names an individual needs evidence and
-a confirmed reference. There is a placeholder home
-page and a health check at `/api/v1/health`. Public pages and the other features
-follow the [MVP plan](docs/mvp-plan.md); see the checklist for what is verified.
+a confirmed reference. Visitors read published topics, country pages, and
+profiles, and browse every topic at `/topics`: search words, filters for
+country, category, tag, person, evidence, snippet language, references, and
+publish date, and sorting, all kept in the address so a link opens the same
+results. The worker keeps a PostgreSQL full-text search index up to date as
+topics are published. There is a health check at `/api/v1/health`. Comments and
+the other features follow the [MVP plan](docs/mvp-plan.md); see the checklist
+for what is verified.
 
 ```sh
 make dev-prototype
@@ -54,10 +59,11 @@ Open `http://localhost:4173` and click **Try demo**. See
 ## Repository layout
 
 - `apps/web` — Next.js site, Payload admin, and `/api/v1`
-- `apps/worker` — background jobs on BullMQ: sign-in emails, reference checks, link archiving, video checks
-- `packages/domain` — roles, sign-up rules, name, slug, date, DOI, and ISBN rules, the topic workflow, the evidence rules, and snippet and transcript parsing
+- `apps/worker` — background jobs on BullMQ: sign-in emails, reference checks, link archiving, video checks, the search index
+- `packages/domain` — roles, sign-up rules, name, slug, date, DOI, and ISBN rules, the topic workflow, the evidence rules, snippet and transcript parsing, language codes, and the plain text of rich text
 - `packages/email` — the email adapter (SMTP) and email templates
-- `packages/jobs` — job queues shared by the web app and the worker, and the worker's database writes
+- `packages/jobs` — job queues shared by the web app and the worker, and the worker's database reads and writes
+- `packages/search` — the search adapter: topic search with filters and facets, on PostgreSQL full text
 - `packages/sources` — outside services: Crossref, the DOI system, Open Library, Google Books (optional), the Wayback Machine, YouTube (oEmbed and the Data API), and safe link checks
 - `prototypes` — throwaway experiments; apps never import from here
 - `deploy/compose` — local PostgreSQL (pgvector), Redis-compatible Valkey, Mailpit, SeaweedFS (S3-compatible storage)

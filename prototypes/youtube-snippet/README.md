@@ -36,8 +36,12 @@ Open the page through the server, not as a file: YouTube refuses embeds on `file
 From the repository root, `pnpm test` and `pnpm lint` include this package. Inside
 this folder, run `pnpm test` (Node's test runner) and `pnpm lint` (ESLint).
 
-The prototype is plain JavaScript, so it has no `typecheck` or `build` step. It is
-rebuilt in TypeScript inside `apps/web` in MVP week 6.
+The prototype is plain JavaScript, so it has no `typecheck` or `build` step. Its
+TypeScript version is in the site since MVP week 6: the parsing in
+`packages/domain/src/snippets.ts`, the video check in `packages/sources` and the
+worker, and the editor and player in `apps/web` (see
+[ADR 0006](../../docs/adr/0006-snippets-and-transcripts.md)). Changes go there;
+this folder stays as the record of the experiment.
 
 ## Files
 

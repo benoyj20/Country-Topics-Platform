@@ -4,12 +4,17 @@ import {
   createEmailWorker,
   createLinkWorker,
   createRedisConnection,
+  createReferenceQueue,
   createReferenceWorker,
+  createVideoQueue,
+  createVideoWorker,
+  requeuePendingChecks,
 } from "@countrytopics/jobs";
 import {
   checkUrl,
   createBibliography,
   createWebArchive,
+  createYouTube,
   SOURCE_TIMEOUT_MS,
   sourceUserAgent,
   WEB_ARCHIVE_TIMEOUT_MS,
@@ -60,6 +65,15 @@ const workers: Record<string, ReturnType<typeof createEmailWorker>> = {
       env.wayback,
     ),
   }),
+  videos: createVideoWorker({
+    ...queues,
+    store,
+    youtube: createYouTube(sourceClient, {
+      dataApiKey: env.youtubeApiKey,
+      onDataApiError: (message) =>
+        console.warn(`Video check without the Data API: ${message}`),
+    }),
+  }),
 };
 
 // Log the job id and error only: email jobs contain sign-in links.
@@ -76,15 +90,42 @@ for (const [name, worker] of Object.entries(workers)) {
 }
 
 console.log(
-  `Worker started: queues ${Object.keys(workers).join(", ")}, prefix "${env.queuePrefix}"; Wayback Machine ${env.wayback ? "saving enabled" : "search only (no keys)"}; Google Books backup ${env.googleBooksApiKey ? "on" : "off"}`,
+  `Worker started: queues ${Object.keys(workers).join(", ")}, prefix "${env.queuePrefix}"; Wayback Machine ${env.wayback ? "saving enabled" : "search only (no keys)"}; Google Books backup ${env.googleBooksApiKey ? "on" : "off"}; YouTube Data API ${env.youtubeApiKey ? "on" : "off"}`,
 );
+
+// Checks lost while no worker ran (or queued by an older version) are queued
+// again; job ids are per request, so several workers starting add each once.
+const producer = createRedisConnection(env.redisUrl, "producer");
+const checkQueues = {
+  references: createReferenceQueue({
+    connection: producer,
+    prefix: env.queuePrefix,
+  }),
+  videos: createVideoQueue({ connection: producer, prefix: env.queuePrefix }),
+};
+requeuePendingChecks(store, checkQueues, (message) => console.warn(message))
+  .then(({ references, videos }) =>
+    console.log(
+      `Pending checks queued again: ${references} references, ${videos} videos`,
+    ),
+  )
+  .catch((error: unknown) =>
+    console.error(
+      "Could not queue pending checks again:",
+      error instanceof Error ? error.message : error,
+    ),
+  );
 
 // Containers stop with SIGTERM; finish in-flight jobs, then release Redis and
 // the database.
 async function shutDown(signal: string): Promise<void> {
   console.log(`${signal} received; finishing in-flight jobs`);
   await Promise.all(Object.values(workers).map((worker) => worker.close()));
-  await Promise.all([connection.quit(), pool.end()]);
+  await Promise.all([
+    checkQueues.references.close(),
+    checkQueues.videos.close(),
+  ]);
+  await Promise.all([connection.quit(), producer.quit(), pool.end()]);
   process.exit(0);
 }
 

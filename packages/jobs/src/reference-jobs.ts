@@ -19,9 +19,12 @@ export const REFERENCE_QUEUE_NAME = "references";
 
 /**
  * Checks a reference's identifiers as they were when it was saved. The result
- * is stored only if the reference still has exactly these identifiers.
+ * is stored only if the reference still has exactly these identifiers. The job
+ * is queued inside that save, so until it commits the worker may still see
+ * the reference as it was before; requestedAt tells the two apart.
  */
 export const referenceCheckJobSchema = z.object({
+  requestedAt: z.iso.datetime(),
   referenceId: z.uuid(),
   doi: z.string().max(DOI_MAX_LENGTH).nullable(),
   isbn: z
@@ -41,7 +44,10 @@ export const REFERENCE_JOB_OPTIONS: JobsOptions = {
   attempts: 6,
   backoff: { type: "exponential", delay: 10_000 },
   removeOnComplete: true,
-  removeOnFail: { age: 7 * 24 * 60 * 60 },
+  // A kept job would block its id, so the same request could not be queued
+  // again (see requeuePendingChecks); failures are logged by the worker and
+  // stored with the reference.
+  removeOnFail: true,
 };
 
 export type ReferenceCheckers = {
@@ -57,9 +63,12 @@ export type ReferenceCheckResult = {
 export type ReferenceState =
   /** Still has the job's identifiers and waits for this check. */
   | "pending"
-  /** Changed or deleted since, or already checked; a newer job covers it. */
+  /** Checked or saved again since the job was requested; a newer job covers it. */
   | "superseded"
-  /** Not visible yet: the save that queued the job has not committed. */
+  /**
+   * Not visible yet: the save that queued the job has not committed, so the
+   * reference is absent or still as it was before the request.
+   */
   | "missing";
 
 export type ReferenceStore = {
@@ -76,6 +85,14 @@ export type ReferenceQueue = {
   close(): Promise<void>;
 };
 
+/** One job per check request, so queueing the same request twice adds one. */
+export function referenceJobId({
+  referenceId,
+  requestedAt,
+}: ReferenceCheckJob): string {
+  return `reference-${referenceId}-${Date.parse(requestedAt)}`;
+}
+
 export function createReferenceQueue({
   connection,
   prefix,
@@ -84,7 +101,10 @@ export function createReferenceQueue({
   return {
     async enqueue(job) {
       const data = referenceCheckJobSchema.parse(job);
-      await queue.add("check-reference", data, REFERENCE_JOB_OPTIONS);
+      await queue.add("check-reference", data, {
+        ...REFERENCE_JOB_OPTIONS,
+        jobId: referenceJobId(data),
+      });
     },
     close: () => queue.close(),
   };

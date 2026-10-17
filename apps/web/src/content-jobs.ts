@@ -1,8 +1,8 @@
 import { isHttpUrl } from "@countrytopics/domain";
-import type { ReferenceCheckJob } from "@countrytopics/jobs";
+import type { ReferenceCheckJob, VideoCheckJob } from "@countrytopics/jobs";
 import { APIError, type PayloadRequest } from "payload";
 
-import { linkQueue, referenceQueue } from "@/jobs";
+import { linkQueue, referenceQueue, videoQueue } from "@/jobs";
 
 /**
  * Runs inside the save's transaction: if the job cannot be queued, the save
@@ -34,6 +34,13 @@ export function queueReferenceCheck(
   return enqueueOrFail(req, "reference check", () =>
     referenceQueue().enqueue(job),
   );
+}
+
+export function queueVideoCheck(
+  req: PayloadRequest,
+  job: VideoCheckJob,
+): Promise<void> {
+  return enqueueOrFail(req, "video check", () => videoQueue().enqueue(job));
 }
 
 /** Asks the worker to archive each link that has no Wayback Machine copy yet. */

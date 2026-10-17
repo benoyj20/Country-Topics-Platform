@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import {
   evidenceProblems,
   referenceCheckResult,
+  type SnippetEvidence,
   type TopicEvidence,
 } from "../src/topic-evidence.ts";
 
@@ -11,6 +12,7 @@ const topic = (overrides: Partial<TopicEvidence>): TopicEvidence => ({
   namesIndividuals: false,
   evidenceCount: 0,
   references: [],
+  snippets: [],
   ...overrides,
 });
 
@@ -57,6 +59,64 @@ describe("evidenceProblems", () => {
     assert.match(problem?.message ?? "", /"Offline" \(the check could not/);
     assert.match(problem?.message ?? "", /"Unknown" \(still being checked\)/);
     assert.doesNotMatch(problem?.message ?? "", /Confirmed/);
+  });
+
+  it("needs each snippet's video confirmed playable once, and the clip inside it", () => {
+    const video = (
+      overrides: Partial<NonNullable<SnippetEvidence["video"]>>,
+    ) => ({
+      checkStatus: "playable" as const,
+      confirmed: true,
+      duration_s: 60,
+      ...overrides,
+    });
+    const problems = evidenceProblems(
+      topic({
+        snippets: [
+          { caption: "Fine", end_s: 60.9, video: video({}) },
+          // Confirmed once, then removed: the transcript still stands.
+          {
+            caption: "Removed later",
+            end_s: 30,
+            video: video({ checkStatus: "unavailable" }),
+          },
+          {
+            caption: "Waiting",
+            end_s: 30,
+            video: video({ checkStatus: "pending", confirmed: false }),
+          },
+          {
+            caption: "Private",
+            end_s: 30,
+            video: video({ checkStatus: "unavailable", confirmed: false }),
+          },
+          {
+            caption: "No embedding",
+            end_s: 30,
+            video: video({ checkStatus: "not_embeddable", confirmed: false }),
+          },
+          { caption: "Too long", end_s: 61.1, video: video({}) },
+          { caption: "Gone", end_s: 30, video: null },
+        ],
+      }),
+    );
+    assert.deepEqual(
+      problems.map((problem) => problem.field),
+      ["evidence"],
+    );
+    const message = problems[0]?.message ?? "";
+    assert.doesNotMatch(message, /Fine|Removed later/);
+    assert.match(message, /"Waiting" \(its video is still being checked\)/);
+    assert.match(
+      message,
+      /"Private" \(its video was not found, or is private\)/,
+    );
+    assert.match(message, /"No embedding" \(its video cannot be played/);
+    assert.match(
+      message,
+      /"Too long" \(it ends after the video, which is 1:00 long\)/,
+    );
+    assert.match(message, /"Gone" \(its video is missing\)/);
   });
 });
 

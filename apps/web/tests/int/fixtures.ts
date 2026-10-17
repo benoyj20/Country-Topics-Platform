@@ -3,9 +3,12 @@ import {
   createRedisConnection,
   LINK_QUEUE_NAME,
   processReferenceCheck,
+  processVideoCheck,
   REFERENCE_QUEUE_NAME,
   type ReferenceCheckers,
+  VIDEO_QUEUE_NAME,
 } from "@countrytopics/jobs";
+import type { VideoLookup, YouTube } from "@countrytopics/sources";
 import { Queue } from "bullmq";
 import type { Payload, RequiredDataFromCollectionSlug } from "payload";
 import pg from "pg";
@@ -125,6 +128,10 @@ export async function workerSide() {
       prefix: env.queuePrefix,
     }),
     links: new Queue(LINK_QUEUE_NAME, { connection, prefix: env.queuePrefix }),
+    videos: new Queue(VIDEO_QUEUE_NAME, {
+      connection,
+      prefix: env.queuePrefix,
+    }),
   };
   await Promise.all(
     Object.values(queues).map((queue) => queue.obliterate({ force: true })),
@@ -156,11 +163,51 @@ export async function runReferenceCheck(
   return processReferenceCheck(
     {
       referenceId,
+      // The job carries the request time the save stored.
+      requestedAt: reference.checkRequestedAt ?? "",
       doi: reference.doi ?? null,
       isbn: reference.isbn ?? null,
       url: reference.url ?? null,
     },
     { checkers, store },
+    { isFinal: true },
+  );
+}
+
+/** YouTube as the worker would find it, without calling it. */
+export function fakeYouTube(answer: Partial<VideoLookup> = {}): YouTube {
+  return {
+    lookupVideo: async () => ({
+      status: "playable",
+      title: "A synthetic clip",
+      channel: "Test Channel",
+      duration_s: 60,
+      message: "Checked with oEmbed and the YouTube Data API.",
+      ...answer,
+    }),
+  };
+}
+
+/** Runs the worker's video check on a video as it is saved now. */
+export async function runVideoCheck(
+  payload: Payload,
+  store: ReturnType<typeof createContentStore>,
+  videoId: string,
+  youtube: YouTube = fakeYouTube(),
+) {
+  const video = await payload.findByID({
+    collection: "videos",
+    id: videoId,
+    depth: 0,
+    overrideAccess: true,
+  });
+  return processVideoCheck(
+    {
+      videoId,
+      youtubeId: video.youtubeId,
+      requestedAt: video.checkRequestedAt ?? "",
+    },
+    { youtube, store },
     { isFinal: true },
   );
 }

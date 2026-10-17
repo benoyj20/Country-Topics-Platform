@@ -2,6 +2,8 @@ import { personNameKey } from "@countrytopics/domain";
 import { type PostgresAdapter, sql } from "@payloadcms/db-postgres";
 import type { PayloadRequest, Where } from "payload";
 
+import { lockForTransaction } from "@/transaction-lock";
+
 export const MAX_DUPLICATE_MATCHES = 10;
 // pg_trgm similarity between name keys (0 to 1) above which a different
 // spelling is worth showing, such as a transliteration or a typo.
@@ -174,19 +176,12 @@ async function similarlyNamedIds(
  * click) cannot both pass the duplicate check before either is committed. The
  * locks belong to the request's transaction and end with it.
  */
-export async function lockNameKeys(
+export function lockNameKeys(
   req: PayloadRequest,
   keys: readonly string[],
 ): Promise<void> {
-  const adapter = req.payload.db as unknown as PostgresAdapter;
-  const transactionID = await req.transactionID;
-  const session =
-    transactionID === undefined ? undefined : adapter.sessions[transactionID];
-  if (!session) return;
-  // A fixed order, so two saves never wait on each other's locks.
-  for (const key of [...keys].sort()) {
-    await session.db.execute(
-      sql`SELECT pg_advisory_xact_lock(hashtext(${`individual-name:${key}`}))`,
-    );
-  }
+  return lockForTransaction(
+    req,
+    keys.map((key) => `individual-name:${key}`),
+  );
 }

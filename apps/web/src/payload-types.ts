@@ -70,6 +70,8 @@ export interface Config {
     topics: Topic;
     'topic-changes': TopicChange;
     references: Reference;
+    snippets: Snippet;
+    videos: Video;
     media: Media;
     'link-archives': LinkArchive;
     individuals: Individual;
@@ -89,6 +91,8 @@ export interface Config {
     topics: TopicsSelect<false> | TopicsSelect<true>;
     'topic-changes': TopicChangesSelect<false> | TopicChangesSelect<true>;
     references: ReferencesSelect<false> | ReferencesSelect<true>;
+    snippets: SnippetsSelect<false> | SnippetsSelect<true>;
+    videos: VideosSelect<false> | VideosSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     'link-archives': LinkArchivesSelect<false> | LinkArchivesSelect<true>;
     individuals: IndividualsSelect<false> | IndividualsSelect<true>;
@@ -177,16 +181,20 @@ export interface Topic {
       }[]
     | null;
   /**
-   * What shows it happened: documents, images, and web pages (copied to the Wayback Machine). A topic that names individuals needs at least one.
+   * What shows it happened: documents, images, web pages (copied to the Wayback Machine), and video snippets. A topic that names individuals needs at least one.
    */
   evidence?:
     | {
-        kind: 'document' | 'image' | 'link';
+        kind: 'document' | 'image' | 'link' | 'snippet';
         /**
-         * Such as 'Ministry press release, 3 May 2024'.
+         * Such as 'Ministry press release, 3 May 2024'. Optional for snippets, which show their caption.
          */
-        title: string;
+        title?: string | null;
         file?: (string | null) | Media;
+        /**
+         * A clip of a YouTube video with its transcript, made under Snippets.
+         */
+        snippet?: (string | null) | Snippet;
         url?: string | null;
         /**
          * Optional, such as an archive.today link, when the Wayback Machine cannot copy the page.
@@ -401,6 +409,72 @@ export interface Media {
   focalY?: number | null;
 }
 /**
+ * Clips of YouTube videos with what is said in them. Topics use them as evidence.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "snippets".
+ */
+export interface Snippet {
+  id: string;
+  /**
+   * What the clip shows, such as 'Minister announces the budget, 3 May 2024'.
+   */
+  caption: string;
+  youtubeId: string;
+  startS: number;
+  endS: number;
+  /**
+   * Who speaks in the clip, if listed.
+   */
+  speaker?: (string | null) | Individual;
+  /**
+   * Of what is said, such as en or sw.
+   */
+  language: string;
+  /**
+   * Optional. Paste lines from YouTube's '…more → Show transcript' panel, lines like '1:35 some text', or an SRT or WebVTT file. Lines outside the clip are left out. Never paste text that was not said in the video.
+   */
+  transcriptText?: string | null;
+  transcriptTimebase: 'video' | 'clip';
+  transcript?:
+    | {
+        startS: number;
+        endS: number;
+        text: string;
+        id?: string | null;
+      }[]
+    | null;
+  video?: (string | null) | Video;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * YouTube videos that snippets are cut from. Added when a snippet is saved; the worker checks each one with YouTube.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "videos".
+ */
+export interface Video {
+  id: string;
+  youtubeId: string;
+  title?: string | null;
+  channel?: string | null;
+  /**
+   * Known when the worker has a YouTube Data API key.
+   */
+  durationS?: number | null;
+  checkStatus: 'pending' | 'playable' | 'not_embeddable' | 'unavailable' | 'failed';
+  checkMessage?: string | null;
+  checkedAt?: string | null;
+  checkRequestedAt?: string | null;
+  /**
+   * Snippets back published topics only once their video was found playable.
+   */
+  confirmedAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "references".
  */
@@ -427,6 +501,7 @@ export interface Reference {
   checkStatus: 'pending' | 'resolved' | 'not_found' | 'failed';
   checkMessage?: string | null;
   checkedAt?: string | null;
+  checkRequestedAt?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -556,6 +631,14 @@ export interface PayloadLockedDocument {
         value: string | Reference;
       } | null)
     | ({
+        relationTo: 'snippets';
+        value: string | Snippet;
+      } | null)
+    | ({
+        relationTo: 'videos';
+        value: string | Video;
+      } | null)
+    | ({
         relationTo: 'media';
         value: string | Media;
       } | null)
@@ -657,6 +740,7 @@ export interface TopicsSelect<T extends boolean = true> {
         kind?: T;
         title?: T;
         file?: T;
+        snippet?: T;
         url?: T;
         archiveUrl?: T;
         note?: T;
@@ -713,6 +797,49 @@ export interface ReferencesSelect<T extends boolean = true> {
   checkStatus?: T;
   checkMessage?: T;
   checkedAt?: T;
+  checkRequestedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "snippets_select".
+ */
+export interface SnippetsSelect<T extends boolean = true> {
+  caption?: T;
+  youtubeId?: T;
+  startS?: T;
+  endS?: T;
+  speaker?: T;
+  language?: T;
+  transcriptText?: T;
+  transcriptTimebase?: T;
+  transcript?:
+    | T
+    | {
+        startS?: T;
+        endS?: T;
+        text?: T;
+        id?: T;
+      };
+  video?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "videos_select".
+ */
+export interface VideosSelect<T extends boolean = true> {
+  youtubeId?: T;
+  title?: T;
+  channel?: T;
+  durationS?: T;
+  checkStatus?: T;
+  checkMessage?: T;
+  checkedAt?: T;
+  checkRequestedAt?: T;
+  confirmedAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }

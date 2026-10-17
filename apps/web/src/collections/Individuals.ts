@@ -28,7 +28,7 @@ import { DIFFERENT_PERSON_LABEL } from "@/individuals/labels";
 
 import { IMAGE_MIME_TYPES } from "./Media";
 import { fillSlug, slugField } from "./slug";
-import { keepWhileUsedByTopics } from "./topic-references";
+import { keepWhileUsed } from "./topic-references";
 import { httpUrl } from "./url-field";
 
 const NAME_MAX_LENGTH = 200;
@@ -372,7 +372,12 @@ export const Individuals: CollectionConfig = {
   ],
   hooks: {
     beforeValidate: [fillSlug("individuals")],
-    beforeDelete: [keepWhileUsedByTopics("people.individual", "individual")],
+    beforeDelete: [
+      keepWhileUsed("individual", [
+        { collection: "topics", field: "people.individual" },
+        { collection: "snippets", field: "speaker" },
+      ]),
+    ],
     beforeChange: [checkDuplicates],
     ...auditHooks({
       collection: "individuals",

@@ -12,6 +12,8 @@ export type WorkerEnv = {
   contactEmail?: string;
   /** Optional: Google Books as a backup when Open Library does not know an ISBN. */
   googleBooksApiKey?: string;
+  /** Optional: the YouTube Data API adds video lengths and age restrictions. */
+  youtubeApiKey?: string;
   /** Unset when the Wayback Machine may only be searched, not asked to save. */
   wayback?: { accessKey: string; secretKey: string };
 };
@@ -95,6 +97,7 @@ export function readWorkerEnv(env: Env = process.env): WorkerEnv {
     siteUrl: siteUrl.replace(/\/$/, ""),
     contactEmail,
     googleBooksApiKey: env.GOOGLE_BOOKS_API_KEY?.trim() || undefined,
+    youtubeApiKey: env.YOUTUBE_API_KEY?.trim() || undefined,
     wayback,
   };
 }

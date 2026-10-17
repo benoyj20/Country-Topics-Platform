@@ -12,10 +12,12 @@ import { Invitations } from "./collections/Invitations";
 import { LinkArchives } from "./collections/LinkArchives";
 import { Media, UPLOAD_MAX_BYTES } from "./collections/Media";
 import { References } from "./collections/References";
+import { Snippets } from "./collections/Snippets";
 import { Tags } from "./collections/Tags";
 import { TopicChanges } from "./collections/TopicChanges";
 import { Topics } from "./collections/Topics";
 import { Users } from "./collections/Users";
+import { Videos } from "./collections/Videos";
 import { editor } from "./editor";
 import { serverEnv } from "./env";
 
@@ -40,6 +42,8 @@ export default buildConfig({
     Topics,
     TopicChanges,
     References,
+    Snippets,
+    Videos,
     Media,
     LinkArchives,
     Individuals,

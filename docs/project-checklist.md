@@ -1,6 +1,6 @@
 # Project and testing checklist
 
-Status snapshot: 14 October 2026. This is the current implementation and
+Status snapshot: 17 October 2026. This is the current implementation and
 verification checklist; [the MVP plan](mvp-plan.md) describes what comes next.
 
 A checked item means the stated work or verification was completed, with the
@@ -9,18 +9,19 @@ code exists. Update this file in the same PR that changes the status.
 
 ## Current working flow
 
-YouTube link → oEmbed lookup on a local Node server → editor player with start and
+In the admin panel: YouTube link → editor player (loaded on click) with start and
 end times → pasted transcript parsed into timed segments → visitor preview with a
-lazy-loaded privacy-enhanced player and synced transcript highlighting.
+lazy-loaded privacy-enhanced player and synced transcript highlighting → save →
+the worker checks the video with YouTube → the snippet is used as topic evidence.
 
 The site itself (`apps/web`) so far has sign-in (Google and email links,
 invite-only), roles, staff authenticator checks, the admin panel with countries,
-categories, tags, individuals, and versioned topics with a change log, a
-placeholder home page, and a health check; see Weeks 1 to 4 below.
+categories, tags, individuals, versioned topics with a change log, evidence and
+references, video snippets, a placeholder home page, and a health check; see
+Weeks 1 to 6 below.
 
-The snippet flow is a standalone prototype in `prototypes/youtube-snippet`. It has no
-database, accounts, or persistence beyond the browser's `localStorage`, and it is
-plain JavaScript; the typed version is built into `apps/web` in MVP week 6.
+The snippet flow began as a standalone prototype in `prototypes/youtube-snippet`
+(plain JavaScript, no database); its typed version is in the site since MVP week 6.
 
 ## Repository setup
 
@@ -163,8 +164,10 @@ See [ADR 0002](adr/0002-sign-in-and-roles.md) for the design.
   redirects stay on the site (`//` and `/\` tricks rejected).
 - [x] CI runs these tests with Valkey and Mailpit services: all passed on PR #6,
   applying the five migrations to the CI database (2026-10-14).
-- [ ] The developer signs in with Google and with an email link, sets up an
-  authenticator, and opens the admin panel.
+- [x] The developer signs in with Google and with an email link, sets up an
+  authenticator, and opens the admin panel (Google sign-in with an
+  authenticator reported done by the developer, 2026-10-16, the part still
+  open after week 2).
 - [ ] Not built yet: Apple sign-in, backup codes for staff, members editing their
   name, account deletion (week 11), and a real email provider (before the pilot).
   Better Auth's rate limits are on outside tests but not yet verified (week 10).
@@ -284,6 +287,13 @@ See [ADR 0005](adr/0005-evidence-and-references.md) for the design.
   identifiers it checked, so a late job for an old DOI cannot confirm a new one;
   "not found" and "could not finish" stay distinct (integration and unit tests,
   2026-10-14).
+- [x] Fixed in week 6: a check queued by saving a reference again (one "not
+  found" or "could not finish", or with changed identifiers) could be dropped
+  when the worker ran before the save committed, leaving the reference "being
+  checked". The save now stores the request's time and the job carries the
+  same value, so the worker waits until the save is visible without comparing
+  clocks; the worker also queues every waiting check again when it starts
+  (integration test that fails without the fix, 2026-10-16).
 - [x] "Look up" fills a reference from its DOI or ISBN; only verified admins can
   call it, responses are not cached, and a service that does not answer gives a
   clear 503 (integration tests with a fake service, 2026-10-14).
@@ -332,8 +342,84 @@ See [ADR 0005](adr/0005-evidence-and-references.md) for the design.
   link, each confirmed by the worker), and published and then archived a TEST
   topic with evidence; this found that the change note could not be typed
   in, which is fixed with a regression test (2026-10-16).
-- [ ] Not built yet: video snippets and transcript excerpts as evidence (week 6).
+- [x] Video snippets and their transcripts as evidence came in week 6 (below).
 - [ ] Optional, after the pilot (v2): fresh Wayback Machine copies of evidence
   links. The code is in place and off; it turns on with a free Internet Archive
   account's keys (`WAYBACK_ACCESS_KEY`, `WAYBACK_SECRET_KEY`). Until then the
   worker finds existing copies only.
+
+### Week 6: video snippets and transcripts
+
+See [ADR 0006](adr/0006-snippets-and-transcripts.md) for the design.
+
+- [x] Parsing ported to TypeScript (`packages/domain`): links (watch, youtu.be,
+  shorts, embed, live, bare id, `t=` and `start=`), times, YouTube's transcript
+  panel, `m:ss text` lines, SRT, WebVTT, clipping to the snippet, timestamps
+  counted from the clip's start, and clip checks; the prototype's tests pass on
+  the port, plus cases for impossible timestamps and lines outside the clip
+  (unit tests, 2026-10-16).
+- [x] Snippets: a pasted link is stored as its video id; times are kept in
+  tenths; the server computes the transcript segments from the pasted text on
+  every save (moving the clip recomputes them); no transcript is allowed, while
+  text without timestamps or with no line inside the clip is refused, as are
+  reversed or negative times, bad or overlong language codes, and an end more
+  than a second past the video's known length; once a topic uses a snippet,
+  its video cannot change. Edits are versioned and audited (integration tests,
+  2026-10-16).
+- [x] Videos: one record per YouTube id, added by the first snippet's save, with
+  one queued check per request however many snippets save it; the worker's
+  result is stored only while a check is awaited, and a job that arrives before
+  its save commits waits instead of being dropped; a video waiting without a
+  request time gets one when a snippet of it is saved; the worker's start-up
+  pass finds every waiting reference and video as the job it needs; the first time a video was found playable is
+  kept; a later "removed" keeps the title and length found before; saving a
+  snippet of a video that does not play asks again. Videos, their checks, and a
+  snippet's video and segments cannot be set through requests (integration and
+  unit tests, 2026-10-16).
+- [x] Access: verified admins write snippets; moderators read them; visitors
+  and unverified admins are refused (403). Videos used by snippets, snippets
+  used by topics, and individuals named as speakers cannot be deleted (409)
+  (integration tests, 2026-10-16).
+- [x] Publishing: a "Video snippet" evidence row needs no title and keeps only
+  its snippet; a topic is refused while a snippet's video was never found
+  playable, and publishes once the worker confirmed it (integration tests,
+  2026-10-16).
+- [x] YouTube adapter (`packages/sources`): oEmbed statuses, the Data API's
+  length, embedding, privacy, and age restriction, the key sent only in a
+  header, and Data API failures that keep oEmbed's answer (unit tests). Live,
+  with the developer's key: the prototype's demo video was found playable,
+  19 seconds long, titled "Me at the zoo" by "jawed"; an invented id was found
+  removed or private, with and without the key (2026-10-16).
+- [x] The migrations roll back with `payload migrate:down` on an empty test
+  database and apply again; with snippet evidence present, the snippet
+  migration's rollback refuses with a message instead of deleting evidence
+  (test database, 2026-10-16).
+- [x] Real browser (headless Edge, production build on the test database, the
+  worker running against it with the YouTube key): no YouTube script or player
+  before a click; "Load video" opened the privacy-enhanced player, which
+  (when it reported the length, 19 s) proposed a default end; typed times
+  commit with Enter; an end of 0:25 showed "End is past the end of the video
+  (0:19)", and a cleared end showed an error instead of a default; the
+  transcript summary said "3 lines in the clip · 1 line outside it left out ·
+  1 line before the first timestamp ignored"; the preview listed the three
+  lines; clicking the thumbnail played the clip with the highlight moving from
+  0:01 to 0:05, clicking the last line jumped to 0:12, and playback stopped at
+  the clip's end (0:17) with "Snippet ended", Replay, and "Watch the full
+  video on YouTube" (`watch?v=…&t=1s`); saving showed "YouTube check pending",
+  and after the worker's check "Playable on this site. Me at the zoo · jawed ·
+  0:19"; a topic naming an individual published with the snippet as evidence
+  and a confirmed reference; no browser errors (2026-10-16, final code). In
+  one earlier headless run the first click loaded the player without starting
+  playback (a second click on a line played it); worth watching for in a real
+  browser.
+- [x] The developer added a clip with a synced transcript in the admin panel,
+  watched the preview play in sync in a real browser, saw the worker confirm
+  the video, and went through the rest of the test steps, including the
+  player's edge cases: the first click starts playback, stop at the end time,
+  snap back when dragged before the start, Replay, and the "watch full video"
+  link (reported by the developer, 2026-10-17). The first save showed "YouTube
+  check pending" for good because a `make dev` started before the day's
+  changes still ran the old queue code; after restarting it, saving again
+  queued the check.
+- [ ] Not built yet: public topic pages showing snippets (week 7), periodic
+  re-checks of videos, and transcript excerpts without a video.

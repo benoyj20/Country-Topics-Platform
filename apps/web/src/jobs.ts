@@ -3,10 +3,12 @@ import {
   createLinkQueue,
   createRedisConnection,
   createReferenceQueue,
+  createVideoQueue,
   type EmailQueue,
   type LinkQueue,
   type QueueSettings,
   type ReferenceQueue,
+  type VideoQueue,
 } from "@countrytopics/jobs";
 
 import { serverEnv } from "@/env";
@@ -15,6 +17,7 @@ type Queues = {
   email: EmailQueue;
   references: ReferenceQueue;
   links: LinkQueue;
+  videos: VideoQueue;
 };
 
 declare global {
@@ -33,6 +36,7 @@ function queues(): Queues {
       email: createEmailQueue(settings),
       references: createReferenceQueue(settings),
       links: createLinkQueue(settings),
+      videos: createVideoQueue(settings),
     };
   }
   return globalThis.countryTopicsQueues;
@@ -46,3 +50,6 @@ export const referenceQueue = (): ReferenceQueue => queues().references;
 
 /** Asks the worker to find or make a Wayback Machine copy of a link. */
 export const linkQueue = (): LinkQueue => queues().links;
+
+/** Asks the worker whether a YouTube video exists and may be embedded. */
+export const videoQueue = (): VideoQueue => queues().videos;

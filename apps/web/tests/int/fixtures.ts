@@ -200,7 +200,11 @@ export async function runVideoCheck(
     overrideAccess: true,
   });
   return processVideoCheck(
-    { videoId, youtubeId: video.youtubeId },
+    {
+      videoId,
+      youtubeId: video.youtubeId,
+      requestedAt: new Date().toISOString(),
+    },
     { youtube, store },
     { isFinal: true },
   );

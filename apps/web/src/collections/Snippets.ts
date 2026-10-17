@@ -3,6 +3,7 @@ import {
   formatTime,
   parseYouTubeUrl,
   roundToTenths,
+  secondsOrNull,
   SNIPPET_MAX_TIME_S,
   snippetTranscript,
   TRANSCRIPT_MAX_LENGTH,
@@ -22,12 +23,14 @@ import {
 import { verifiedAdminsOnly, verifiedStaffOnly } from "@/access";
 import { auditHooks, relationId } from "@/audit";
 import { queueVideoCheck } from "@/content-jobs";
+import { lockForTransaction } from "@/transaction-lock";
 
-import { keepWhileUsedByTopics } from "./topic-references";
+import { isUsed, keepWhileUsedByTopics } from "./topic-references";
 
 /** A video is asked about again when a snippet of it is saved this long after. */
 const VIDEO_RECHECK_AFTER_MS = 24 * 60 * 60 * 1000;
 const LANGUAGE_TAG = /^[a-z]{2,3}(-[a-z0-9]{1,8})*$/i;
+const LANGUAGE_MAX_LENGTH = 35;
 
 const TIMEBASE_LABELS: Record<TranscriptTimebase, string> = {
   video: "The start of the video",
@@ -39,13 +42,9 @@ const systemField = {
   access: { create: () => false, update: () => false },
 } as const;
 
-function time(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
-}
-
 /** A start the startS field accepts; anything else it reports itself. */
 function validStart(value: unknown): number | null {
-  const start = time(value);
+  const start = secondsOrNull(value);
   return start !== null && start >= 0 && start < SNIPPET_MAX_TIME_S
     ? start
     : null;
@@ -61,6 +60,8 @@ function timebase(value: unknown): TranscriptTimebase {
  * check; afterChange queues it.
  */
 async function videoFor(req: PayloadRequest, youtubeId: string) {
+  // Two first saves of the same new video would both try to add it.
+  await lockForTransaction(req, [`video:${youtubeId}`]);
   const { docs } = await req.payload.find({
     collection: "videos",
     where: { youtubeId: { equals: youtubeId } },
@@ -120,12 +121,28 @@ const prepareSnippet: CollectionBeforeChangeHook = async ({
 }) => {
   const stored = operation === "update" ? originalDoc : undefined;
   const youtubeId: unknown = data.youtubeId ?? stored?.youtubeId;
-  const start_s = time(data.startS ?? stored?.startS);
-  const end_s = time(data.endS ?? stored?.endS);
+  const start_s = secondsOrNull(data.startS ?? stored?.startS);
+  const end_s = secondsOrNull(data.endS ?? stored?.endS);
   if (start_s !== null) data.startS = roundToTenths(start_s);
   if (end_s !== null) data.endS = roundToTenths(end_s);
 
   if (typeof youtubeId === "string" && YOUTUBE_ID_PATTERN.test(youtubeId)) {
+    // Topics were published on this clip of this video; another video would
+    // be different evidence, which needs its own snippet and checks.
+    if (
+      stored &&
+      stored.youtubeId !== youtubeId &&
+      (await isUsed(req, stored.id, [
+        { collection: "topics", field: "evidence.snippet" },
+      ]))
+    ) {
+      refuse(
+        req,
+        "youtubeId",
+        "YouTube video",
+        "Topics use this snippet, so its video cannot change. Make a new snippet for the other video.",
+      );
+    }
     const video = await videoFor(req, youtubeId);
     data.video = video.id;
     // The length is known once the worker has checked the video with the
@@ -145,7 +162,9 @@ const prepareSnippet: CollectionBeforeChangeHook = async ({
     }
   }
 
-  const text: unknown = data.transcriptText ?? stored?.transcriptText;
+  // Present but null clears the transcript; absent keeps the stored one.
+  const text: unknown =
+    "transcriptText" in data ? data.transcriptText : stored?.transcriptText;
   data.transcript =
     typeof text === "string" && start_s !== null && end_s !== null
       ? snippetTranscript({
@@ -282,7 +301,10 @@ export const Snippets: CollectionConfig = {
         const start_s = validStart(siblingData.startS);
         // An invalid start is reported on its own field.
         if (start_s === null) return true;
-        const { errors } = clipProblems({ start_s, end_s: time(value) });
+        const { errors } = clipProblems({
+          start_s,
+          end_s: secondsOrNull(value),
+        });
         return errors.length > 0 ? errors.join(" ") : true;
       },
       admin: { hidden: true },
@@ -302,9 +324,12 @@ export const Snippets: CollectionConfig = {
           type: "text",
           required: true,
           defaultValue: "en",
-          maxLength: 35,
+          maxLength: LANGUAGE_MAX_LENGTH,
+          // Replaces Payload's text check, so the length is checked here too.
           validate: (value: unknown) =>
-            typeof value === "string" && LANGUAGE_TAG.test(value)
+            typeof value === "string" &&
+            value.length <= LANGUAGE_MAX_LENGTH &&
+            LANGUAGE_TAG.test(value)
               ? true
               : "Use a language code, such as en, sw, or pt-BR.",
           admin: { description: "Of what is said, such as en or sw." },
@@ -321,7 +346,7 @@ export const Snippets: CollectionConfig = {
         { siblingData }: { siblingData: Record<string, unknown> },
       ) => {
         const start_s = validStart(siblingData.startS);
-        const end_s = time(siblingData.endS);
+        const end_s = secondsOrNull(siblingData.endS);
         if (typeof value !== "string" || !value.trim()) return true;
         if (value.length > TRANSCRIPT_MAX_LENGTH) {
           return `Keep the transcript to ${TRANSCRIPT_MAX_LENGTH} characters; paste only the part around the clip.`;

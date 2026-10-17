@@ -38,6 +38,7 @@ import { fillSlug, slugField } from "./slug";
 import { httpUrl, optionalHttpUrl } from "./url-field";
 
 const CHANGE_NOTE_MAX_LENGTH = 500;
+const EVIDENCE_TITLE_MAX_LENGTH = 200;
 
 const EVIDENCE_KIND_LABELS: Record<EvidenceKind, string> = {
   document: "Document (PDF)",
@@ -677,15 +678,23 @@ export const Topics: CollectionConfig = {
             {
               name: "title",
               type: "text",
-              maxLength: 200,
+              maxLength: EVIDENCE_TITLE_MAX_LENGTH,
               // A snippet already has a caption, shown when this is empty.
+              // This replaces Payload's text check, so it checks the length.
               validate: (
                 value: unknown,
                 { siblingData }: { siblingData: unknown },
-              ) =>
-                value || evidenceKind(siblingData) === "snippet"
+              ) => {
+                if (
+                  typeof value === "string" &&
+                  value.length > EVIDENCE_TITLE_MAX_LENGTH
+                ) {
+                  return `Keep the title to ${EVIDENCE_TITLE_MAX_LENGTH} characters.`;
+                }
+                return value || evidenceKind(siblingData) === "snippet"
                   ? true
-                  : "Give the evidence a title.",
+                  : "Give the evidence a title.";
+              },
               admin: {
                 description:
                   "Such as 'Ministry press release, 3 May 2024'. Optional for snippets, which show their caption.",

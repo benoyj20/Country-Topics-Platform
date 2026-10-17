@@ -19,6 +19,7 @@ import {
 const job: VideoCheckJob = {
   videoId: "01920000-0000-7000-8000-000000000002",
   youtubeId: "TESTvideo01",
+  requestedAt: "2026-10-16T12:00:00.000Z",
 };
 
 const playable: VideoLookup = {
@@ -65,6 +66,7 @@ describe("videoCheckJobSchema and videoJobId", () => {
       { ...job, videoId: "not-a-uuid" },
       { ...job, youtubeId: "../oembed?x" },
       { ...job, youtubeId: "short" },
+      { ...job, requestedAt: "yesterday" },
     ]) {
       assert.equal(videoCheckJobSchema.safeParse(bad).success, false);
     }

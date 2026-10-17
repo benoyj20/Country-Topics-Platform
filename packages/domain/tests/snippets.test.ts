@@ -178,11 +178,11 @@ describe("clipProblems", () => {
     assert.match(errors({ start_s: 5, end_s: 5 }).join(), /after start/);
     assert.match(errors({ start_s: -1, end_s: 5 }).join(), /0 or later/);
     assert.match(
-      errors({ start_s: 1, end_s: 20, duration_s: 19 }).join(),
+      errors({ start_s: 1, end_s: 20.1, duration_s: 19 }).join(),
       /past the end of the video \(0:19\)/,
     );
-    // Players report lengths to a fraction of a second.
-    assert.deepEqual(errors({ start_s: 1, end_s: 19.4, duration_s: 19 }), []);
+    // The Data API reports whole seconds; the player reports fractions.
+    assert.deepEqual(errors({ start_s: 1, end_s: 19.9, duration_s: 19 }), []);
     assert.match(errors({ start_s: 0, end_s: 90_000 }).join(), /24 hours/);
   });
 

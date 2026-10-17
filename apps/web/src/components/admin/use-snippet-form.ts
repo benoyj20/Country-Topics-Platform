@@ -2,6 +2,7 @@
 
 import {
   clipProblems,
+  secondsOrNull,
   type SnippetTranscript,
   snippetTranscript,
   YOUTUBE_ID_PATTERN,
@@ -10,8 +11,6 @@ import { useFormFields } from "@payloadcms/ui";
 import { useMemo } from "react";
 
 const asText = (value: unknown) => (typeof value === "string" ? value : "");
-const asTime = (value: unknown) =>
-  typeof value === "number" && Number.isFinite(value) ? value : null;
 
 /**
  * The snippet form's values and what follows from them, computed with the
@@ -22,8 +21,10 @@ export function useSnippetForm() {
   const youtubeId = useFormFields(([fields]) =>
     asText(fields.youtubeId?.value),
   );
-  const start_s = useFormFields(([fields]) => asTime(fields.startS?.value));
-  const end_s = useFormFields(([fields]) => asTime(fields.endS?.value));
+  const start_s = useFormFields(([fields]) =>
+    secondsOrNull(fields.startS?.value),
+  );
+  const end_s = useFormFields(([fields]) => secondsOrNull(fields.endS?.value));
   const caption = useFormFields(([fields]) => asText(fields.caption?.value));
   const speakerId = useFormFields(([fields]) => {
     const value = fields.speaker?.value;

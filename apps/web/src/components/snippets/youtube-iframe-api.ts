@@ -4,7 +4,7 @@
 // load the player only after a click or consent), and players use the
 // privacy-enhanced youtube-nocookie.com domain.
 
-export const PRIVACY_ENHANCED_HOST = "https://www.youtube-nocookie.com";
+const PRIVACY_ENHANCED_HOST = "https://www.youtube-nocookie.com";
 const IFRAME_API_URL = "https://www.youtube.com/iframe_api";
 
 export const PlayerState = {
@@ -68,21 +68,23 @@ export function loadYouTubeIframeApi(): Promise<YouTubeIframeApi> {
   const ready = readyApi();
   if (ready) return Promise.resolve(ready);
   loading ??= new Promise<YouTubeIframeApi>((resolve, reject) => {
+    const script = document.createElement("script");
+    // A failed load is forgotten, so the next click tries again.
+    const fail = (message: string) => {
+      loading = null;
+      script.remove();
+      reject(new Error(message));
+    };
     const previous = window.onYouTubeIframeAPIReady;
     window.onYouTubeIframeAPIReady = () => {
       previous?.();
       const api = readyApi();
       if (api) resolve(api);
-      else reject(new Error("The YouTube player API did not start."));
+      else fail("The YouTube player API did not start.");
     };
-    const script = document.createElement("script");
     script.src = IFRAME_API_URL;
     script.async = true;
-    script.onerror = () => {
-      loading = null;
-      script.remove();
-      reject(new Error("The YouTube player could not be loaded."));
-    };
+    script.onerror = () => fail("The YouTube player could not be loaded.");
     document.head.append(script);
   });
   return loading;
@@ -103,9 +105,36 @@ export function playerErrorMessage(code: number): string {
   );
 }
 
-/** Player settings shared by the editor and the visitor player. */
-export function basePlayerVars(): Record<string, string | number> {
-  return { rel: 0, playsinline: 1, origin: window.location.origin };
+/**
+ * Puts a privacy-enhanced player in `host`, replacing what it held. YouTube
+ * swaps the inner element for its iframe; React never renders that element,
+ * so the swap cannot confuse React.
+ */
+export function mountPlayer(
+  api: YouTubeIframeApi,
+  host: HTMLElement,
+  videoId: string,
+  {
+    playerVars = {},
+    events,
+  }: {
+    playerVars?: Record<string, string | number>;
+    events: PlayerOptions["events"];
+  },
+): YouTubePlayer {
+  const mount = document.createElement("div");
+  host.replaceChildren(mount);
+  return new api.Player(mount, {
+    host: PRIVACY_ENHANCED_HOST,
+    videoId,
+    playerVars: {
+      rel: 0,
+      playsinline: 1,
+      origin: window.location.origin,
+      ...playerVars,
+    },
+    events,
+  });
 }
 
 export function thumbnailUrl(youtubeId: string): string {

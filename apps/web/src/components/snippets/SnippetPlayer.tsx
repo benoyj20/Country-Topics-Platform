@@ -5,11 +5,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import styles from "./SnippetPlayer.module.css";
 import {
-  basePlayerVars,
   loadYouTubeIframeApi,
+  mountPlayer,
   PlayerState,
   playerErrorMessage,
-  PRIVACY_ENHANCED_HOST,
   thumbnailUrl,
   watchUrl,
   type YouTubePlayer,
@@ -136,15 +135,8 @@ export function SnippetPlayer({
         const api = await loadYouTubeIframeApi();
         const host = hostRef.current;
         if (!host) return;
-        // YouTube replaces this element with its iframe; React never
-        // renders it, so the swap cannot confuse React.
-        const mount = document.createElement("div");
-        host.replaceChildren(mount);
-        playerRef.current = new api.Player(mount, {
-          host: PRIVACY_ENHANCED_HOST,
-          videoId: youtubeId,
+        playerRef.current = mountPlayer(api, host, youtubeId, {
           playerVars: {
-            ...basePlayerVars(),
             start: Math.floor(at),
             end: Math.ceil(end_s),
             autoplay: 1,

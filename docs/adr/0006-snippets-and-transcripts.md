@@ -36,13 +36,17 @@ check results are never accepted from a request (as for references in
   cleared.
 - **When a video is checked again**: saving a snippet queues a check when the
   video is new, not playable, or last checked over a day ago. One job id per
-  video keeps repeated saves from queueing duplicates. There are no periodic
-  checks yet.
+  video keeps repeated saves from queueing duplicates. The job is queued inside
+  the save's transaction and carries the time it was requested: until a check
+  has finished after that time, a worker that still sees the previous check
+  retries rather than dropping the job. There are no periodic checks yet.
 - **Snippets are their own collection**, versioned and audited like
   references, so one snippet can back several topics: a caption, the YouTube
   id (a pasted link is stored as its id), start and end in seconds (stored in
   tenths), an optional speaker (an individual), the language, and the
-  transcript.
+  transcript. Once a topic uses a snippet, its video cannot change (another
+  video needs its own snippet and checks); its clip and transcript can, like a
+  reference's details.
 - **Transcripts are pasted by an admin**: YouTube's transcript panel,
   `m:ss text` lines, SRT, or WebVTT, with timestamps counting from the start of
   the video or of the clip. Nothing is fetched from YouTube's captions. The
@@ -55,7 +59,8 @@ check results are never accepted from a request (as for references in
 - **A topic uses a snippet as evidence** with a new evidence kind, "Video
   snippet", whose title is optional (the caption is shown). Publishing needs
   every snippet's video to have been found playable at least once, and the clip
-  to end within the video's length when it is known. A video that was playable
+  to end within the video's length when it is known (with one second to spare,
+  as the Data API reports whole seconds). A video that was playable
   and later disappears does not block publishing: visitors see the transcript
   and a notice instead of the player.
 - **One player component** (`apps/web/src/components/snippets/SnippetPlayer`)

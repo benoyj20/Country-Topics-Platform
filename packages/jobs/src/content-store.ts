@@ -88,14 +88,23 @@ export function createContentStore(
     },
 
     async videoState(job): Promise<VideoState> {
-      const { rows } = await pool.query<{ waiting: boolean }>(
-        `SELECT (check_status = 'pending' AND youtube_id = $2) AS waiting
+      // requestedAt comes from the web server's clock and checked_at from the
+      // database's. A small skew only makes a finished check look older, and
+      // that job is retried until its last attempt, then dropped.
+      const { rows } = await pool.query<{
+        waiting: boolean;
+        checkedSince: boolean;
+      }>(
+        `SELECT (check_status = 'pending' AND youtube_id = $2) AS waiting,
+                (checked_at IS NOT NULL AND checked_at >= $3::timestamptz)
+                  AS "checkedSince"
            FROM videos WHERE id = $1`,
-        [job.videoId, job.youtubeId],
+        [job.videoId, job.youtubeId, job.requestedAt],
       );
       const [row] = rows;
       if (!row) return "missing";
-      return row.waiting ? "pending" : "superseded";
+      if (row.waiting) return "pending";
+      return row.checkedSince ? "superseded" : "missing";
     },
 
     async saveVideoCheck(job, result) {

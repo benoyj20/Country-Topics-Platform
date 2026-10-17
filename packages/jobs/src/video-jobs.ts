@@ -11,10 +11,16 @@ import type { JobAttempt } from "./reference-jobs.ts";
 
 export const VIDEO_QUEUE_NAME = "videos";
 
-/** Asks YouTube whether a video still exists and may be embedded. */
+/**
+ * Asks YouTube whether a video still exists and may be embedded. The job is
+ * queued inside the save that marks the video for a check, so until that save
+ * commits the worker may still see the video's previous check; requestedAt
+ * tells the two apart.
+ */
 export const videoCheckJobSchema = z.object({
   videoId: z.uuid(),
   youtubeId: z.string().regex(YOUTUBE_ID_PATTERN),
+  requestedAt: z.iso.datetime(),
 });
 export type VideoCheckJob = z.infer<typeof videoCheckJobSchema>;
 
@@ -40,9 +46,12 @@ export type VideoCheckResult = {
 export type VideoState =
   /** Waits for this check. */
   | "pending"
-  /** Deleted, or already checked; nothing to do. */
+  /** Checked since the job was requested; nothing to do. */
   | "superseded"
-  /** Not visible yet: the save that queued the job has not committed. */
+  /**
+   * Not visible yet: the save that queued the job has not committed, so the
+   * video is absent or still shows a check from before the request.
+   */
   | "missing";
 
 export type VideoStore = {

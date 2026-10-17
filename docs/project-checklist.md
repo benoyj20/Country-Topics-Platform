@@ -353,12 +353,14 @@ See [ADR 0006](adr/0006-snippets-and-transcripts.md) for the design.
   tenths; the server computes the transcript segments from the pasted text on
   every save (moving the clip recomputes them); no transcript is allowed, while
   text without timestamps or with no line inside the clip is refused, as are
-  reversed or negative times, bad language codes, and an end past the video's
-  known length. Edits are versioned and audited (integration tests,
+  reversed or negative times, bad or overlong language codes, and an end more
+  than a second past the video's known length; once a topic uses a snippet,
+  its video cannot change. Edits are versioned and audited (integration tests,
   2026-10-16).
 - [x] Videos: one record per YouTube id, added by the first snippet's save, with
   one queued check however many snippets save it; the worker's result is stored
-  only while a check is awaited; the first time a video was found playable is
+  only while a check is awaited, and a job that arrives before its save commits
+  waits instead of being dropped; the first time a video was found playable is
   kept; a later "removed" keeps the title and length found before; saving a
   snippet of a video that does not play asks again. Videos, their checks, and a
   snippet's video and segments cannot be set through requests (integration and

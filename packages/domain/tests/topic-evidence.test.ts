@@ -73,7 +73,7 @@ describe("evidenceProblems", () => {
     const problems = evidenceProblems(
       topic({
         snippets: [
-          { caption: "Fine", end_s: 60.4, video: video({}) },
+          { caption: "Fine", end_s: 60.9, video: video({}) },
           // Confirmed once, then removed: the transcript still stands.
           {
             caption: "Removed later",
@@ -95,7 +95,7 @@ describe("evidenceProblems", () => {
             end_s: 30,
             video: video({ checkStatus: "not_embeddable", confirmed: false }),
           },
-          { caption: "Too long", end_s: 61, video: video({}) },
+          { caption: "Too long", end_s: 61.1, video: video({}) },
           { caption: "Gone", end_s: 30, video: null },
         ],
       }),

@@ -11,8 +11,12 @@ export const YOUTUBE_ID_PATTERN = /^[\w-]{11}$/;
 export const SNIPPET_LONG_CLIP_S = 600;
 /** Bounds typed times; YouTube videos are at most 12 hours long. */
 export const SNIPPET_MAX_TIME_S = 24 * 60 * 60;
-/** The player reports lengths to a fraction of a second; allow for it. */
-export const VIDEO_LENGTH_TOLERANCE_S = 0.5;
+/**
+ * How far a clip may end past the video's known length: the Data API reports
+ * whole seconds while the player reports fractions, so a clip ending at
+ * 95.9 s fits a video the Data API calls 95 s long.
+ */
+export const VIDEO_LENGTH_TOLERANCE_S = 1;
 /** A pasted transcript; a full hour of speech is about 60,000 characters. */
 export const TRANSCRIPT_MAX_LENGTH = 200_000;
 export const TRANSCRIPT_LINE_MAX_LENGTH = 2_000;
@@ -60,6 +64,11 @@ const CUE = new RegExp(String.raw`^(${TS})\s*-->\s*(${TS})`);
 const SPOKEN_TS =
   /^\d+\s+(hours?|minutes?|seconds?)(,?\s+\d+\s+(hours?|minutes?|seconds?))*$/i;
 const TAG = /<[^>]+>/g;
+
+/** A time in seconds from a form or request value; null for anything else. */
+export function secondsOrNull(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
 
 /** Rounds to tenths of a second, the precision snippets are stored with. */
 export function roundToTenths(seconds: number): number {

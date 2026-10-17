@@ -1,6 +1,10 @@
-import { APIError, type CollectionBeforeDeleteHook } from "payload";
+import {
+  APIError,
+  type CollectionBeforeDeleteHook,
+  type PayloadRequest,
+} from "payload";
 
-type Usage =
+export type Usage =
   | {
       collection: "topics";
       field:
@@ -35,6 +39,36 @@ function describeUsers(usages: Usage[]): string {
 }
 
 /**
+ * Whether topics or snippets use a document, in their live version or in any
+ * saved version (or individuals use it).
+ */
+export async function isUsed(
+  req: PayloadRequest,
+  id: string | number,
+  usages: Usage[],
+): Promise<boolean> {
+  const counts = await Promise.all(
+    usages.flatMap(({ collection, field }) => {
+      const live = req.payload.count({
+        collection,
+        where: { [field]: { equals: id } },
+        overrideAccess: true,
+        req,
+      });
+      if (!VERSIONED.has(collection)) return [live];
+      const versions = req.payload.countVersions({
+        collection,
+        where: { [`version.${field}`]: { equals: id } },
+        overrideAccess: true,
+        req,
+      });
+      return [live, versions];
+    }),
+  );
+  return counts.some(({ totalDocs }) => totalDocs > 0);
+}
+
+/**
  * Refuses to delete a document that topics or snippets use, in their live
  * version or in any saved version (or that individuals use). Deleting it
  * would silently change published topics and their history (the database
@@ -45,25 +79,7 @@ export function keepWhileUsed(
   usages: Usage[],
 ): CollectionBeforeDeleteHook {
   return async ({ id, req }) => {
-    const counts = await Promise.all(
-      usages.flatMap(({ collection, field }) => {
-        const live = req.payload.count({
-          collection,
-          where: { [field]: { equals: id } },
-          overrideAccess: true,
-          req,
-        });
-        if (!VERSIONED.has(collection)) return [live];
-        const versions = req.payload.countVersions({
-          collection,
-          where: { [`version.${field}`]: { equals: id } },
-          overrideAccess: true,
-          req,
-        });
-        return [live, versions];
-      }),
-    );
-    if (counts.some(({ totalDocs }) => totalDocs > 0)) {
+    if (await isUsed(req, id, usages)) {
       throw new APIError(
         `This ${label} is used by ${describeUsers(usages)}, so it cannot be deleted. Edit it instead.`,
         409,

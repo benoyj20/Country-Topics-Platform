@@ -6,6 +6,7 @@ import {
   parseTime,
   parseYouTubeUrl,
   roundToTenths,
+  secondsOrNull,
 } from "@countrytopics/domain";
 import { Button, useField } from "@payloadcms/ui";
 import type { UIFieldClientComponent } from "payload";
@@ -18,11 +19,10 @@ import {
 } from "react";
 
 import {
-  basePlayerVars,
   loadYouTubeIframeApi,
+  mountPlayer,
   PlayerState,
   playerErrorMessage,
-  PRIVACY_ENHANCED_HOST,
   thumbnailUrl,
   type YouTubePlayer,
 } from "@/components/snippets/youtube-iframe-api";
@@ -36,8 +36,6 @@ const DEFAULT_CLIP_LENGTH_S = 30;
 /** Lengths reported by the player wobble slightly while it loads. */
 const DURATION_CHANGE_S = 0.5;
 
-const asTime = (value: unknown) =>
-  typeof value === "number" && Number.isFinite(value) ? value : null;
 const timeText = (value: number | null) =>
   value === null ? "" : formatTime(value, true);
 
@@ -51,14 +49,17 @@ export const SnippetEditor: UIFieldClientComponent = () => {
   const start = useField<number | null>({ path: "startS" });
   const end = useField<number | null>({ path: "endS" });
   const youtubeId = typeof youtube.value === "string" ? youtube.value : "";
-  const start_s = asTime(start.value);
-  const end_s = asTime(end.value);
+  const start_s = secondsOrNull(start.value);
+  const end_s = secondsOrNull(end.value);
 
   const hostRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YouTubePlayer | null>(null);
   const readyRef = useRef(false);
   const loadedIdRef = useRef<string | null>(null);
   const clipPlayingRef = useRef(false);
+  // Set when a video is loaded or the start passes the end, so the end is
+  // proposed once the length is known; a cleared or mistyped end is not.
+  const proposeEndRef = useRef(false);
   const scrubbingRef = useRef(false);
   const startInputRef = useRef<HTMLInputElement>(null);
   const endInputRef = useRef<HTMLInputElement>(null);
@@ -131,13 +132,7 @@ export const SnippetEditor: UIFieldClientComponent = () => {
       }
       const host = hostRef.current;
       if (!host) return;
-      // YouTube replaces this element with its iframe; React never renders it.
-      const mount = document.createElement("div");
-      host.replaceChildren(mount);
-      playerRef.current = new api.Player(mount, {
-        host: PRIVACY_ENHANCED_HOST,
-        videoId: id,
-        playerVars: basePlayerVars(),
+      playerRef.current = mountPlayer(api, host, id, {
         events: {
           onReady: ({ target }) => {
             readyRef.current = true;
@@ -189,9 +184,10 @@ export const SnippetEditor: UIFieldClientComponent = () => {
     return () => clearInterval(timer);
   }, [playerOpen, end_s]);
 
-  // A clip without an end gets a default one once the length is known.
+  // A newly loaded clip gets a default end once the length is known.
   useEffect(() => {
-    if (duration_s !== null && end_s === null) {
+    if (proposeEndRef.current && duration_s !== null && end_s === null) {
+      proposeEndRef.current = false;
       end.setValue(
         roundToTenths(
           Math.min((start_s ?? 0) + DEFAULT_CLIP_LENGTH_S, duration_s),
@@ -212,6 +208,7 @@ export const SnippetEditor: UIFieldClientComponent = () => {
       setDuration(null);
       start.setValue(parsed.start_s ?? 0);
       end.setValue(null);
+      proposeEndRef.current = true;
     }
     void openPlayer(parsed.id);
   }
@@ -222,7 +219,10 @@ export const SnippetEditor: UIFieldClientComponent = () => {
     const time = roundToTenths(player.getCurrentTime());
     if (which === "start") {
       start.setValue(time);
-      if (!(end_s !== null && end_s > time)) end.setValue(null);
+      if (!(end_s !== null && end_s > time)) {
+        end.setValue(null);
+        proposeEndRef.current = true;
+      }
     } else {
       end.setValue(time);
     }

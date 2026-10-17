@@ -36,11 +36,15 @@ export function queueReferenceCheck(
   );
 }
 
+/** Stamped with the time of the request, which the worker compares. */
 export function queueVideoCheck(
   req: PayloadRequest,
-  job: VideoCheckJob,
+  job: Omit<VideoCheckJob, "requestedAt">,
 ): Promise<void> {
-  return enqueueOrFail(req, "video check", () => videoQueue().enqueue(job));
+  const requestedAt = new Date().toISOString();
+  return enqueueOrFail(req, "video check", () =>
+    videoQueue().enqueue({ ...job, requestedAt }),
+  );
 }
 
 /** Asks the worker to archive each link that has no Wayback Machine copy yet. */

@@ -177,7 +177,11 @@ describe("snippets", () => {
       (job) => job.id === videoJobId(video.id),
     );
     expect(jobs.map((job) => job.data)).toEqual([
-      { videoId: video.id, youtubeId: "TESTsnip001" },
+      {
+        videoId: video.id,
+        youtubeId: "TESTsnip001",
+        requestedAt: expect.any(String),
+      },
     ]);
     expect(await auditActions(first.id)).toEqual(["snippet.created"]);
     expect(await auditActions(video.id)).toEqual(["video.created"]);
@@ -223,6 +227,10 @@ describe("snippets", () => {
     // No transcript is allowed and stays distinct from a wrong one.
     const cleared = await updateSnippet(snippet.id, { transcriptText: "" });
     expect(cleared.transcript).toEqual([]);
+    // Its timestamps count from the clip's start (12 s) here.
+    await updateSnippet(snippet.id, { transcriptText: "0:01 TEST line" });
+    const nulled = await updateSnippet(snippet.id, { transcriptText: null });
+    expect(nulled.transcript).toEqual([]);
     expect(
       await refusedPaths(
         updateSnippet(snippet.id, { transcriptText: "no timestamps here" }),
@@ -255,11 +263,13 @@ describe("snippets", () => {
         createSnippet({ youtubeId: "TESTsnip003", startS: -1, endS: 5 }),
       ),
     ).toEqual(["startS"]);
-    expect(
-      await refusedPaths(
-        createSnippet({ youtubeId: "TESTsnip003", language: "not a tag" }),
-      ),
-    ).toEqual(["language"]);
+    for (const language of ["not a tag", `en${"-abcdefgh".repeat(10)}`]) {
+      expect(
+        await refusedPaths(
+          createSnippet({ youtubeId: "TESTsnip003", language }),
+        ),
+      ).toEqual(["language"]);
+    }
     // A refused save adds no video.
     const { totalDocs } = await payload.count({
       collection: "videos",
@@ -277,12 +287,13 @@ describe("snippets", () => {
       video.id,
       fakeYouTube({ duration_s: 60 }),
     );
+    // The Data API reports whole seconds, so a clip may end up to 1 s past.
     await expect(
-      updateSnippet(snippet.id, { endS: 60.4 }),
+      updateSnippet(snippet.id, { endS: 60.9 }),
     ).resolves.toBeTruthy();
-    expect(await refusedPaths(updateSnippet(snippet.id, { endS: 61 }))).toEqual(
-      ["endS"],
-    );
+    expect(
+      await refusedPaths(updateSnippet(snippet.id, { endS: 61.5 })),
+    ).toEqual(["endS"]);
   });
 
   it("are written by verified admins only; staff can read them", async () => {
@@ -334,6 +345,16 @@ describe("videos", () => {
 
     // A late or repeated job changes nothing once the video is checked.
     expect(await runVideoCheck(payload, worker.store, id)).toBe("superseded");
+    // A job requested after that check, by a save that has not committed yet,
+    // waits for it instead of being dropped; one requested before is done.
+    const checkedAt = Date.parse(checked.checkedAt ?? "");
+    const job = (offsetMs: number) => ({
+      videoId: id,
+      youtubeId: "TESTsnip006",
+      requestedAt: new Date(checkedAt + offsetMs).toISOString(),
+    });
+    expect(await worker.store.videoState(job(60_000))).toBe("missing");
+    expect(await worker.store.videoState(job(-60_000))).toBe("superseded");
     // Saving a snippet of a recently confirmed video queues no new check.
     await worker.queues.videos.obliterate({ force: true });
     await updateSnippet(snippet.id, { caption: "TEST snippet, renamed" });
@@ -465,6 +486,13 @@ describe("videos", () => {
         overrideAccess: false,
       }),
     ).rejects.toMatchObject({ status: 409 });
+    // Nor can its video change; its clip and transcript still can.
+    expect(
+      await refusedPaths(
+        updateSnippet(snippet.id, { youtubeId: "TESTsnip012" }),
+      ),
+    ).toEqual(["youtubeId"]);
+    await expect(updateSnippet(snippet.id, { endS: 15 })).resolves.toBeTruthy();
   });
 });
 
@@ -542,7 +570,22 @@ describe("snippets as topic evidence", () => {
     await runVideoCheck(payload, worker.store, (await videoOf(snippet)).id);
     expect((await publish()).state).toBe("published");
 
-    // A snippet row without its snippet is refused.
+    // A snippet row without its snippet is refused, as is an overlong title.
+    await expect(
+      payload.update({
+        collection: "topics",
+        id: draft.id,
+        data: {
+          _status: "published",
+          changeNote: "TEST change",
+          evidence: [
+            { kind: "snippet", snippet: snippet.id, title: "x".repeat(201) },
+          ],
+        },
+        user: admin,
+        overrideAccess: false,
+      }),
+    ).rejects.toMatchObject({ status: 400 });
     await expect(
       payload.update({
         collection: "topics",

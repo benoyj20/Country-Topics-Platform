@@ -451,9 +451,21 @@ See [ADR 0007](adr/0007-public-pages-and-caching.md) for the design.
 - [x] Purges: publishing a topic purges the topic pages and lists, a draft
   save does not, and a change to any other shown collection purges its pages
   (integration tests with Next.js's request APIs replaced by recorders,
+  2026-10-17). Outside a web request, as in a script, a save goes ahead
+  without a purge (unit test against the real Next.js `after()`).
+- [x] Fixed on the way: an update sent without the draft flag rewrote a
+  published topic's live version with no change note or change log entry
+  (a gap since week 4); it is now saved as a draft (integration test).
+- [x] Snippet speakers count as people a topic names: publishing a topic
+  that quotes a speaker needs a reference, and a speaker cannot be added to
+  a snippet that a published topic without a reference uses (integration
+  tests, 2026-10-17).
+- [x] Files are read through the storage plugin's handler, so range
+  requests (206) and revalidation (304) work (integration tests,
   2026-10-17).
 - [x] The guard tests failed when the published filter, the purge on
-  publish, and the recording of body links were removed (2026-10-17).
+  publish, the recording of body links, the speaker rule, and the draft
+  rule were removed (2026-10-17).
 - [x] Real browser and HTTP (headless Edge and `fetch`, production build on
   the test database, the worker running against it with the YouTube key):
   topic, home, country, and individual pages answered 200 with

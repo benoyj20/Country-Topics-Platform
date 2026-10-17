@@ -5,6 +5,7 @@ import {
   type RequiredDataFromCollectionSlug,
 } from "payload";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import * as z from "zod";
 
 import { GET as getFile } from "@/app/(frontend)/files/[id]/route";
 import type { Individual, Media, Topic, User } from "@/payload-types";
@@ -108,6 +109,36 @@ function createTopic(data: Partial<TopicInput>) {
       ...data,
     } as TopicInput,
     draft: true,
+    user: admin,
+    overrideAccess: false,
+  });
+}
+
+const validationError = z.object({
+  data: z.object({ errors: z.array(z.object({ path: z.string() })) }),
+});
+
+async function refusedPaths(promise: Promise<unknown>): Promise<string[]> {
+  try {
+    await promise;
+  } catch (error) {
+    return validationError.parse(error).data.errors.map((entry) => entry.path);
+  }
+  throw new Error("Expected the save to be refused");
+}
+
+function snippetOf(data: { caption: string; speaker?: string }) {
+  return payload.create({
+    collection: "snippets",
+    // The same video as the one beforeAll had the worker confirm.
+    data: {
+      youtubeId: "TESTpubl001",
+      startS: 10,
+      endS: 20,
+      language: "en",
+      transcriptTimebase: "video",
+      ...data,
+    },
     user: admin,
     overrideAccess: false,
   });
@@ -400,6 +431,28 @@ describe("files", () => {
     );
     expect(Buffer.from(await response.arrayBuffer())).toEqual(PNG_BYTES);
 
+    // Ranges and revalidation work as on Payload's own file route.
+    const etag = response.headers.get("etag");
+    expect(etag).toBeTruthy();
+    const unchanged = await getFile(
+      new Request(`${SITE_URL}/files/${image.id}`, {
+        headers: { "if-none-match": etag ?? "" },
+      }),
+      { params: Promise.resolve({ id: image.id }) },
+    );
+    expect(unchanged.status).toBe(304);
+    expect(unchanged.headers.get("cache-control")).toBe("public, max-age=3600");
+    const part = await getFile(
+      new Request(`${SITE_URL}/files/${image.id}`, {
+        headers: { range: "bytes=0-7" },
+      }),
+      { params: Promise.resolve({ id: image.id }) },
+    );
+    expect(part.status).toBe(206);
+    expect(Buffer.from(await part.arrayBuffer())).toEqual(
+      PNG_BYTES.subarray(0, 8),
+    );
+
     for (const id of [privateFile.id, hiddenPhoto.id, "not-a-uuid"]) {
       const refused = await get(id);
       expect(refused.status).toBe(404);
@@ -453,5 +506,67 @@ describe("individuals linked in a topic's text", () => {
         overrideAccess: false,
       }),
     ).rejects.toMatchObject({ status: 409 });
+  });
+});
+
+describe("snippet speakers", () => {
+  it("count as people the topic names, so publishing needs a reference", async () => {
+    const quoting = await snippetOf({
+      caption: "TEST quoting snippet",
+      speaker: speakerOnly.id,
+    });
+    const topic = await createTopic({
+      title: "TEST topic quoting a speaker",
+      evidence: [{ kind: "snippet", snippet: quoting.id }],
+    });
+    expect(await refusedPaths(publish(topic.id))).toEqual(["references"]);
+  });
+
+  it("cannot be added while a published topic uses the snippet without a reference", async () => {
+    const silent = await snippetOf({ caption: "TEST snippet with no speaker" });
+    const topic = await createTopic({
+      title: "TEST topic naming no one",
+      evidence: [{ kind: "snippet", snippet: silent.id }],
+    });
+    // Naming no one, it needs no reference.
+    expect((await publish(topic.id)).state).toBe("published");
+    expect(
+      await refusedPaths(
+        payload.update({
+          collection: "snippets",
+          id: silent.id,
+          data: { speaker: speakerOnly.id },
+          user: admin,
+          overrideAccess: false,
+        }),
+      ),
+    ).toEqual(["speaker"]);
+  });
+});
+
+describe("saves that do not publish", () => {
+  it("never change the live version, even without the draft flag", async () => {
+    const topic = await publish(
+      (await createTopic({ title: "TEST live before a plain update" })).id,
+    );
+    purgedTags.length = 0;
+    await payload.update({
+      collection: "topics",
+      id: topic.id,
+      data: { title: "TEST changed without publishing" },
+      user: admin,
+      overrideAccess: false,
+    });
+    expect((await loadTopicPage(topic.slug))?.title).toBe(
+      "TEST live before a plain update",
+    );
+    expect(purgedTags).not.toContain(PUBLIC_TAGS.topics);
+    const latest = await payload.findByID({
+      collection: "topics",
+      id: topic.id,
+      draft: true,
+      overrideAccess: true,
+    });
+    expect(latest.title).toBe("TEST changed without publishing");
   });
 });

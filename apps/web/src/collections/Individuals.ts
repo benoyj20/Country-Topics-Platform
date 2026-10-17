@@ -19,13 +19,13 @@ import {
   verifiedStaffOnly,
 } from "@/access";
 import { auditHooks, relationId } from "@/audit";
-import { PUBLIC_TAGS, purgeOnChange } from "@/public-cache";
 import {
   findPossibleDuplicates,
   lockNameKeys,
   nameKeys,
 } from "@/individuals/duplicates";
 import { DIFFERENT_PERSON_LABEL } from "@/individuals/labels";
+import { PUBLIC_TAGS, purgeOnChange } from "@/public-cache";
 
 import { IMAGE_MIME_TYPES } from "./Media";
 import { fillSlug, slugField } from "./slug";

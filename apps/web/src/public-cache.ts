@@ -36,18 +36,34 @@ export const PUBLIC_REVALIDATE_S = 3600;
 // admin who publishes and then opens the page sees the change.
 const EXPIRE_NOW = { expire: 0 };
 
+// Next.js's message for after() called outside a request (error E468).
+const OUTSIDE_REQUEST = /outside a request scope/;
+
 /**
  * Purges public pages once the response is sent. Payload commits a save
  * just before its route returns, while hooks run inside the transaction:
  * purging from the hook itself would let a visitor's request in between
  * render the old content again and cache it until the next purge.
+ *
+ * Outside a web request (a script using the local API) there is no page
+ * cache to reach: the save goes ahead, and pages refresh within
+ * PUBLIC_REVALIDATE_S.
  */
 export function purgePublicPages(tags: Iterable<PublicTag>): void {
   const unique = [...new Set(tags)];
   if (unique.length === 0) return;
-  after(() => {
-    for (const tag of unique) revalidateTag(tag, EXPIRE_NOW);
-  });
+  try {
+    after(() => {
+      for (const tag of unique) revalidateTag(tag, EXPIRE_NOW);
+    });
+  } catch (error) {
+    if (!(error instanceof Error && OUTSIDE_REQUEST.test(error.message))) {
+      throw error;
+    }
+    console.warn(
+      `Public pages not purged (${unique.join(", ")}): no web request. They refresh within ${PUBLIC_REVALIDATE_S / 60} minutes.`,
+    );
+  }
 }
 
 type ChangeHooks = {

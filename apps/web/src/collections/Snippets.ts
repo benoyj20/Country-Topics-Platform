@@ -22,8 +22,8 @@ import {
 
 import { verifiedAdminsOnly, verifiedStaffOnly } from "@/access";
 import { auditHooks, relationId } from "@/audit";
-import { PUBLIC_TAGS, purgeOnChange } from "@/public-cache";
 import { queueVideoCheck } from "@/content-jobs";
+import { PUBLIC_TAGS, purgeOnChange } from "@/public-cache";
 import { lockForTransaction } from "@/transaction-lock";
 
 import { refuse } from "./refuse";
@@ -181,6 +181,43 @@ const prepareSnippet: CollectionBeforeChangeHook = async ({
         "endS",
         "End",
         `End is past the end of the video (${formatTime(duration_s)}).`,
+      );
+    }
+  }
+
+  // A speaker counts as someone the topics using the snippet name, and a
+  // topic that names someone is published only with a reference (ADR 0007).
+  // A speaker added later must not slip past that check on topics already
+  // published.
+  const speaker = relationId(
+    "speaker" in data ? data.speaker : stored?.speaker,
+  );
+  if (stored && speaker && speaker !== relationId(stored.speaker)) {
+    const { docs } = await req.payload.find({
+      collection: "topics",
+      draft: false,
+      where: {
+        and: [
+          { _status: { equals: "published" } },
+          { "evidence.snippet": { equals: stored.id } },
+        ],
+      },
+      select: { title: true, references: true },
+      pagination: false,
+      depth: 0,
+      overrideAccess: true,
+      req,
+    });
+    const unreferenced = docs.filter(
+      (topic) => (topic.references ?? []).length === 0,
+    );
+    if (unreferenced.length > 0) {
+      refuse(
+        "snippets",
+        req,
+        "speaker",
+        "Speaker",
+        `Published topics use this snippet without a reference: ${unreferenced.map((topic) => `"${topic.title}"`).join(", ")}. Naming a speaker names them in those topics, so add a reference to each and publish it first.`,
       );
     }
   }

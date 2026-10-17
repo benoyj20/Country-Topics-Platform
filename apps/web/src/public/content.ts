@@ -1,9 +1,9 @@
-import config from "@payload-config";
-import { getPayload, type Payload, type Where } from "payload";
+import type { Payload, Where } from "payload";
 
 import { relationId } from "@/audit";
 import type { Licence } from "@/content-labels";
 import { richTextLinkTargets } from "@/editor";
+import { loadPayload } from "@/payload-instance";
 import type {
   Individual,
   LinkArchive,
@@ -68,10 +68,6 @@ const SUMMARY_FIELDS = {
   lastPublishedAt: true,
   countries: true,
 } as const;
-
-function loadPayload(): Promise<Payload> {
-  return getPayload({ config });
-}
 
 function ids(values: unknown[]): string[] {
   return [
@@ -211,13 +207,16 @@ const FILE_FIELDS = {
   sourceUrl: true,
 } as const;
 
-/** The condition for published topics that name an individual. */
-async function namingTopics(payload: Payload, individualId: string) {
+/** The condition for topics that name any of the individuals. */
+async function namingTopics(
+  payload: Payload,
+  individualIds: string[],
+): Promise<Where> {
   // Snippets are not versioned with topics: a published topic quotes the
   // speaker its snippet names now, as its page shows.
   const { docs: spoken } = await payload.find({
     collection: "snippets",
-    where: { speaker: { equals: individualId } },
+    where: { speaker: { in: individualIds } },
     // Only the ids are needed; Payload always returns them.
     select: { youtubeId: true },
     depth: 0,
@@ -225,22 +224,20 @@ async function namingTopics(payload: Payload, individualId: string) {
     overrideAccess: true,
   });
   const naming: Where[] = [
-    { "people.individual": { equals: individualId } },
-    { linkedIndividuals: { equals: individualId } },
+    { "people.individual": { in: individualIds } },
+    { linkedIndividuals: { in: individualIds } },
   ];
   if (spoken.length > 0) {
     naming.push({ "evidence.snippet": { in: spoken.map((doc) => doc.id) } });
   }
-  return { or: naming } satisfies Where;
+  return { or: naming };
 }
 
-async function isPublicIndividual(
-  payload: Payload,
-  individualId: string,
-): Promise<boolean> {
+/** Whether a published topic names any of the individuals. */
+async function anyNamed(payload: Payload, naming: Where): Promise<boolean> {
   const { totalDocs } = await payload.count({
     collection: "topics",
-    where: { and: [PUBLISHED, await namingTopics(payload, individualId)] },
+    where: { and: [PUBLISHED, naming] },
     overrideAccess: true,
   });
   return totalDocs > 0;
@@ -350,22 +347,19 @@ async function evidenceOf(
   payload: Payload,
   evidence: NonNullable<Topic["evidence"]>,
 ): Promise<PublicEvidence[]> {
-  const files = await byId<Media>(
-    payload,
-    "media",
-    ids(evidence.map((row) => row.file)),
-    FILE_FIELDS,
-  );
-  const snippets = await snippetsById(
-    payload,
-    ids(evidence.map((row) => row.snippet)),
-  );
   const urls = evidence.flatMap((row) =>
     row.kind === "link" && row.url ? [row.url] : [],
   );
-  const { docs: archiveDocs } =
+  const [files, snippets, { docs: archiveDocs }] = await Promise.all([
+    byId<Media>(
+      payload,
+      "media",
+      ids(evidence.map((row) => row.file)),
+      FILE_FIELDS,
+    ),
+    snippetsById(payload, ids(evidence.map((row) => row.snippet))),
     urls.length > 0
-      ? await payload.find({
+      ? payload.find({
           collection: "link-archives",
           where: { url: { in: urls }, status: { equals: "archived" } },
           select: { url: true, archiveUrl: true, capturedAt: true },
@@ -373,7 +367,8 @@ async function evidenceOf(
           pagination: false,
           overrideAccess: true,
         })
-      : { docs: [] };
+      : Promise.resolve({ docs: [] }),
+  ]);
   const archives = new Map(
     (archiveDocs as Pick<LinkArchive, "url" | "archiveUrl" | "capturedAt">[])
       .filter((doc) => doc.archiveUrl)
@@ -553,24 +548,34 @@ export async function loadTopicPage(slug: string): Promise<TopicPage | null> {
   const topic = docs[0];
   if (!topic) return null;
 
-  const [summary] = await summaries(payload, [topic]);
-  const categories = await byId<Named>(
-    payload,
-    "categories",
-    ids([topic.category]),
-    { name: true, slug: true },
-  );
-  const tags = await byId<Named>(payload, "tags", ids(rows(topic.tags)), {
-    name: true,
-    slug: true,
-  });
+  // Independent reads, outside any transaction: run together, so the first
+  // visit after a purge waits for the slowest rather than for all of them.
   const people = rows(topic.people);
-  const individuals = await byId<Named>(
-    payload,
-    "individuals",
-    ids(people.map((row) => row.individual)),
-    { name: true, slug: true },
-  );
+  const named = { name: true, slug: true } as const;
+  const [
+    [summary],
+    categories,
+    tags,
+    individuals,
+    bodyLinks,
+    evidence,
+    references,
+    changes,
+  ] = await Promise.all([
+    summaries(payload, [topic]),
+    byId<Named>(payload, "categories", ids([topic.category]), named),
+    byId<Named>(payload, "tags", ids(rows(topic.tags)), named),
+    byId<Named>(
+      payload,
+      "individuals",
+      ids(people.map((row) => row.individual)),
+      named,
+    ),
+    bodyLinksOf(payload, topic.body),
+    evidenceOf(payload, rows(topic.evidence)),
+    referencesOf(payload, rows(topic.references)),
+    changesOf(payload, String(topic.id)),
+  ]);
   const category = categories.get(relationId(topic.category) ?? "");
 
   return {
@@ -592,10 +597,10 @@ export async function loadTopicPage(slug: string): Promise<TopicPage | null> {
         : [];
     }),
     body: topic.body,
-    bodyLinks: await bodyLinksOf(payload, topic.body),
-    evidence: await evidenceOf(payload, rows(topic.evidence)),
-    references: await referencesOf(payload, rows(topic.references)),
-    changes: await changesOf(payload, String(topic.id)),
+    bodyLinks,
+    evidence,
+    references,
+    changes,
   };
 }
 
@@ -635,15 +640,13 @@ export async function loadIndividualPage(
   });
   const individual = docs[0] as IndividualFields | undefined;
   if (!individual) return null;
-  const id = String(individual.id);
-  if (!(await isPublicIndividual(payload, id))) return null;
+  const naming = await namingTopics(payload, [String(individual.id)]);
+  if (!(await anyNamed(payload, naming))) return null;
 
-  const photos = await byId<Media>(
-    payload,
-    "media",
-    ids([individual.photo]),
-    FILE_FIELDS,
-  );
+  const [photos, topics] = await Promise.all([
+    byId<Media>(payload, "media", ids([individual.photo]), FILE_FIELDS),
+    topicList(payload, naming, TOPIC_LIST_LIMIT),
+  ]);
   const photo = photos.get(relationId(individual.photo) ?? "");
   return {
     name: individual.name,
@@ -653,11 +656,7 @@ export async function loadIndividualPage(
     photo: photo ? publicFile(photo) : null,
     links: rows(individual.links).map(({ label, url }) => ({ label, url })),
     wikidataId: individual.wikidataId ?? null,
-    topics: await topicList(
-      payload,
-      await namingTopics(payload, id),
-      TOPIC_LIST_LIMIT,
-    ),
+    topics,
   };
 }
 
@@ -741,13 +740,16 @@ export async function loadHomePage(): Promise<HomePage> {
   return { topics, countries };
 }
 
+/** What the storage plugin needs to find a file: its record's storage fields. */
+export type StoredFile = Pick<Media, "id" | "filename" | "_objectKey">;
+
 /**
  * The record of a file visitors may download, or null: it must be evidence
  * in a published topic, or the photo of a public individual.
  */
 export async function loadPublicFile(
   id: string,
-): Promise<{ file: PublicFile; objectKey: string } | null> {
+): Promise<{ file: PublicFile; stored: StoredFile } | null> {
   const payload = await loadPayload();
   const media = (await payload.findByID({
     collection: "media",
@@ -775,18 +777,23 @@ export async function loadPublicFile(
       pagination: false,
       overrideAccess: true,
     });
-    for (const individual of portrayed) {
-      if (await isPublicIndividual(payload, String(individual.id))) {
-        isPublic = true;
-        break;
-      }
-    }
+    isPublic =
+      portrayed.length > 0 &&
+      (await anyNamed(
+        payload,
+        await namingTopics(
+          payload,
+          portrayed.map((individual) => String(individual.id)),
+        ),
+      ));
   }
   if (!isPublic) return null;
-  // Where the storage plugin puts the file: its object key folder, if any,
-  // then the file name (no prefix is configured).
-  const objectKey = media._objectKey
-    ? `${media._objectKey}/${file.filename}`
-    : file.filename;
-  return { file, objectKey };
+  return {
+    file,
+    stored: {
+      id: String(media.id),
+      filename: media.filename,
+      _objectKey: media._objectKey,
+    },
+  };
 }

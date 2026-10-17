@@ -98,7 +98,10 @@ export function referenceCheckResult(checks: IdentifierCheck[]): {
 }
 
 export type TopicEvidence = {
-  /** The topic links an individual, in its list of people or in its text. */
+  /**
+   * The topic names an individual: in its list of people, by a link in its
+   * text, or as the speaker of a snippet it uses as evidence.
+   */
   namesIndividuals: boolean;
   evidenceCount: number;
   /** The references the topic cites, with their check status. */

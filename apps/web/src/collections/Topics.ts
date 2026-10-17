@@ -90,6 +90,9 @@ function pendingChanges(req: PayloadRequest): Map<string, PendingChange> {
  * Blocks, before anything is written, the operations that would take a
  * published topic offline or replace it without a change log entry:
  * - Unpublishing (one topic or in bulk). A published topic is archived instead.
+ * - An update that neither publishes nor says "draft". Payload writes the
+ *   live version for any update without `draft`, which would skip the change
+ *   note, the change log, and the public page purge; it becomes a draft save.
  * - Restoring a version over a published topic. It may be restored only as a
  *   draft, and then published with a change note.
  * A duplicate becomes a fresh draft; applyWorkflow gives it no publication
@@ -118,6 +121,13 @@ const guardLiveVersion: CollectionBeforeOperationHook = async ({
       "Status",
       "Topics are not unpublished. To take one out of lists, tick Archived, add a change note, and publish.",
     );
+  }
+  if (
+    (operation === "update" || operation === "updateByID") &&
+    !draft &&
+    status !== "published"
+  ) {
+    return { ...args, draft: true };
   }
   if (operation === "restoreVersion" && !draft && "id" in args && args.id) {
     const version = await req.payload.findVersionByID({
@@ -283,11 +293,14 @@ function rows(value: unknown): Record<string, unknown>[] {
     : [];
 }
 
-/** The snippets a topic's evidence uses, with their videos' checks. */
+/**
+ * The snippets a topic's evidence uses, with their videos' checks, and
+ * whether any names a speaker: quoting a person names them (ADR 0007).
+ */
 async function snippetEvidence(
   req: PayloadRequest,
   evidence: unknown,
-): Promise<SnippetEvidence[]> {
+): Promise<{ snippets: SnippetEvidence[]; quotesSomeone: boolean }> {
   const snippetIds = [
     ...new Set(
       rows(evidence).flatMap((row) => {
@@ -296,11 +309,11 @@ async function snippetEvidence(
       }),
     ),
   ];
-  if (snippetIds.length === 0) return [];
+  if (snippetIds.length === 0) return { snippets: [], quotesSomeone: false };
   const { docs: snippets } = await req.payload.find({
     collection: "snippets",
     where: { id: { in: snippetIds } },
-    select: { caption: true, endS: true, video: true },
+    select: { caption: true, endS: true, video: true, speaker: true },
     pagination: false,
     depth: 0,
     overrideAccess: true,
@@ -326,21 +339,24 @@ async function snippetEvidence(
   const snippetsById = new Map(
     snippets.map((snippet) => [String(snippet.id), snippet]),
   );
-  return snippetIds.map((id) => {
-    const snippet = snippetsById.get(id);
-    const video = videosById.get(relationId(snippet?.video) ?? "");
-    return {
-      caption: snippet?.caption ?? "Unknown snippet",
-      end_s: snippet?.endS ?? 0,
-      video: video
-        ? {
-            checkStatus: video.checkStatus,
-            confirmed: Boolean(video.confirmedAt),
-            duration_s: video.durationS ?? null,
-          }
-        : null,
-    };
-  });
+  return {
+    snippets: snippetIds.map((id) => {
+      const snippet = snippetsById.get(id);
+      const video = videosById.get(relationId(snippet?.video) ?? "");
+      return {
+        caption: snippet?.caption ?? "Unknown snippet",
+        end_s: snippet?.endS ?? 0,
+        video: video
+          ? {
+              checkStatus: video.checkStatus,
+              confirmed: Boolean(video.confirmedAt),
+              duration_s: video.durationS ?? null,
+            }
+          : null,
+      };
+    }),
+    quotesSomeone: snippets.some((snippet) => relationId(snippet.speaker)),
+  };
 }
 
 /**
@@ -372,16 +388,21 @@ async function evidenceErrors(
         })
       : { docs: [] };
   const cited = new Map(docs.map((doc) => [String(doc.id), doc]));
+  const { snippets, quotesSomeone } = await snippetEvidence(
+    req,
+    topic.evidence,
+  );
   return evidenceProblems({
     namesIndividuals:
       rows(topic.people).length > 0 ||
-      richTextLinksTo(topic.body, "individuals"),
+      richTextLinksTo(topic.body, "individuals") ||
+      quotesSomeone,
     evidenceCount: rows(topic.evidence).length,
     references: citedIds.map((id) => ({
       title: cited.get(id)?.title ?? "Unknown reference",
       checkStatus: cited.get(id)?.checkStatus ?? null,
     })),
-    snippets: await snippetEvidence(req, topic.evidence),
+    snippets,
   }).map(({ field, message }) => ({
     path: field,
     label: field === "evidence" ? "Evidence" : "References",
@@ -495,11 +516,32 @@ const recordChange: CollectionAfterChangeHook = async ({
  * Keeps the individuals linked in the body as a relationship, so a public
  * page can ask which topics name a person without reading every body.
  */
-const recordBodyLinks: CollectionBeforeChangeHook = ({ data, originalDoc }) => {
-  data.linkedIndividuals = richTextLinkedIds(
+const recordBodyLinks: CollectionBeforeChangeHook = async ({
+  data,
+  originalDoc,
+  req,
+}) => {
+  const linked = richTextLinkedIds(
     data.body ?? originalDoc?.body,
     "individuals",
   );
+  // Only individuals that still exist: before body links were recorded, an
+  // individual linked only in a body could be deleted, and the relationship
+  // refuses ids it cannot find.
+  const { docs } =
+    linked.length > 0
+      ? await req.payload.find({
+          collection: "individuals",
+          where: { id: { in: linked } },
+          select: { slug: true },
+          depth: 0,
+          pagination: false,
+          overrideAccess: true,
+          req,
+        })
+      : { docs: [] };
+  const existing = new Set(docs.map((doc) => String(doc.id)));
+  data.linkedIndividuals = linked.filter((id) => existing.has(id));
   return data;
 };
 

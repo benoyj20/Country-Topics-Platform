@@ -45,7 +45,12 @@ thumbnails should be served through the site.
     - by a link in its text;
     - as the speaker of a snippet it uses as evidence.
 
-    Individuals whom no published topic names have no page.
+    Individuals whom no published topic names have no page. Publishing
+    applies the same three ways: a topic that quotes a speaker in a snippet
+    names them, so it needs evidence and a reference like any topic that
+    names someone. This reverses ADR 0006's rule that a speaker does not
+    count. A speaker cannot be added later to a snippet that a published
+    topic without a reference uses.
   - A file is public while a published topic uses it as evidence, or while
     it is the photo of a public individual.
   - Links in a topic's text to anything that is not public are shown as
@@ -60,6 +65,10 @@ thumbnails should be served through the site.
   that cite no evidence, so they stay staff-only until profiles can cite
   references. The admin form says so. A country page lists the people named
   by its topics, not those whose profile mentions the country.
+- **A save that does not publish never changes the live version.** Payload
+  writes the live topic for any update sent without `draft`, which would
+  skip the change note, the change log, and the purge. Such an update is
+  saved as a draft instead, so publishing is always explicit.
 - **Topics record the individuals their text links to**
   (`linkedIndividuals`), so "which topics name this person" is one indexed
   query. The server keeps it on every save. The migration fills it in for
@@ -88,12 +97,17 @@ thumbnails should be served through the site.
       route returns, while hooks run inside the transaction. Purging from
       the hook itself could let a visitor's request in between re-cache the
       old page.
+    - Outside a web request (a script using Payload's local API) there is
+      no page cache to reach: the save goes ahead without a purge, and the
+      pages refresh within the hour.
     - The next visit renders the page again, so an admin who publishes sees
       the change at once.
   - Cache Components would change every route, including sign-in, the
     account page, and the admin panel; it can be reconsidered separately.
-- **Files** are served by `/files/[id]` from the same S3-compatible storage
-  Payload writes to, with these headers:
+- **Files** are served by `/files/[id]`. Once the read model says a file is
+  public, the route calls the storage plugin's own handler, as Payload's
+  file route does after its access check. Storage keys, range requests, and
+  revalidation (304) work the same. The route sets these headers:
   - the type checked on upload, and `nosniff`;
   - Payload's content security policy for uploads;
   - `Cache-Control: public, max-age=3600`.
@@ -134,5 +148,3 @@ thumbnails should be served through the site.
   page on request.
 - Lists stop at 50 topics (12 on the home page) and say so. Paging arrives
   with week 8's search and filters.
-- `/files/[id]` does not answer range requests; files are sent whole (at most
-  20 MB).

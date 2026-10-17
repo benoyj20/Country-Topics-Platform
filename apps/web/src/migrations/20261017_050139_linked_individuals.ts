@@ -44,6 +44,10 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
 }
 
 export async function down({ db, payload, req }: MigrateDownArgs): Promise<void> {
+  // The rows would otherwise stay behind with no related document.
+  await db.execute(sql`
+  DELETE FROM "topics_rels" WHERE "individuals_id" IS NOT NULL;
+  DELETE FROM "_topics_v_rels" WHERE "individuals_id" IS NOT NULL;`)
   await db.execute(sql`
    ALTER TABLE "topics_rels" DROP CONSTRAINT "topics_rels_individuals_fk";
   

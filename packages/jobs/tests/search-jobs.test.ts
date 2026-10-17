@@ -36,6 +36,7 @@ function document(topicId: string): TopicSearchDocument {
     evidenceKinds: [],
     languages: [],
     referenceCount: 0,
+    commentCount: 0,
     text: { title: "", summary: "", body: "", evidence: "" },
     version: AT,
   };
@@ -258,6 +259,7 @@ describe("topicDocument", () => {
     languages: ["en"],
     evidence_text: "A caption",
     reference_count: 2,
+    comment_count: 3,
   };
 
   it("matches the summary together with the names it shows", () => {
@@ -265,6 +267,7 @@ describe("topicDocument", () => {
     assert.equal(doc?.state, "updated");
     assert.equal(doc?.lastPublishedAt, AT);
     assert.equal(doc?.version, LATER);
+    assert.equal(doc?.commentCount, 3);
     assert.equal(doc?.text.body, "Body.");
     assert.equal(
       doc?.text.summary,

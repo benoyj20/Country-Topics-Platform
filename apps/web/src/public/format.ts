@@ -31,6 +31,11 @@ export function formatPartialDate(value: string): string {
   return day ? DAY.format(date) : MONTH.format(date);
 }
 
+/** "1 reference", "3 comments", "-1 point". */
+export function counted(count: number, noun: string): string {
+  return `${count} ${Math.abs(count) === 1 ? noun : `${noun}s`}`;
+}
+
 const KB = 1024;
 
 /** "840 KB", "2.4 MB". */

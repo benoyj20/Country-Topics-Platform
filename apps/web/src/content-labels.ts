@@ -1,5 +1,6 @@
 import type {
   ClaimStance,
+  CommentReportReason,
   EvidenceKind,
   ReferenceKind,
   TopicChangeKind,
@@ -66,3 +67,12 @@ export const LICENCE_LABELS = {
   official_document: "Official or public record",
 } as const;
 export type Licence = keyof typeof LICENCE_LABELS;
+
+export const COMMENT_REPORT_REASON_LABELS: Record<CommentReportReason, string> =
+  {
+    spam: "Spam or advertising",
+    abuse: "Harassment, hate, or threats",
+    misleading: "False or misleading",
+    "off-topic": "Off topic",
+    other: "Something else",
+  };

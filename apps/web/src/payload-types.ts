@@ -78,6 +78,9 @@ export interface Config {
     countries: Country;
     categories: Category;
     tags: Tag;
+    comments: Comment;
+    'comment-reports': CommentReport;
+    'comment-votes': CommentVote;
     users: User;
     invitations: Invitation;
     'audit-log': AuditLog;
@@ -99,6 +102,9 @@ export interface Config {
     countries: CountriesSelect<false> | CountriesSelect<true>;
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
     tags: TagsSelect<false> | TagsSelect<true>;
+    comments: CommentsSelect<false> | CommentsSelect<true>;
+    'comment-reports': CommentReportsSelect<false> | CommentReportsSelect<true>;
+    'comment-votes': CommentVotesSelect<false> | CommentVotesSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     invitations: InvitationsSelect<false> | InvitationsSelect<true>;
     'audit-log': AuditLogSelect<false> | AuditLogSelect<true>;
@@ -564,6 +570,10 @@ export interface User {
   id: string;
   email: string;
   name?: string | null;
+  /**
+   * Shown publicly with the person's comments.
+   */
+  displayName?: string | null;
   role: 'member' | 'moderator' | 'admin';
   authUserId?: string | null;
   twoFactorEnabled?: boolean | null;
@@ -603,6 +613,55 @@ export interface LinkArchive {
   capturedAt?: string | null;
   message?: string | null;
   checkedAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Written by members on topic pages. Read-only here; moderation tools come later.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "comments".
+ */
+export interface Comment {
+  id: string;
+  topic: string | Topic;
+  /**
+   * Empty for a comment that starts a thread.
+   */
+  parent?: (string | null) | Comment;
+  author?: (string | null) | User;
+  body: string;
+  /**
+   * Up votes minus down votes.
+   */
+  score: number;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Sent by members from topic pages. Read-only here; moderation tools come later.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "comment-reports".
+ */
+export interface CommentReport {
+  id: string;
+  comment: string | Comment;
+  reporter?: (string | null) | User;
+  reason: 'spam' | 'abuse' | 'misleading' | 'off-topic' | 'other';
+  note?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "comment-votes".
+ */
+export interface CommentVote {
+  id: string;
+  comment: string | Comment;
+  voter?: (string | null) | User;
+  value: number;
   updatedAt: string;
   createdAt: string;
 }
@@ -712,6 +771,18 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'tags';
         value: string | Tag;
+      } | null)
+    | ({
+        relationTo: 'comments';
+        value: string | Comment;
+      } | null)
+    | ({
+        relationTo: 'comment-reports';
+        value: string | CommentReport;
+      } | null)
+    | ({
+        relationTo: 'comment-votes';
+        value: string | CommentVote;
       } | null)
     | ({
         relationTo: 'users';
@@ -1035,11 +1106,48 @@ export interface TagsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "comments_select".
+ */
+export interface CommentsSelect<T extends boolean = true> {
+  topic?: T;
+  parent?: T;
+  author?: T;
+  body?: T;
+  score?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "comment-reports_select".
+ */
+export interface CommentReportsSelect<T extends boolean = true> {
+  comment?: T;
+  reporter?: T;
+  reason?: T;
+  note?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "comment-votes_select".
+ */
+export interface CommentVotesSelect<T extends boolean = true> {
+  comment?: T;
+  voter?: T;
+  value?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
   email?: T;
   name?: T;
+  displayName?: T;
   role?: T;
   authUserId?: T;
   twoFactorEnabled?: T;

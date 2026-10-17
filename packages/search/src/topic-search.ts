@@ -15,6 +15,8 @@ export const TOPIC_SORTS = [
   "updated",
   /** Most references cited, then newest first. */
   "referenced",
+  /** Most comments (replies included), then newest first. */
+  "discussed",
 ] as const;
 export type TopicSort = (typeof TOPIC_SORTS)[number];
 
@@ -45,6 +47,8 @@ export type TopicSearchDocument = {
   /** The languages of its snippets. */
   languages: string[];
   referenceCount: number;
+  /** Comments on the topic, replies included. */
+  commentCount: number;
   /** What search words match, from most to least important. */
   text: {
     title: string;
@@ -56,7 +60,7 @@ export type TopicSearchDocument = {
   };
   /**
    * When the topic, or anything it shows (its countries, category, tags,
-   * people, snippets, and files), last changed. An index keeps the newest
+   * people, snippets, files, and comments), last changed. An index keeps the newest
    * document it was given and remembers removals, so a job that read the
    * topic earlier but finished later cannot bring back an older copy.
    */
@@ -103,6 +107,7 @@ export type TopicSearchHit = Pick<
   | "lastPublishedAt"
   | "countryIds"
   | "referenceCount"
+  | "commentCount"
 >;
 
 export type FacetCount = { value: string; count: number };

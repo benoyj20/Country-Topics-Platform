@@ -19,7 +19,8 @@ invite-only), roles, staff authenticator checks, the admin panel with countries,
 categories, tags, individuals, versioned topics with a change log, evidence and
 references, video snippets, public pages for visitors (home, countries,
 topics, individuals, and the files they show), browsing and search of every
-topic at `/topics`, and a health check; see Weeks 1 to 8 below.
+topic at `/topics`, members' comments with replies, votes, and reports, and a
+health check; see Weeks 1 to 9 below.
 
 The snippet flow began as a standalone prototype in `prototypes/youtube-snippet`
 (plain JavaScript, no database); its typed version is in the site since MVP week 6.
@@ -604,7 +605,94 @@ See [ADR 0008](adr/0008-browsing-and-search.md) for the design.
   that page's link prefetches; React logs "Connection closed" on the page
   being left. No person can submit that fast; at a person's pace the
   search box navigated with no errors in every run.
-- [ ] The developer filters, copies the link, and opens it elsewhere.
-- [ ] Not built yet: sorting by "most discussed" and "trending" (they need
-  comments, week 9), search-as-you-type, highlighted matches, and stemming
-  for languages other than English.
+- [x] The developer filtered, copied the link, and opened it elsewhere,
+  after the hydration fix above (2026-10-17).
+- [ ] Not built yet: sorting by "trending" ("most discussed" came with
+  week 9), search-as-you-type, highlighted matches, and stemming for
+  languages other than English.
+
+### Week 9: comments, votes, sorting, reports
+
+See [ADR 0009](adr/0009-comments-votes-and-reports.md) for the design.
+
+- [x] Posting: a member must choose a public name before their first
+  comment (409 with `display-name-required`); names are checked, tidied,
+  and audited with the member as the actor, and names that could pass for
+  staff, the site, or the page's own labels are refused (unit tests);
+  comments are dated by the web process's clock, as Payload dates topics; comments are stored as tidied
+  plain text under the public name, and no answer holds an email address
+  or account id; visitors (401), other sites (403), bodies that are not
+  JSON (415), and empty, overlong, or unknown fields (400) are refused
+  (integration tests, 2026-10-17).
+- [x] Two levels: a reply to a reply is refused (400), and a reply to a
+  thread in another topic is not found (404); a topic that was never
+  published has no discussion (404); an archived topic's discussion is
+  closed to comments and votes (409) but stays readable and reportable
+  (integration tests, 2026-10-17).
+- [x] Lists: `public, max-age=0, s-maxage=15, stale-while-revalidate=60`;
+  another spelling of a request is redirected (308), and unknown or
+  repeated parameters and cursors it did not issue are refused (400);
+  paging through 22 threads returns each once in all three orders, and
+  "top" puts the highest score first; a thread shows its first five
+  replies, and the rest page in order (integration tests, 2026-10-17).
+  Parameters, ids, cursors, and body limits (unit tests).
+- [x] Votes: one per member, changeable, and taken back with 0; six votes
+  sent at once by one member count once; members cannot vote on their own
+  comments; the reader's votes, reports, and own comments come from an
+  uncached request, and visitors get none (integration tests,
+  2026-10-17).
+- [x] Reports: one per member and comment (201, then 200), with the reason
+  and the trimmed note; a note is required for "something else"; members
+  cannot report their own comments; verified staff read comments and
+  reports through Payload's API, members cannot read or write any of the
+  three collections there, and nobody browses votes (integration tests,
+  2026-10-17).
+- [x] Most discussed: a comment queues its topic for the search index, the
+  document carries the topic's comment count, replies included, and
+  `/topics` sorts by it (integration test, 2026-10-17).
+- [x] The guard tests failed when the vote lock, the two-level rule, the
+  own-comment vote check, the same-origin check, the display-name
+  requirement, the closed archived discussion, and the search comment count
+  were removed (2026-10-17).
+- [x] Real browser (headless Edge, production build on the test database,
+  the worker on its own queue prefix), two members invited by an admin and
+  signed in by email link: a visitor saw "No comments yet." and a sign-in
+  link back to the discussion; Alice chose her name with her first comment,
+  which showed at once with its line break and a "You" label and no vote
+  buttons; Bob up-voted it (1 point), chose his name in the reply form,
+  replied under the thread, and reported it as off topic; after a reload
+  his vote, report, and reply were still there; sorting by newest worked;
+  at 390 px nothing scrolled sideways; Alice then saw Bob's reply and the
+  score, could vote on his reply but not her own, and her account page
+  showed her public name; `/topics` sorted by "Most discussed" with each
+  topic's comment count; no browser errors (2026-10-17).
+- [x] Found in the browser test and fixed: after Bob chose his name in the
+  reply form, the main comment form still asked for it. Each form now
+  follows the page's one record of the reader's name.
+- [x] The code review before the first push found ten issues. Eight were
+  fixed (2026-10-17):
+  - comments were dated by the database's clock while topics use the web
+    process's, so an older search document could win (a test sets the
+    process clock an hour back and failed before the fix);
+  - names such as "Admin" or "Former member" were allowed;
+  - quick vote clicks could be sent out of order (one vote at a time per
+    comment now; in the browser, two quick clicks ended with the page and
+    the server agreeing);
+  - "Show more comments" could add one order's comments to another's;
+  - a posted reply could sit before older replies loaded later;
+  - an older answer about the reader could undo a name just chosen, and a
+    later failure turned commenting off while the form still worked;
+  - the cast to Payload's database pool was unchecked;
+  - repeated values and three copies of one helper.
+
+  Two were left for week 10, before any tester is invited: staff cannot
+  yet hide or remove a comment, and each comment queues one search job
+  with no rate limit. Nothing is deployed, so no one but the developer can
+  post until then.
+- [ ] The developer comments from two accounts.
+- [ ] Not built yet: moderation (hiding, locking, acting on reports, and
+  removing a comment when the law requires it), rate limits (including
+  the search job each comment queues), Turnstile, link limits, and reply
+  notifications (week 10);
+  editing or deleting one's own comment, @mentions, per-country and
+  site-wide threads, and "trending".

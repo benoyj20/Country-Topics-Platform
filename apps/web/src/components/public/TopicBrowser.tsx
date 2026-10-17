@@ -43,6 +43,7 @@ const SORT_LABELS: Record<TopicSort, string> = {
   newest: "Newest",
   updated: "Recently updated",
   referenced: "Most referenced",
+  discussed: "Most discussed",
 };
 
 const FACETS: { key: ListKey; title: string; grouped?: boolean }[] = [

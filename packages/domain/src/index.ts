@@ -1,3 +1,4 @@
+export * from "./comments.ts";
 export * from "./identifiers.ts";
 export * from "./names.ts";
 export * from "./partial-dates.ts";

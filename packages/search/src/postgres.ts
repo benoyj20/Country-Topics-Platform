@@ -15,11 +15,12 @@ import {
 
 // The search adapter on PostgreSQL full text (ADR 0008). Documents live in
 // the "search_topics" table (created by the web app's migration
-// 20261017_090000_search_topics), apart from Payload's tables: it is a copy
-// the worker rebuilds, with one row per listed topic, the facets as arrays
-// with GIN indexes, and a weighted tsvector. "search_topic_removals" keeps
-// the version at which each topic was removed, so a job that read the topic
-// before it was archived cannot add it back. Every query is parameterised;
+// 20261017_090000_search_topics; 20261017_193831_comments adds the comment
+// counts), apart from Payload's tables: it is a copy the worker rebuilds,
+// with one row per listed topic, the facets as arrays with GIN indexes, and
+// a weighted tsvector. "search_topic_removals" keeps the version at which
+// each topic was removed, so a job that read the topic before it was
+// archived cannot add it back. Every query is parameterised;
 // table, column, and configuration names are fixed.
 
 /**
@@ -123,6 +124,7 @@ const CURSOR_KEYS = {
   newest: z.tuple([iso, uuid]),
   updated: z.tuple([iso, uuid]),
   referenced: z.tuple([z.number().int().nonnegative(), iso, uuid]),
+  discussed: z.tuple([z.number().int().nonnegative(), iso, uuid]),
 } as const;
 
 type CursorKeys = (string | number)[];
@@ -162,6 +164,8 @@ function sortKeys(sort: TopicSort, rank: string | null): string[] {
       return ["t.last_published_at", "t.topic_id"];
     case "referenced":
       return ["t.reference_count", "t.first_published_at", "t.topic_id"];
+    case "discussed":
+      return ["t.comment_count", "t.first_published_at", "t.topic_id"];
   }
 }
 
@@ -170,6 +174,7 @@ const KEY_TYPES: Record<TopicSort, string[]> = {
   newest: ["timestamptz", "uuid"],
   updated: ["timestamptz", "uuid"],
   referenced: ["int4", "timestamptz", "uuid"],
+  discussed: ["int4", "timestamptz", "uuid"],
 };
 
 type HitRow = {
@@ -182,6 +187,7 @@ type HitRow = {
   last_published_at: Date;
   country_ids: string[];
   reference_count: number;
+  comment_count: number;
   rank: number;
 };
 
@@ -199,6 +205,8 @@ function cursorOf(sort: TopicSort, row: HitRow): string {
       ]);
     case "referenced":
       return encodeCursor(sort, [row.reference_count, published, row.topic_id]);
+    case "discussed":
+      return encodeCursor(sort, [row.comment_count, published, row.topic_id]);
   }
 }
 
@@ -291,7 +299,7 @@ async function hitsOf(
     `SELECT t.topic_id::text AS topic_id, t.slug, t.title, t.summary, t.state,
             t.first_published_at, t.last_published_at,
             t.country_ids::text[] AS country_ids, t.reference_count,
-            ${rank ?? "0::float8"} AS rank
+            t.comment_count, ${rank ?? "0::float8"} AS rank
        FROM search_topics t
       WHERE ${conditions.join(" AND ")}
       ORDER BY ${keys.map((key) => `${key} DESC`).join(", ")}
@@ -311,6 +319,7 @@ async function hitsOf(
       lastPublishedAt: row.last_published_at.toISOString(),
       countryIds: row.country_ids,
       referenceCount: row.reference_count,
+      commentCount: row.comment_count,
     })),
     nextCursor:
       rows.length > request.limit && last ? cursorOf(sort, last) : null,
@@ -331,9 +340,10 @@ async function forTopic<T>(
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
-      `search_topics:${topicId}`,
-    ]);
+    await client.query(
+      "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+      [`search_topics:${topicId}`],
+    );
     const result = await work(client);
     await client.query("COMMIT");
     return result;
@@ -366,9 +376,9 @@ export function createPostgresTopicSearch(db: Pool): TopicSearchIndex {
              topic_id, slug, title, summary, state, first_published_at,
              last_published_at, country_ids, category_id, tag_ids,
              individual_ids, evidence_kinds, languages, reference_count,
-             document, version, indexed_at)
+             comment_count, document, version, indexed_at)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8::uuid[], $9, $10::uuid[],
-             $11::uuid[], $12::varchar[], $13::varchar[], $14,
+             $11::uuid[], $12::varchar[], $13::varchar[], $14, $20,
              setweight(to_tsvector(${CONFIG}, $15), 'A')
                || setweight(to_tsvector(${CONFIG}, $16), 'B')
                || setweight(to_tsvector(${CONFIG}, $17), 'C')
@@ -385,6 +395,7 @@ export function createPostgresTopicSearch(db: Pool): TopicSearchIndex {
              evidence_kinds = EXCLUDED.evidence_kinds,
              languages = EXCLUDED.languages,
              reference_count = EXCLUDED.reference_count,
+             comment_count = EXCLUDED.comment_count,
              document = EXCLUDED.document, version = EXCLUDED.version,
              indexed_at = EXCLUDED.indexed_at
            WHERE current.version <= EXCLUDED.version`,
@@ -408,6 +419,7 @@ export function createPostgresTopicSearch(db: Pool): TopicSearchIndex {
             cut(text.body),
             cut(text.evidence),
             document.version,
+            document.commentCount,
           ],
         );
         return rowCount === 1;

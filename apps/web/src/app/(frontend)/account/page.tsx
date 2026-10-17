@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { currentAccount } from "@/auth/current-account";
 import { SignOutButton } from "@/components/SignOutButton";
 
+import { DisplayNameForm } from "./DisplayNameForm";
 import { TwoFactorPanel } from "./TwoFactorPanel";
 
 export const metadata = { title: "Your account - Country Topics" };
@@ -26,6 +27,8 @@ export default async function AccountPage() {
         <dt>Role</dt>
         <dd>{account.role}</dd>
       </dl>
+
+      <DisplayNameForm current={account.displayName} />
 
       {account.staff && (
         <TwoFactorPanel

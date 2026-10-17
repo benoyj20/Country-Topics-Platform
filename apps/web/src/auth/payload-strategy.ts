@@ -4,19 +4,9 @@ import { serverEnv } from "@/env";
 
 import { ensureUserProfile } from "./accounts";
 import { getAuth } from "./auth";
+import { isSameOriginWrite } from "./same-origin";
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
-
-/**
- * Cross-site request forgery guard. The session cookie is sent with any
- * same-site request, so a write is trusted only when the browser says it came
- * from the site itself.
- */
-function isSameOriginWrite(headers: Headers, siteUrl: string): boolean {
-  const origin = headers.get("origin");
-  if (origin) return origin === siteUrl;
-  return headers.get("sec-fetch-site") === "same-origin";
-}
 
 /**
  * Lets Payload (admin panel, REST, local API with a request) trust a Better Auth

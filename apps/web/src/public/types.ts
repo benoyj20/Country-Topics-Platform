@@ -155,7 +155,10 @@ export type HomePage = {
 };
 
 /** A listed topic in browse results. */
-export type BrowseTopic = TopicSummary & { referenceCount: number };
+export type BrowseTopic = TopicSummary & {
+  referenceCount: number;
+  commentCount: number;
+};
 
 /** One value of a browse facet. */
 export type BrowseFacetValue = {

@@ -1,14 +1,9 @@
 import Link from "next/link";
 
-import { formatDate } from "@/public/format";
+import { counted, formatDate } from "@/public/format";
 import type { LimitedList, TopicSummary } from "@/public/types";
 
 import styles from "./public.module.css";
-
-/** "1 reference", "3 references". */
-function referenceCount(count: number): string {
-  return `${count} ${count === 1 ? "reference" : "references"}`;
-}
 
 /** Published topics, each with its countries and summary. */
 export function TopicList({
@@ -16,8 +11,10 @@ export function TopicList({
   empty,
   moreHref,
 }: {
-  /** Browse results also say how many references each topic cites. */
-  topics: LimitedList<TopicSummary & { referenceCount?: number }>;
+  /** Browse results also say how many references and comments each has. */
+  topics: LimitedList<
+    TopicSummary & { referenceCount?: number; commentCount?: number }
+  >;
   /** Shown when there are none, such as "No topics about Kenya yet." */
   empty: string;
   /** Where to browse them all, when the list stops short. */
@@ -46,7 +43,10 @@ export function TopicList({
                 ? `${topic.countries.length > 0 ? " · " : ""}${formatDate(topic.firstPublishedAt)}`
                 : null}
               {topic.referenceCount !== undefined
-                ? ` · ${referenceCount(topic.referenceCount)}`
+                ? ` · ${counted(topic.referenceCount, "reference")}`
+                : null}
+              {topic.commentCount
+                ? ` · ${counted(topic.commentCount, "comment")}`
                 : null}
             </p>
           </li>

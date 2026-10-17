@@ -45,9 +45,12 @@ profiles, and browse every topic at `/topics`: search words, filters for
 country, category, tag, person, evidence, snippet language, references, and
 publish date, and sorting, all kept in the address so a link opens the same
 results. The worker keeps a PostgreSQL full-text search index up to date as
-topics are published. There is a health check at `/api/v1/health`. Comments and
-the other features follow the [MVP plan](docs/mvp-plan.md); see the checklist
-for what is verified.
+topics are published. Signed-in members discuss each topic under a public name
+they choose: comments with one level of replies, up and down votes, sorting, and
+a report button; staff read comments and reports in the admin panel, and
+`/topics` can sort by the most discussed. There is a health check at
+`/api/v1/health`. Moderation and the other features follow the
+[MVP plan](docs/mvp-plan.md); see the checklist for what is verified.
 
 ```sh
 make dev-prototype
@@ -60,7 +63,7 @@ Open `http://localhost:4173` and click **Try demo**. See
 
 - `apps/web` — Next.js site, Payload admin, and `/api/v1`
 - `apps/worker` — background jobs on BullMQ: sign-in emails, reference checks, link archiving, video checks, the search index
-- `packages/domain` — roles, sign-up rules, name, slug, date, DOI, and ISBN rules, the topic workflow, the evidence rules, snippet and transcript parsing, language codes, and the plain text of rich text
+- `packages/domain` — roles, sign-up rules, name, slug, date, DOI, and ISBN rules, the topic workflow, the evidence rules, snippet and transcript parsing, language codes, the plain text of rich text, and the comment, vote, report, and display-name rules
 - `packages/email` — the email adapter (SMTP) and email templates
 - `packages/jobs` — job queues shared by the web app and the worker, and the worker's database reads and writes
 - `packages/search` — the search adapter: topic search with filters and facets, on PostgreSQL full text

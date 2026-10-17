@@ -14,6 +14,8 @@ import { getAuth } from "./auth";
 export type CurrentAccount = {
   email: string;
   name: string | null;
+  /** Shown publicly with their comments; null until they choose one. */
+  displayName: string | null;
   role: Role;
   staff: boolean;
   twoFactorEnabled: boolean;
@@ -39,6 +41,7 @@ export async function currentAccount(): Promise<CurrentAccount | null> {
   return {
     email: profile.email,
     name: profile.name ?? null,
+    displayName: profile.displayName ?? null,
     role: profile.role,
     staff: isStaff(profile.role),
     twoFactorEnabled,

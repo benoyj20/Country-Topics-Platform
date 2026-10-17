@@ -13,7 +13,9 @@ import type { SearchSourceChange, TopicSearchSource } from "./search-jobs.ts";
 // - it names its people, the individuals its text links to
 //   (linkedIndividuals), and the speakers of the snippets it uses;
 // - an evidence row counts only while its file, snippet, or address is
-//   there, and only a clip's own transcript lines are public.
+//   there, and only a clip's own transcript lines are public;
+// - its comment count includes replies (ADR 0009); votes do not change
+//   comment rows' updated_at, so they never re-index a topic.
 // The web app's integration tests compare the two.
 //
 // A document's version is the latest updated_at of the topic and every row
@@ -33,6 +35,7 @@ export const SEARCH_SOURCE_TABLES = [
   "tags",
   "snippets",
   "media",
+  "comments",
 ] as const;
 
 type TopicRow = {
@@ -59,6 +62,7 @@ type TopicRow = {
   languages: string[];
   evidence_text: string;
   reference_count: number;
+  comment_count: number;
 };
 
 const TOPIC_ROWS = `
@@ -66,7 +70,8 @@ SELECT t.id::text AS id, t.slug, t.title, t.summary, t.body,
        (${LISTED}) AS listed, t.state::text AS state,
        t.first_published_at, t.last_published_at, t.updated_at,
        GREATEST(t.updated_at, category.updated_at, countries.updated_at,
-                tags.updated_at, named.updated_at, evidence.updated_at)
+                tags.updated_at, named.updated_at, evidence.updated_at,
+                discussion.updated_at)
          AS version,
        t.category_id::text AS category_id, category.name AS category_name,
        COALESCE(countries.ids, '{}') AS country_ids,
@@ -80,7 +85,8 @@ SELECT t.id::text AS id, t.slug, t.title, t.summary, t.body,
        COALESCE(evidence.text, '') AS evidence_text,
        (SELECT count(*)::int FROM topics_references cited
          WHERE cited._parent_id = t.id AND cited.reference_id IS NOT NULL)
-         AS reference_count
+         AS reference_count,
+       COALESCE(discussion.count, 0) AS comment_count
   FROM topics t
   LEFT JOIN categories category ON category.id = t.category_id
   LEFT JOIN LATERAL (
@@ -143,6 +149,10 @@ SELECT t.id::text AS id, t.slug, t.title, t.summary, t.body,
          WHERE e._parent_id = t.id
       ) ev
   ) evidence ON TRUE
+  LEFT JOIN LATERAL (
+    SELECT count(*)::int AS count, max(c.updated_at) AS updated_at
+      FROM comments c WHERE c.topic_id = t.id
+  ) discussion ON TRUE
  WHERE t.id = ANY($1::uuid[])`;
 
 /** The search document of a listed topic; null for any other topic. */
@@ -164,6 +174,7 @@ export function topicDocument(row: TopicRow): TopicSearchDocument | null {
     evidenceKinds: row.evidence_kinds,
     languages: row.languages,
     referenceCount: row.reference_count,
+    commentCount: row.comment_count,
     text: {
       title: row.title,
       summary: [

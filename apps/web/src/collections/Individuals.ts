@@ -1,9 +1,9 @@
 import {
-  isHttpUrl,
   isPartialDate,
   isPartialDateRangeValid,
   isWikidataId,
   personNameKey,
+  URL_MAX_LENGTH,
 } from "@countrytopics/domain";
 import {
   type CollectionBeforeChangeHook,
@@ -26,12 +26,13 @@ import {
 } from "@/individuals/duplicates";
 import { DIFFERENT_PERSON_LABEL } from "@/individuals/labels";
 
+import { IMAGE_MIME_TYPES } from "./Media";
 import { fillSlug, slugField } from "./slug";
 import { keepWhileUsedByTopics } from "./topic-references";
+import { httpUrl } from "./url-field";
 
 const NAME_MAX_LENGTH = 200;
 const MAX_ALIASES = 20;
-const URL_MAX_LENGTH = 2048;
 const NO_STORE = { "Cache-Control": "no-store" };
 
 type AliasRow = { name?: unknown };
@@ -226,6 +227,8 @@ export const Individuals: CollectionConfig = {
       type: "checkbox",
       virtual: true,
       admin: {
+        // Payload makes virtual fields read-only unless told otherwise.
+        readOnly: false,
         components: {
           Field: "/components/admin/PossibleDuplicates#PossibleDuplicates",
         },
@@ -302,6 +305,16 @@ export const Individuals: CollectionConfig = {
       ],
     },
     {
+      name: "photo",
+      type: "upload",
+      relationTo: "media",
+      filterOptions: { mimeType: { in: IMAGE_MIME_TYPES } },
+      admin: {
+        description:
+          "Optional. Only a photo we may publish; record its licence and credit on the file.",
+      },
+    },
+    {
       name: "bio",
       type: "textarea",
       maxLength: 5000,
@@ -323,13 +336,7 @@ export const Individuals: CollectionConfig = {
           type: "text",
           required: true,
           maxLength: URL_MAX_LENGTH,
-          // A custom validate replaces Payload's, so the length is checked here.
-          validate: (value: unknown) =>
-            typeof value === "string" &&
-            value.length <= URL_MAX_LENGTH &&
-            isHttpUrl(value)
-              ? true
-              : "Enter a full link starting with https:// or http://, at most 2048 characters.",
+          validate: httpUrl,
         },
       ],
     },
@@ -376,6 +383,7 @@ export const Individuals: CollectionConfig = {
         summary: doc.summary ?? null,
         bio: doc.bio ?? null,
         wikidataId: doc.wikidataId ?? null,
+        photo: relationId(doc.photo),
         aliases: aliasNames(doc.aliases),
         countries: Array.isArray(doc.countries)
           ? doc.countries.map((row: Record<string, unknown>) => ({

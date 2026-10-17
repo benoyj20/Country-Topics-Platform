@@ -15,7 +15,7 @@ bootstrap: ## Install JavaScript dependencies
 env: ## Create .env, or add variables it is missing from .env.example (never changes set values)
 	@node deploy/scripts/sync-env.mjs .env.example .env
 
-infra-up: ## Start PostgreSQL, Redis (Valkey), and Mailpit
+infra-up: ## Start PostgreSQL, Redis (Valkey), Mailpit, and S3 storage (SeaweedFS)
 	$(COMPOSE) up -d --wait
 
 infra-down: ## Stop local infrastructure, keeping its data volumes
@@ -24,7 +24,7 @@ infra-down: ## Stop local infrastructure, keeping its data volumes
 infra-config: ## Validate the Compose configuration
 	$(COMPOSE) config --quiet
 
-dev: ## Run the site (http://localhost:3000) and the email worker (run make migrate first)
+dev: ## Run the site (http://localhost:3000) and the worker (run make migrate first)
 	pnpm --parallel --filter @countrytopics/web --filter @countrytopics/worker dev
 
 dev-prototype: ## Run the YouTube snippet prototype at http://localhost:4173

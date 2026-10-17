@@ -66,6 +66,9 @@ export function isWikidataId(value: string): boolean {
 }
 
 /** An absolute `http:` or `https:` URL (no `javascript:` or `data:` links). */
+/** Links longer than this are refused everywhere; browsers and archives handle them badly. */
+export const URL_MAX_LENGTH = 2048;
+
 export function isHttpUrl(value: string): boolean {
   try {
     const url = new URL(value);

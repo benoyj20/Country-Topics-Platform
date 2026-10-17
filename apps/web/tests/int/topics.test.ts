@@ -8,6 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import type { User } from "@/payload-types";
 
+import { linkNode, richText, runReferenceCheck, workerSide } from "./fixtures";
 import {
   countryId,
   payloadRest,
@@ -26,61 +27,9 @@ let member: User;
 let unverifiedAdmin: User;
 let kenya: string;
 let individual: string;
+let worker: Awaited<ReturnType<typeof workerSide>>;
 
 type TopicInput = RequiredDataFromCollectionSlug<"topics">;
-
-/** A Lexical document with one paragraph per string; nodes may be passed too. */
-function richText(...paragraphs: (string | Record<string, unknown>)[]) {
-  const textNode = (text: string) => ({
-    type: "text",
-    text,
-    format: 0,
-    detail: 0,
-    mode: "normal",
-    style: "",
-    version: 1,
-  });
-  return {
-    root: {
-      type: "root",
-      format: "",
-      indent: 0,
-      version: 1,
-      direction: "ltr",
-      children: paragraphs.map((content) => ({
-        type: "paragraph",
-        format: "",
-        indent: 0,
-        version: 1,
-        direction: "ltr",
-        textFormat: 0,
-        children: [typeof content === "string" ? textNode(content) : content],
-      })),
-    },
-  } as unknown as TopicInput["body"];
-}
-
-function linkNode(url: string) {
-  return {
-    type: "link",
-    fields: { linkType: "custom", url, newTab: false },
-    format: "",
-    indent: 0,
-    version: 3,
-    direction: "ltr",
-    children: [
-      {
-        type: "text",
-        text: "a link",
-        format: 0,
-        detail: 0,
-        mode: "normal",
-        style: "",
-        version: 1,
-      },
-    ],
-  };
-}
 
 function publishable(title: string): Partial<TopicInput> {
   return {
@@ -158,9 +107,11 @@ beforeAll(async () => {
     overrideAccess: true,
   });
   individual = person.id;
+  worker = await workerSide();
 });
 
 afterAll(async () => {
+  await worker?.close();
   await stopEmailWorker?.();
   await payload?.destroy();
 });
@@ -180,6 +131,22 @@ describe("topic drafts", () => {
 });
 
 describe("publishing a topic", () => {
+  it("lets admins type a change note in the panel, at most 500 characters", async () => {
+    // Payload makes virtual fields read-only in the admin panel by default.
+    const note = payload.collections.topics.config.fields.find(
+      (field) => "name" in field && field.name === "changeNote",
+    );
+    expect(note).toMatchObject({ admin: { readOnly: false } });
+
+    const draft = await createDraft({
+      title: "Fictional topic with a long note",
+    });
+    await publish(draft.id, publishable(draft.title));
+    await expect(
+      publish(draft.id, { summary: "Changed.", changeNote: "x".repeat(501) }),
+    ).rejects.toMatchObject(fieldError("changeNote"));
+  });
+
   it("requires a summary, text in the body, a country, and safe links", async () => {
     const draft = await createDraft({ title: "Fictional incomplete topic" });
 
@@ -499,18 +466,43 @@ describe("publishing a topic", () => {
 
   it("links each individual once per role", async () => {
     const draft = await createDraft({ title: "Fictional topic with people" });
+    // Naming people needs evidence and a confirmed reference (evidence tests).
+    const reference = await payload.create({
+      collection: "references",
+      data: {
+        title: "Fictional report",
+        kind: "report",
+        checkStatus: "pending",
+        url: "https://example.org/report",
+      },
+      overrideAccess: true,
+    });
+    await runReferenceCheck(payload, worker.store, reference.id);
+    const withEvidence: Partial<TopicInput> = {
+      ...publishable(draft.title),
+      evidence: [
+        {
+          kind: "link",
+          title: "Fictional statement",
+          url: "https://example.org/statement",
+        },
+      ],
+      references: [
+        { reference: reference.id, stance: "supports", passage: "Quoted." },
+      ],
+    };
+
     await expect(
       publish(draft.id, {
-        ...publishable(draft.title),
+        ...withEvidence,
         people: [
           { individual, role: "subject" },
           { individual, role: "subject" },
         ],
       }),
     ).rejects.toMatchObject(fieldError("people"));
-
     const published = await publish(draft.id, {
-      ...publishable(draft.title),
+      ...withEvidence,
       people: [
         { individual, role: "subject" },
         { individual, role: "speaker" },

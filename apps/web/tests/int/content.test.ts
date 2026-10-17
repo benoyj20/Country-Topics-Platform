@@ -331,6 +331,7 @@ describe("individuals", () => {
       summary: "Fictional test official",
       bio: null,
       wikidataId: null,
+      photo: null,
       aliases: ["S. P. Alpha"],
       countries: [
         {

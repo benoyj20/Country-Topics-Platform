@@ -18,7 +18,7 @@ Estimated effort: about 12 weeks full-time with AI assistance, or about 24 weeks
 | F3 topics with evidence and manually entered references | Email digests |
 | F4 snippets with manual transcripts (from the prototype) | Multiple UI languages (i18n is set up, English only) |
 | F1 browsing, filters, search (PostgreSQL full text behind a search adapter) | PWA, member suggestion queue, Meilisearch |
-| F6 comments, votes, reports, moderator tools | |
+| F6 comments, votes, reports, moderator tools | Optional: fresh Wayback Machine copies of evidence links (needs a free Internet Archive account) |
 | In-app reply notifications | |
 
 Pilot content: one or two countries, 20–50 topics, 10–20 individuals.

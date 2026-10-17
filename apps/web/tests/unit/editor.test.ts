@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isAllowedLinkUrl, richTextHasText } from "@/editor";
+import { isAllowedLinkUrl, richTextHasText, richTextLinksTo } from "@/editor";
 
 const doc = (...children: unknown[]) => ({ root: { type: "root", children } });
 const paragraph = (text: string) => ({
@@ -39,5 +39,45 @@ describe("isAllowedLinkUrl", () => {
     expect(isAllowedLinkUrl("javascript:alert(1)")).toBe(false);
     expect(isAllowedLinkUrl("data:text/html,hi")).toBe(false);
     expect(isAllowedLinkUrl("/relative")).toBe(false);
+  });
+});
+
+describe("richTextLinksTo", () => {
+  const link = (fields: Record<string, unknown>) => ({
+    type: "paragraph",
+    children: [
+      { type: "link", fields, children: [{ type: "text", text: "x" }] },
+    ],
+  });
+
+  it("finds internal links to the collection, however deep", () => {
+    const toPerson = link({
+      linkType: "internal",
+      doc: { relationTo: "individuals", value: "person-id" },
+    });
+    expect(richTextLinksTo(doc(toPerson), "individuals")).toBe(true);
+    expect(
+      richTextLinksTo(
+        doc({ type: "quote", children: [toPerson] }),
+        "individuals",
+      ),
+    ).toBe(true);
+  });
+
+  it("ignores links elsewhere and plain text", () => {
+    expect(
+      richTextLinksTo(
+        doc(
+          link({
+            linkType: "internal",
+            doc: { relationTo: "topics", value: "topic-id" },
+          }),
+          link({ linkType: "custom", url: "https://example.org/individuals" }),
+          paragraph("individuals"),
+        ),
+        "individuals",
+      ),
+    ).toBe(false);
+    expect(richTextLinksTo(null, "individuals")).toBe(false);
   });
 });

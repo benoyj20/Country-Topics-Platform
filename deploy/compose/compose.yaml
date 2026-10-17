@@ -1,8 +1,9 @@
 name: countrytopics
 
 # Local development and pilot services. Production uses managed equivalents
-# (PostgreSQL, Redis-compatible cache, SMTP provider) configured through the
-# same environment variables; see docs/adr/0001-initial-architecture.md.
+# (PostgreSQL, Redis-compatible cache, SMTP provider, S3-compatible storage)
+# configured through the same environment variables; see
+# docs/adr/0001-initial-architecture.md.
 # Ports bind to 127.0.0.1 so these services are never exposed on the network.
 
 services:
@@ -41,6 +42,32 @@ services:
       - "127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025"
       - "127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025"
 
+  # S3-compatible object storage for uploads (SeaweedFS in its single-process
+  # mode). Production uses a managed S3-compatible service through the same
+  # S3_* variables. It creates the site's bucket and the integration tests'
+  # bucket on start.
+  storage:
+    image: chrislusf/seaweedfs:4.48
+    command:
+      - mini
+      - -dir=/data
+      - -admin.ui=false
+      - -bucket=${S3_BUCKET:-countrytopics},${TEST_S3_BUCKET:-countrytopics-test}
+    environment:
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-countrytopics}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-countrytopics_dev_secret}
+    ports:
+      - "127.0.0.1:${S3_HOST_PORT:-8333}:8333"
+    volumes:
+      - storage-data:/data
+    healthcheck:
+      # Any HTTP answer (unsigned requests get 403) means the S3 API is up.
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8333/ 2>&1 | grep -q 403"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
 volumes:
   postgres-data:
   redis-data:
+  storage-data:

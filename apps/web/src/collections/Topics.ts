@@ -1,11 +1,17 @@
 import {
+  CLAIM_STANCES,
+  type ClaimStance,
   changeNoteRequired,
+  EVIDENCE_KINDS,
+  type EvidenceKind,
+  evidenceProblems,
   TOPIC_PERSON_ROLES,
   TOPIC_STATES,
   type TopicChangeKind,
   type TopicSave,
   topicChangeKind,
   topicStateAfterSave,
+  URL_MAX_LENGTH,
 } from "@countrytopics/domain";
 import { isDeepStrictEqual } from "node:util";
 import {
@@ -23,11 +29,26 @@ import {
   verifiedStaffOnly,
 } from "@/access";
 import { recordAudit, relationId } from "@/audit";
-import { richTextHasText } from "@/editor";
+import { queueLinkArchives } from "@/content-jobs";
+import { richTextHasText, richTextLinksTo } from "@/editor";
 
+import { DOCUMENT_MIME_TYPES, IMAGE_MIME_TYPES } from "./Media";
 import { fillSlug, slugField } from "./slug";
+import { httpUrl, optionalHttpUrl } from "./url-field";
 
 const CHANGE_NOTE_MAX_LENGTH = 500;
+
+const EVIDENCE_KIND_LABELS: Record<EvidenceKind, string> = {
+  document: "Document (PDF)",
+  image: "Image",
+  link: "Web page",
+};
+
+const STANCE_LABELS: Record<ClaimStance, string> = {
+  supports: "Supports",
+  contradicts: "Contradicts",
+  context: "Context",
+};
 
 const STATE_LABELS: Record<(typeof TOPIC_STATES)[number], string> = {
   draft: "Draft",
@@ -52,6 +73,8 @@ const AUDITED_FIELDS = [
   "category",
   "tags",
   "people",
+  "evidence",
+  "references",
   "readyForReview",
   "archived",
   "slug",
@@ -227,9 +250,23 @@ const applyWorkflow: CollectionBeforeChangeHook = async ({
     refuse(req, "body", "Body", "Write the topic before publishing.");
   }
 
+  const kind = topicChangeKind(save);
+  // Archiving only takes a topic out of lists, so it is never blocked by a
+  // reference that was edited since the topic was published.
+  if (publishing && kind !== "archived") {
+    const errors = await evidenceErrors(req, {
+      people: data.people ?? stored?.people,
+      body: data.body ?? stored?.body,
+      evidence: data.evidence ?? stored?.evidence,
+      references: data.references ?? stored?.references,
+    });
+    if (errors.length > 0) {
+      throw new ValidationError({ collection: "topics", errors, req });
+    }
+  }
+
   const state = topicStateAfterSave(save);
   if (state) data.state = state;
-  const kind = topicChangeKind(save);
   if (kind) {
     const now = new Date().toISOString();
     data.firstPublishedAt = stored?.firstPublishedAt ?? now;
@@ -258,6 +295,61 @@ async function latestVersion(req: PayloadRequest, topic: string | number) {
   return docs[0] ?? null;
 }
 
+/** The rows of an array field, or none. */
+function rows(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value)
+    ? value.filter(
+        (row): row is Record<string, unknown> =>
+          Boolean(row) && typeof row === "object",
+      )
+    : [];
+}
+
+/**
+ * Why the topic's evidence does not allow publishing: it names individuals
+ * without evidence or a reference, or cites references that are not confirmed.
+ */
+async function evidenceErrors(
+  req: PayloadRequest,
+  topic: Record<string, unknown>,
+) {
+  const citedIds = [
+    ...new Set(
+      rows(topic.references).flatMap((row) => {
+        const id = relationId(row.reference);
+        return id ? [id] : [];
+      }),
+    ),
+  ];
+  const { docs } =
+    citedIds.length > 0
+      ? await req.payload.find({
+          collection: "references",
+          where: { id: { in: citedIds } },
+          select: { title: true, checkStatus: true },
+          pagination: false,
+          depth: 0,
+          overrideAccess: true,
+          req,
+        })
+      : { docs: [] };
+  const cited = new Map(docs.map((doc) => [String(doc.id), doc]));
+  return evidenceProblems({
+    namesIndividuals:
+      rows(topic.people).length > 0 ||
+      richTextLinksTo(topic.body, "individuals"),
+    evidenceCount: rows(topic.evidence).length,
+    references: citedIds.map((id) => ({
+      title: cited.get(id)?.title ?? "Unknown reference",
+      checkStatus: cited.get(id)?.checkStatus ?? null,
+    })),
+  }).map(({ field, message }) => ({
+    path: field,
+    label: field === "evidence" ? "Evidence" : "References",
+    message,
+  }));
+}
+
 /** A comparable form of a field: related documents reduced to their ids. */
 function comparable(field: (typeof AUDITED_FIELDS)[number], value: unknown) {
   if (field === "countries" || field === "tags")
@@ -270,6 +362,22 @@ function comparable(field: (typeof AUDITED_FIELDS)[number], value: unknown) {
           role: row?.role ?? null,
         }))
       : [];
+  if (field === "evidence")
+    return rows(value).map((row) => ({
+      kind: row.kind ?? null,
+      title: row.title ?? null,
+      file: relationId(row.file),
+      url: row.url ?? null,
+      archiveUrl: row.archiveUrl ?? null,
+      note: row.note ?? null,
+    }));
+  if (field === "references")
+    return rows(value).map((row) => ({
+      reference: relationId(row.reference),
+      stance: row.stance ?? null,
+      passage: row.passage ?? null,
+      locator: row.locator ?? null,
+    }));
   return value ?? null;
 }
 
@@ -339,6 +447,35 @@ const recordChange: CollectionAfterChangeHook = async ({
     details: { title: doc.title, fields, version },
   });
 };
+
+/** Clears the fields that do not apply to each evidence row's kind. */
+const tidyEvidence: CollectionBeforeChangeHook = ({ data }) => {
+  if (Array.isArray(data.evidence)) {
+    data.evidence = rows(data.evidence).map((row) =>
+      row.kind === "link"
+        ? { ...row, file: null }
+        : { ...row, url: null, archiveUrl: null },
+    );
+  }
+  return data;
+};
+
+/** Asks the worker to copy evidence links to the Wayback Machine, from the first draft on. */
+const archiveEvidenceLinks: CollectionAfterChangeHook = async ({
+  doc,
+  req,
+}) => {
+  await queueLinkArchives(
+    req,
+    rows(doc.evidence).flatMap((row) => (row.kind === "link" ? [row.url] : [])),
+  );
+};
+
+function evidenceKind(siblingData: unknown): unknown {
+  return siblingData && typeof siblingData === "object" && "kind" in siblingData
+    ? siblingData.kind
+    : undefined;
+}
 
 // F3: an event, policy, or public claim about one or more countries. Every save
 // is kept as a version; visitors (from week 7) see only the published one.
@@ -450,6 +587,147 @@ export const Topics: CollectionConfig = {
       ],
     },
     {
+      name: "evidence",
+      type: "array",
+      labels: { singular: "Evidence", plural: "Evidence" },
+      admin: {
+        description:
+          "What shows it happened: documents, images, and web pages (copied to the Wayback Machine). A topic that names individuals needs at least one.",
+      },
+      fields: [
+        {
+          type: "row",
+          fields: [
+            {
+              name: "kind",
+              type: "select",
+              required: true,
+              defaultValue: "document",
+              options: EVIDENCE_KINDS.map((value) => ({
+                value,
+                label: EVIDENCE_KIND_LABELS[value],
+              })),
+            },
+            {
+              name: "title",
+              type: "text",
+              required: true,
+              maxLength: 200,
+              admin: {
+                description: "Such as 'Ministry press release, 3 May 2024'.",
+              },
+            },
+          ],
+        },
+        {
+          name: "file",
+          type: "upload",
+          relationTo: "media",
+          required: true,
+          // Images for image evidence, PDFs for documents; checked on save.
+          filterOptions: ({ siblingData }) => ({
+            mimeType: {
+              in:
+                evidenceKind(siblingData) === "image"
+                  ? IMAGE_MIME_TYPES
+                  : DOCUMENT_MIME_TYPES,
+            },
+          }),
+          admin: {
+            condition: (_, siblingData) => evidenceKind(siblingData) !== "link",
+          },
+        },
+        {
+          name: "url",
+          label: "Link",
+          type: "text",
+          maxLength: URL_MAX_LENGTH,
+          validate: (value: unknown) =>
+            value ? httpUrl(value) : "Enter the page's link.",
+          admin: {
+            condition: (_, siblingData) => evidenceKind(siblingData) === "link",
+          },
+        },
+        {
+          name: "archiveStatus",
+          type: "ui",
+          admin: {
+            condition: (_, siblingData) => evidenceKind(siblingData) === "link",
+            components: {
+              Field: "/components/admin/LinkArchiveStatus#LinkArchiveStatus",
+            },
+          },
+        },
+        {
+          name: "archiveUrl",
+          label: "Copy in another archive",
+          type: "text",
+          maxLength: URL_MAX_LENGTH,
+          validate: optionalHttpUrl,
+          admin: {
+            condition: (_, siblingData) => evidenceKind(siblingData) === "link",
+            description:
+              "Optional, such as an archive.today link, when the Wayback Machine cannot copy the page.",
+          },
+        },
+        {
+          name: "note",
+          label: "What it shows",
+          type: "textarea",
+          maxLength: 1000,
+        },
+      ],
+    },
+    {
+      name: "references",
+      type: "array",
+      labels: { singular: "Reference", plural: "References" },
+      admin: {
+        description:
+          "Papers, books, reports, and pages that support or contradict the topic, each with the passage that does. Only confirmed references can be published.",
+      },
+      fields: [
+        {
+          type: "row",
+          fields: [
+            {
+              name: "reference",
+              type: "relationship",
+              relationTo: "references",
+              required: true,
+              index: true,
+            },
+            {
+              name: "stance",
+              type: "select",
+              required: true,
+              defaultValue: "supports",
+              options: CLAIM_STANCES.map((value) => ({
+                value,
+                label: STANCE_LABELS[value],
+              })),
+            },
+          ],
+        },
+        {
+          name: "passage",
+          type: "textarea",
+          required: true,
+          maxLength: 2000,
+          admin: {
+            description:
+              "The words in the reference that support, contradict, or explain the topic, quoted exactly.",
+          },
+        },
+        {
+          name: "locator",
+          label: "Page or section",
+          type: "text",
+          maxLength: 100,
+        },
+      ],
+    },
+    {
       name: "changeNote",
       label: "Change note",
       type: "textarea",
@@ -459,7 +737,16 @@ export const Topics: CollectionConfig = {
       virtual: true,
       hooks: { afterRead: [() => null] },
       maxLength: CHANGE_NOTE_MAX_LENGTH,
+      // Payload makes virtual fields read-only and skips their checks unless
+      // told otherwise, so both are set here.
+      validate: (value: unknown) =>
+        value === null ||
+        value === undefined ||
+        (typeof value === "string" && value.length <= CHANGE_NOTE_MAX_LENGTH)
+          ? true
+          : `Keep the note to ${CHANGE_NOTE_MAX_LENGTH} characters.`,
       admin: {
+        readOnly: false,
         position: "sidebar",
         description:
           "Required when publishing changes to a published topic. Shown in its public change log.",
@@ -508,8 +795,8 @@ export const Topics: CollectionConfig = {
   hooks: {
     beforeValidate: [fillSlug("topics", "title")],
     beforeOperation: [guardLiveVersion],
-    beforeChange: [applyWorkflow],
-    afterChange: [recordChange],
+    beforeChange: [tidyEvidence, applyWorkflow],
+    afterChange: [recordChange, archiveEvidenceLinks],
     afterDelete: [
       async ({ doc, req }) => {
         await recordAudit(req, {

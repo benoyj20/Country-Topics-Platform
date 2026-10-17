@@ -217,9 +217,9 @@ See [ADR 0003](adr/0003-countries-and-individuals.md) for the design.
   in the admin panel, and four added by script at the developer's request, with
   names, aliases, descriptions, offices, and dates taken from Wikidata
   (2026-10-14).
-- [ ] Not built yet: photos with their licence (week 5, with uploads), public
-  pages for countries and individuals (week 7), and links from individuals to
-  topics (week 4).
+- [ ] Not built yet: public pages for countries and individuals (week 7).
+  Topics link individuals since week 4, and photos with their licence came with
+  uploads in week 5.
 
 ### Week 4: topics, workflow, versions, change log
 
@@ -262,7 +262,78 @@ See [ADR 0004](adr/0004-topics-and-versions.md) for the design.
   without making their requests, as headless timers stall.
 - [x] CI ran these tests and the migration drift check: all passed on PR #8,
   applying the nine migrations to the CI database (2026-10-14).
-- [ ] The developer writes and publishes one topic.
-- [ ] Not built yet: evidence and references (week 5), and with them the rule
-  that published statements about named individuals need evidence and a
-  reference, which must be in place before public pages (week 7).
+- [x] The developer tested writing and publishing a topic in the admin panel
+  (2026-10-14).
+- [x] Evidence and references, and the rule that a topic naming individuals
+  needs evidence and a confirmed reference, came in week 5 (below).
+
+### Week 5: evidence, references, file storage, link archiving
+
+See [ADR 0005](adr/0005-evidence-and-references.md) for the design.
+
+- [x] Files: images (JPEG, PNG, WebP) and PDFs are stored in S3-compatible
+  storage (SeaweedFS locally) and served only to staff, with
+  `X-Content-Type-Options: nosniff` and `private, no-store`; a text file named
+  `.png`, an SVG, and a file without a licence are refused; a file used by a
+  topic or as an individual's photo cannot be deleted (409), and a PDF cannot be
+  a photo (integration tests, 2026-10-14).
+- [x] References: DOIs and ISBNs are normalised (doi.org links, ISBN-10 to
+  ISBN-13 with check digits); a reference needs a DOI, an ISBN, or a link; the
+  same DOI cannot be used twice; saving queues a check, and the check result
+  cannot be set through a request. The worker's result is stored only for the
+  identifiers it checked, so a late job for an old DOI cannot confirm a new one;
+  "not found" and "could not finish" stay distinct (integration and unit tests,
+  2026-10-14).
+- [x] "Look up" fills a reference from its DOI or ISBN; only verified admins can
+  call it, responses are not cached, and a service that does not answer gives a
+  clear 503 (integration tests with a fake service, 2026-10-14).
+- [x] Publishing: a topic that names an individual (in its people list or by a
+  link in its text) needs evidence and a reference; every cited reference must
+  be confirmed and have a passage; archiving a published topic is never blocked
+  by a reference edited since; references cited by any topic version cannot be
+  deleted (409) (integration and unit tests, 2026-10-14).
+- [x] Evidence links are queued for the Wayback Machine from the first draft
+  save; a link's first copy is never replaced; archived links can be read by
+  staff but written only by the worker (integration tests, 2026-10-14).
+- [x] Link checks reach only public addresses on ports 80 and 443 (also after
+  redirects and for IP literals such as 169.254.169.254), follow at most five
+  redirects, and tell gone pages (404) from sites that refuse bots (403) and
+  busy ones (503) (unit tests against a local server, 2026-10-14).
+- [x] The guard tests failed when the evidence rule, the identifier match on
+  check results, and the keep-the-first-copy rule were removed (2026-10-14).
+- [x] Every migration rolls back with `payload migrate:down` to an empty database
+  and applies again (test database, 2026-10-14).
+- [x] Live services, checked once by hand with public sample identifiers:
+  Crossref (its sample DOI 10.5555/12345678), the DOI system (10.1000/182), Open
+  Library (ISBN 978-0-306-40615-7), and the Wayback Machine's CDX index answered
+  as the adapters expect. Two findings changed the design: the Wayback
+  "availability" API answered "no copy" even for example.com, and Google Books
+  refused keyless requests (shared quota exhausted) (2026-10-14).
+- [x] Google Books as an optional ISBN backup with the developer's API key
+  (`GOOGLE_BOOKS_API_KEY`): only an exact ISBN match counts, it is asked only
+  when Open Library does not find the book or is down, and a failure (503, a
+  refused key) never changes the answer (unit tests, 2026-10-15). Live, with
+  the key, Google answered without errors but found none of four well-known
+  ISBNs, so it rarely helps for now (2026-10-15).
+- [x] Real browser (headless Edge, production build on the test database, the
+  worker running against it): a PNG uploaded with its licence and served with
+  the headers above; "Look up" filled a reference from Crossref and another from
+  Open Library; a third reference with only a link; the worker confirmed all
+  three against the live services; a topic naming an individual was refused
+  without evidence ("The following fields are invalid (2): Evidence,
+  References"), then published with a web page as evidence and a confirmed
+  reference; the evidence row showed the Wayback Machine copy found by the
+  worker. The only browser error was a server action cut off by the script's
+  navigation (2026-10-15).
+- [x] CI ran these tests and the migration drift check: all passed on PR #9,
+  applying the ten migrations to the CI database and storing uploads in its
+  SeaweedFS service (2026-10-15).
+- [x] The developer uploaded a file, added three references (DOI, ISBN, and
+  link, each confirmed by the worker), and published and then archived a TEST
+  topic with evidence; this found that the change note could not be typed
+  in, which is fixed with a regression test (2026-10-16).
+- [ ] Not built yet: video snippets and transcript excerpts as evidence (week 6).
+- [ ] Optional, after the pilot (v2): fresh Wayback Machine copies of evidence
+  links. The code is in place and off; it turns on with a free Internet Archive
+  account's keys (`WAYBACK_ACCESS_KEY`, `WAYBACK_SECRET_KEY`). Until then the
+  worker finds existing copies only.

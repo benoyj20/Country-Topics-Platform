@@ -18,7 +18,7 @@ in `package.json` is used automatically.
 Run `make env`: it creates `.env` from `.env.example`, or adds the variables an
 existing `.env` is missing (generating `PAYLOAD_SECRET`), and never changes values
 already set. Then run `make bootstrap`, `make infra-up`, and `make migrate`, and
-start the site and the email worker with `make dev`. Never commit `.env`, credentials, or local `.data/`
+start the site and the worker with `make dev`. Never commit `.env`, credentials, or local `.data/`
 files.
 
 Schema changes go through committed migrations (Payload's automatic schema push is

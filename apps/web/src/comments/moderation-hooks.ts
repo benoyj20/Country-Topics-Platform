@@ -71,6 +71,10 @@ export const moderateComment: CollectionBeforeChangeHook = ({
     );
   }
   const changed = { ...data };
+  // Votes change the score in their own transactions; writing back the
+  // value read when this save began would undo a vote made meanwhile.
+  // Payload leaves out fields that are absent.
+  delete changed.score;
   if (next.status === "visible") changed.moderationReason = null;
   if (next.status !== previous.status) {
     changed.moderatedBy = req.user?.id ?? null;

@@ -54,6 +54,7 @@ describe("commentSegments", () => {
       "mail@www.example.org",
       "http://localhost/admin",
       "https://.",
+      "https://bank.example@evil.example/login",
     ]) {
       assert.equal(commentLinkCount(text), 0, text);
     }

@@ -3,9 +3,9 @@ import {
   COMMENT_REPORT_REASONS,
   COMMENT_REPORT_STATUSES,
 } from "@countrytopics/domain";
-import type { CollectionConfig, FieldAccess } from "payload";
+import type { CollectionConfig } from "payload";
 
-import { nobody, verifiedStaffOnly } from "@/access";
+import { nobody, readOnlyField, verifiedStaffOnly } from "@/access";
 import { auditHooks } from "@/audit";
 import {
   COMMENT_REPORT_REASON_LABELS,
@@ -16,8 +16,6 @@ import {
 // and comment. Staff work through the open ones: hiding the comment marks
 // its reports "acted on", and a report that needs nothing done is dismissed
 // (ADR 0010). Reporting alone changes nothing a visitor sees.
-
-const fixed: { update: FieldAccess } = { update: () => false };
 
 const audit = auditHooks({
   collection: "comment-reports",
@@ -69,7 +67,7 @@ export const CommentReports: CollectionConfig = {
       type: "relationship",
       relationTo: "comments",
       required: true,
-      access: fixed,
+      access: readOnlyField,
       admin: { readOnly: true },
     },
     {
@@ -78,14 +76,14 @@ export const CommentReports: CollectionConfig = {
       type: "relationship",
       relationTo: "users",
       index: true,
-      access: fixed,
+      access: readOnlyField,
       admin: { readOnly: true },
     },
     {
       name: "reason",
       type: "select",
       required: true,
-      access: fixed,
+      access: readOnlyField,
       admin: { readOnly: true },
       options: COMMENT_REPORT_REASONS.map((value) => ({
         value,
@@ -96,7 +94,7 @@ export const CommentReports: CollectionConfig = {
       name: "note",
       type: "textarea",
       maxLength: COMMENT_REPORT_NOTE_MAX_LENGTH,
-      access: fixed,
+      access: readOnlyField,
       admin: { readOnly: true },
     },
     {
@@ -114,13 +112,13 @@ export const CommentReports: CollectionConfig = {
       name: "resolvedBy",
       type: "relationship",
       relationTo: "users",
-      access: fixed,
+      access: readOnlyField,
       admin: { position: "sidebar", readOnly: true },
     },
     {
       name: "resolvedAt",
       type: "date",
-      access: fixed,
+      access: readOnlyField,
       admin: {
         position: "sidebar",
         readOnly: true,

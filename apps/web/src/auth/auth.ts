@@ -94,7 +94,7 @@ function createAuth() {
         twoFactorTable: "auth_two_factor",
       }),
       adminVerification(),
-      ...turnstilePlugins(env.turnstile),
+      ...turnstilePlugins(env.turnstile, env.siteUrl),
     ],
     databaseHooks: {
       user: {

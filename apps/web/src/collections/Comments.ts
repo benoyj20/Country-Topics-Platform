@@ -4,9 +4,9 @@ import {
   MODERATION_NOTE_MAX_LENGTH,
   MODERATION_REASONS,
 } from "@countrytopics/domain";
-import type { CollectionConfig, FieldAccess } from "payload";
+import type { CollectionConfig } from "payload";
 
-import { nobody, verifiedStaffOnly } from "@/access";
+import { nobody, readOnlyField, verifiedStaffOnly } from "@/access";
 import { afterModeration, moderateComment } from "@/comments/moderation-hooks";
 import {
   COMMENT_REPORT_REASON_LABELS,
@@ -19,8 +19,6 @@ import {
 // panel, staff can only moderate them: hide or show a comment, lock a
 // thread, and, for admins, remove a comment's text when the law requires
 // it (ADR 0010).
-
-const fixed: { update: FieldAccess } = { update: () => false };
 
 export const Comments: CollectionConfig = {
   slug: "comments",
@@ -55,7 +53,7 @@ export const Comments: CollectionConfig = {
       type: "relationship",
       relationTo: "topics",
       required: true,
-      access: fixed,
+      access: readOnlyField,
       admin: { readOnly: true },
     },
     {
@@ -63,7 +61,7 @@ export const Comments: CollectionConfig = {
       label: "Reply to",
       type: "relationship",
       relationTo: "comments",
-      access: fixed,
+      access: readOnlyField,
       admin: {
         readOnly: true,
         description: "Empty for a comment that starts a thread.",
@@ -76,7 +74,7 @@ export const Comments: CollectionConfig = {
       type: "relationship",
       relationTo: "users",
       index: true,
-      access: fixed,
+      access: readOnlyField,
       admin: { readOnly: true },
     },
     {
@@ -84,7 +82,7 @@ export const Comments: CollectionConfig = {
       label: "Comment",
       type: "textarea",
       required: true,
-      access: fixed,
+      access: readOnlyField,
       admin: { readOnly: true },
       // Empty only once removed; the moderation hook erases it.
       validate: (
@@ -103,7 +101,13 @@ export const Comments: CollectionConfig = {
       type: "number",
       required: true,
       defaultValue: 0,
-      access: fixed,
+      access: readOnlyField,
+      // Absent from moderation saves, which must not write it back over a
+      // vote made meanwhile (src/comments/moderation-hooks.ts).
+      validate: (value: number | null | undefined) =>
+        value === undefined || Number.isInteger(value)
+          ? true
+          : "The score is a whole number.",
       admin: {
         readOnly: true,
         description: "Up votes minus down votes.",
@@ -164,13 +168,13 @@ export const Comments: CollectionConfig = {
       name: "moderatedBy",
       type: "relationship",
       relationTo: "users",
-      access: fixed,
+      access: readOnlyField,
       admin: { position: "sidebar", readOnly: true },
     },
     {
       name: "moderatedAt",
       type: "date",
-      access: fixed,
+      access: readOnlyField,
       admin: {
         position: "sidebar",
         readOnly: true,

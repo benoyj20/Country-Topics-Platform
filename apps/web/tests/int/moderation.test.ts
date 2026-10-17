@@ -210,6 +210,18 @@ async function auditEntries(action: string, targetId: string) {
   return docs;
 }
 
+/** Waits until a statement is queued behind a row lock another holds. */
+async function someoneWaitsForALock(): Promise<void> {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const { rows } = await worker.pool.query(
+      "SELECT 1 FROM pg_locks WHERE NOT granted LIMIT 1",
+    );
+    if (rows.length > 0) return;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error("Nothing waited for the lock");
+}
+
 /** A member whose account is old enough to post links. */
 async function ageAccount(user: User) {
   await worker.pool.query("UPDATE users SET created_at = $2 WHERE id = $1", [
@@ -304,6 +316,22 @@ describe("rate limits", () => {
         index < RATE_LIMITS.report[0].max ? 201 : 429,
       );
     }
+  });
+});
+
+describe("rate limits and refusals", () => {
+  it("do not count writes the server refuses", async () => {
+    const thread = await posted(alice, "TEST a thread to lock at once.");
+    await clearRateLimits();
+    expect(
+      (await moderate(moderator, thread.id, { locked: true })).status,
+    ).toBe(200);
+    for (let count = 0; count <= RATE_LIMITS.comment[0].max; count += 1) {
+      expect((await post(bob, "TEST refused reply.", thread.id)).status).toBe(
+        409,
+      );
+    }
+    await posted(bob, "TEST still allowed to post.");
   });
 });
 
@@ -417,6 +445,10 @@ describe("hiding comments", () => {
       { params: Promise.resolve({ slug: topic.slug, id: reported.id }) },
     );
     expect(linked.status).toBe(404);
+    // Briefly, like a list: the comment may be shown again.
+    expect(linked.headers.get("cache-control")).toBe(
+      "public, max-age=0, s-maxage=15, stale-while-revalidate=60",
+    );
   });
 
   it("re-counts the topic for search", async () => {
@@ -545,6 +577,49 @@ describe("locking threads", () => {
   });
 });
 
+describe("moderation and votes at the same time", () => {
+  it("keeps a vote made while staff save the comment", async () => {
+    const comment = await posted(alice, "TEST voted on while moderated.");
+    const client = await worker.pool.connect();
+    try {
+      // A vote's transaction holds the row while the staff save starts.
+      await client.query("BEGIN");
+      await client.query(
+        "UPDATE comments SET score = score + 1 WHERE id = $1",
+        [comment.id],
+      );
+      const saving = moderate(moderator, comment.id, {
+        moderationNote: "TEST looked at it.",
+      });
+      await someoneWaitsForALock();
+      await client.query("COMMIT");
+      expect((await saving).status).toBe(200);
+    } finally {
+      client.release();
+    }
+    expect((await storedComment(comment.id)).score).toBe(1);
+  });
+
+  it("refuses a vote that waited for a thread being locked", async () => {
+    const thread = await posted(alice, "TEST locked while voting.");
+    const reply = await posted(bob, "TEST a reply voted on.", thread.id);
+    const client = await worker.pool.connect();
+    try {
+      // A moderator's save locking the thread, not yet committed.
+      await client.query("BEGIN");
+      await client.query("UPDATE comments SET locked = true WHERE id = $1", [
+        thread.id,
+      ]);
+      const voting = vote(alice, reply.id, 1);
+      await someoneWaitsForALock();
+      await client.query("COMMIT");
+      expect((await voting).status).toBe(409);
+    } finally {
+      client.release();
+    }
+  });
+});
+
 describe("reports", () => {
   it("can be dismissed by staff only, recording who and when", async () => {
     const comment = await posted(alice, "TEST a fine comment.");
@@ -634,6 +709,36 @@ describe("notifications", () => {
     expect(
       (await notifications(alice)).notifications.every((item) => item.read),
     ).toBe(true);
+  });
+
+  it("drop a reply while its topic is not public", async () => {
+    const note = await posted(
+      bob,
+      "TEST a reply on a topic to unpublish.",
+      thread.id,
+    );
+    const isListed = async () =>
+      (await notifications(alice)).notifications.some(
+        (item) => item.commentId === note.id,
+      );
+    expect(await isListed()).toBe(true);
+    await worker.pool.query(
+      "UPDATE topics SET _status = 'draft' WHERE id = $1",
+      [topic.id],
+    );
+    try {
+      expect(await isListed()).toBe(false);
+    } finally {
+      await worker.pool.query(
+        "UPDATE topics SET _status = 'published' WHERE id = $1",
+        [topic.id],
+      );
+    }
+    expect(await isListed()).toBe(true);
+    await markRead(
+      alice,
+      (await notifications(alice)).notifications.map((item) => item.id),
+    );
   });
 
   it("drop a reply once a moderator hides it", async () => {

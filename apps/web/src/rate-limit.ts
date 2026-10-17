@@ -55,6 +55,15 @@ for i = 1, #KEYS do
 end
 return 0`;
 
+// KEYS: the counters that one request was counted in. Takes it back.
+const REFUND = `
+for i = 1, #KEYS do
+  if tonumber(redis.call('GET', KEYS[i]) or '0') > 0 then
+    redis.call('DECR', KEYS[i])
+  end
+end
+return 0`;
+
 /** The counters of one member's action, one per window. */
 export function rateLimitKeys(
   action: RateLimitedAction,
@@ -129,4 +138,16 @@ export async function consumeRateLimit(
   return waitMs > 0
     ? { ok: false, retryAfterS: Math.ceil(waitMs / 1_000) }
     : { ok: true };
+}
+
+/**
+ * Takes back one counted `action`, for a write the server then refused
+ * (a locked thread, say), so refusals do not use up a member's allowance.
+ */
+export async function refundRateLimit(
+  action: RateLimitedAction,
+  subjectId: string,
+): Promise<void> {
+  const keys = rateLimitKeys(action, subjectId);
+  await (await redis()).eval(REFUND, keys.length, ...keys);
 }

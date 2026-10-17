@@ -85,6 +85,19 @@ describe("readServerEnv", () => {
     expect(() =>
       readServerEnv({ ...valid, CLIENT_IP_HEADER: "x-real-ip: 1.2.3.4" }),
     ).toThrow(/CLIENT_IP_HEADER/);
+    // Cloudflare's always-pass test keys, only on localhost.
+    const testKeys = {
+      TURNSTILE_SITE_KEY: "1x00000000000000000000AA",
+      TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000000AA",
+    };
+    expect(readServerEnv({ ...valid, ...testKeys }).turnstile).toBeDefined();
+    expect(() =>
+      readServerEnv({
+        ...valid,
+        ...testKeys,
+        SITE_URL: "https://countrytopics.example",
+      }),
+    ).toThrow(/test keys/);
   });
 
   it("uses a replica only when it differs from the primary", () => {

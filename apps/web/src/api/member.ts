@@ -8,6 +8,7 @@ import {
   consumeRateLimit,
   type RateLimitedAction,
   type RateLimitResult,
+  refundRateLimit,
 } from "@/rate-limit";
 
 import { apiError, NO_STORE } from "./json";
@@ -87,4 +88,22 @@ export async function rateLimited(
       headers: { ...NO_STORE, "Retry-After": String(result.retryAfterS) },
     },
   );
+}
+
+/**
+ * Takes back a write counted by `rateLimited` that the server then refused.
+ * A failure here only leaves the count one higher, so it is logged.
+ */
+export async function refundRateLimited(
+  action: RateLimitedAction,
+  memberId: string,
+): Promise<void> {
+  try {
+    await refundRateLimit(action, memberId);
+  } catch (error) {
+    console.error(
+      `Rate limit refund failed (${action}):`,
+      error instanceof Error ? error.message : error,
+    );
+  }
 }

@@ -1,7 +1,7 @@
 import { commentReportProblem } from "@countrytopics/domain";
 
 import { apiError, NO_STORE, readJsonBody } from "@/api/json";
-import { rateLimited, writingMember } from "@/api/member";
+import { rateLimited, refundRateLimited, writingMember } from "@/api/member";
 import {
   commentIdSchema,
   problemsOf,
@@ -9,7 +9,7 @@ import {
   SMALL_REQUEST_MAX_BYTES,
 } from "@/comments/requests";
 import { commentFailure } from "@/comments/responses";
-import { reportComment } from "@/comments/store";
+import { CommentRefusal, reportComment } from "@/comments/store";
 import { writePool } from "@/write-pool";
 
 // POST /api/v1/comments/[id]/reports, `{ reason, note? }`: a signed-in
@@ -53,6 +53,9 @@ export async function POST(
       { status: created ? 201 : 200, headers: NO_STORE },
     );
   } catch (error) {
+    if (error instanceof CommentRefusal) {
+      await refundRateLimited("report", member.profile.id);
+    }
     return commentFailure(error, "report");
   }
 }

@@ -36,7 +36,8 @@ AGENTS.md asks that:
     - who moderated the comment and when (set by a hook).
   - Verified staff may update comments in Payload. Field access keeps
     everything a member wrote (topic, parent, author, text, score)
-    read-only.
+    read-only. A moderation save also leaves the score out of what it
+    writes, so a vote made while the save runs is kept.
   - The rules are in `packages/domain` (`moderation.ts`):
     - hiding needs a reason;
     - only verified admins remove;
@@ -67,12 +68,19 @@ AGENTS.md asks that:
   - Only an admin can remove a comment, and only when the law requires it.
   - Removal erases the text: the body becomes empty.
   - Comments have no versions, and the audit entry records the reason,
-    not the text, so no copy remains.
+    not the text, so no copy remains in the database. Backups (week 11)
+    keep older copies until they expire.
   - The comment's row, votes, and reports stay.
 - **Locked threads** take no new replies or votes, on the thread or its
-  replies. They can still be read and reported. Posting a reply, or
-  hiding or locking a thread, takes a row lock on the thread, so the two
-  cannot cross.
+  replies. They can still be read and reported.
+- **Row locks** keep moderation and members' writes from crossing:
+  - a reply takes a shared lock on its thread;
+  - a vote locks the comment it changes, and shares a lock on its thread;
+  - a moderator's save writes the comment's row.
+
+  So a reply or vote either finishes before a hide or lock, or waits and
+  sees it.
+
 - **Rate limits** (`apps/web/src/rate-limit.ts`):
   - They are per member and kept in Valkey, so they hold across web
     containers.
@@ -80,14 +88,15 @@ AGENTS.md asks that:
   - One Lua script checks every window and counts the request only if all
     have room, so refused attempts never extend the wait.
   - The windows' clock is Valkey's own key expiry.
-
-  | Action              | Limits                    |
-  | ------------------- | ------------------------- |
-  | Comment             | 5 a minute, 50 a day      |
-  | Vote                | 30 a minute, 500 a day    |
-  | Report              | 5 in 10 minutes, 20 a day |
-  | Display name change | 5 a day                   |
+  - The limits:
+    - comments: 5 a minute and 50 a day;
+    - votes: 30 a minute and 500 a day;
+    - reports: 5 in 10 minutes and 20 a day;
+    - display name changes: 5 a day.
   - A refusal is 429 with `Retry-After` and the code `rate-limited`.
+  - A write the server then refuses (an unknown topic, a hidden or locked
+    thread, a missing name) is taken back, so refusals do not use up the
+    allowance.
   - If Valkey cannot be reached, writes are refused with 503 rather than
     let through uncounted.
   - The comment limit also bounds the search jobs that comments queue.
@@ -95,7 +104,9 @@ AGENTS.md asks that:
 - **Link limits.**
   - Text that starts with `http://`, `https://`, or `www.` is a link. It is
     shown as one, with `rel="ugc nofollow noopener noreferrer"`, and counted
-    by the same rule (`comment-links.ts`). Bare domains stay text.
+    by the same rule (`comment-links.ts`). Bare domains stay text, and so
+    do addresses with a user name or password in them, which can hide
+    where they lead.
   - A comment may hold three links.
   - Accounts younger than three days may post none (403, code
     `link-limit`). The account's age is measured on the web process's
@@ -108,6 +119,12 @@ AGENTS.md asks that:
     seconds and refuses the request if Cloudflare cannot be reached.
   - Only `/sign-in/magic-link` needs a token. Google sign-in has its own
     checks.
+  - Cloudflare's answer must name the widget's action (`sign-in`) and the
+    site's hostname, so a token solved elsewhere under the same key is
+    refused.
+  - Cloudflare's test keys always pass and answer with neither. They skip
+    those two checks, and the configuration refuses them unless
+    `SITE_URL` is localhost.
   - Turnstile is off unless `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY`
     are both set.
   - The page loads Cloudflare's script only when it is on.
@@ -128,8 +145,9 @@ AGENTS.md asks that:
   - A hidden or removed comment tells its author once.
   - The rows store who, what kind, and which comment. Names, text, and
     topic titles are read when the list is shown, so a changed name or a
-    later decision shows as it is now. Replies hidden since then drop out
-    of the list and the count.
+    later decision shows as it is now.
+  - A reply is listed and counted only while its text is public: not once
+    it is hidden, nor while its topic is unpublished.
   - The API (personal, `private, no-store`, from the primary):
     - `GET /api/v1/account/notifications?cursor=` gives 20 at a time,
       newest first.
@@ -138,12 +156,15 @@ AGENTS.md asks that:
     - `POST /api/v1/account/notifications/read` marks up to 100 of the
       member's own notifications as read.
   - The site header shows "Notifications" with the unread count to
-    signed-in members. `/notifications` lists them and marks those shown
-    as read.
+    signed-in members. It asks when the page loads, when the reader
+    returns to the tab, and after marking read, not on every page change.
+  - `/notifications` lists them and marks those shown as read.
   - Each one links to `/topics/[slug]#comment-[id]`. If that thread is
     not on the first page, the topic page loads it from
-    `GET /api/v1/topics/[slug]/comments/[id]`. That route is public,
-    cached like the lists, and takes no parameters.
+    `GET /api/v1/topics/[slug]/comments/[id]`. That route is public and
+    takes no parameters. Its answers, including "not found", are cached
+    like the lists: briefly, because a link can arrive before the read
+    connection has the reply.
   - Deleting an account deletes its notifications first.
 - **API changes.** They are additive:
   - comments carry `hidden`, and threads carry `locked`;

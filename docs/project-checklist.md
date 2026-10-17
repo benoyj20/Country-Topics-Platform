@@ -775,6 +775,33 @@ See [ADR 0010](adr/0010-moderation-limits-and-notifications.md) for the design.
     appearing above it; the page now scrolls once that form is shown;
   - the reports list on a comment offered "Add new", which staff cannot
     use.
+- [x] The code review before the first push found ten issues, and a
+  security pass (the repository's security checklist) found one more.
+  Nine were fixed, each with a test that fails without the fix
+  (2026-10-17):
+  - a staff save wrote back the score read when it began, losing a vote
+    made meanwhile (a test holds a vote's row lock during the save);
+  - a vote could slip into a thread a moderator was locking (a test holds
+    the lock; the waiting vote is now refused);
+  - writes the server refused, such as replies to a locked thread, used
+    up the rate limit;
+  - reply notifications showed text from topics that were no longer
+    public;
+  - Turnstile accepted a token solved for another action or hostname
+    under the same key, and the always-pass test keys would have worked
+    on a real site;
+  - "not found" for a linked thread was cached for a minute, though a
+    link can arrive before the read connection has the reply;
+  - the header asked for the unread count on every page change;
+  - a rule for read-only fields was written twice;
+  - links with a user name or password in them, such as
+    `https://bank.example@evil.example`, were shown as links.
+
+  Two were not changed. The notification race on a hidden comment cannot
+  happen: the save holds the comment's row lock until it commits, so a
+  second save waits and sees the first notification. A hidden thread's
+  placeholder still sorts by its old score, which was public before it was
+  hidden.
 - [ ] The developer reports and hides a comment.
 - [ ] Before the pilot (week 12): real Turnstile keys from a Cloudflare
   account, limited to the site's hostname, and `CLIENT_IP_HEADER` set to

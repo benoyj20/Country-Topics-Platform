@@ -1,5 +1,5 @@
 import { apiError, NO_STORE, readJsonBody } from "@/api/json";
-import { rateLimited, writingMember } from "@/api/member";
+import { rateLimited, refundRateLimited, writingMember } from "@/api/member";
 import {
   commentIdSchema,
   problemsOf,
@@ -7,7 +7,7 @@ import {
   voteSchema,
 } from "@/comments/requests";
 import { commentFailure } from "@/comments/responses";
-import { voteOnComment } from "@/comments/store";
+import { CommentRefusal, voteOnComment } from "@/comments/store";
 import { writePool } from "@/write-pool";
 
 // PUT /api/v1/comments/[id]/vote, `{ value: 1 | -1 | 0 }`: a signed-in
@@ -43,6 +43,9 @@ export async function PUT(
     });
     return Response.json(result, { headers: NO_STORE });
   } catch (error) {
+    if (error instanceof CommentRefusal) {
+      await refundRateLimited("vote", member.profile.id);
+    }
     return commentFailure(error, "vote");
   }
 }

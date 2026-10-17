@@ -43,6 +43,8 @@ function hrefOf(link: string): string | null {
     const url = new URL(absolute);
     const host = url.hostname;
     if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    // "https://bank.example@evil.example" opens evil.example.
+    if (url.username || url.password) return null;
     if (!host.includes(".") || host.startsWith(".") || host.endsWith(".")) {
       return null;
     }

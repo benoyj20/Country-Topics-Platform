@@ -41,7 +41,10 @@ export async function GET(
         ? await findThread(readPool(), topic, id)
         : null;
     if (!topic || !thread) {
-      return apiError(404, NOT_LISTED, { headers: COMMENT_LIST_REFUSED });
+      // Cached like a list, not a minute: a link from a notification can
+      // arrive before the read connection has the reply, or name a comment
+      // a moderator shows again.
+      return apiError(404, NOT_LISTED, { headers: COMMENT_LIST_CACHE });
     }
     return Response.json(
       { open: topic.open, thread },

@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { authClient } from "@/auth/client";
-import { TURNSTILE_HEADER } from "@/auth/turnstile-header";
+import { TURNSTILE_HEADER } from "@/auth/turnstile-shared";
 
 import { TurnstileWidget } from "./TurnstileWidget";
 

@@ -1,5 +1,7 @@
 import { normalizeEmail } from "@countrytopics/domain";
 
+import { isTurnstileTestSecret } from "@/auth/turnstile-shared";
+
 // Server configuration comes only from environment variables (AGENTS.md, "Build
 // for scale"). Errors name the variable, never its value.
 
@@ -120,7 +122,13 @@ function readInviteOnly(env: Env, problems: string[]): boolean {
   return true;
 }
 
-function readTurnstile(env: Env, problems: string[]): ServerEnv["turnstile"] {
+const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1"]);
+
+function readTurnstile(
+  env: Env,
+  siteUrl: string,
+  problems: string[],
+): ServerEnv["turnstile"] {
   const siteKey = env.TURNSTILE_SITE_KEY?.trim() ?? "";
   const secretKey = env.TURNSTILE_SECRET_KEY?.trim() ?? "";
   if (!siteKey && !secretKey) return undefined;
@@ -129,6 +137,17 @@ function readTurnstile(env: Env, problems: string[]): ServerEnv["turnstile"] {
       "TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY must be set together",
     );
     return undefined;
+  }
+  // Test keys always give the same answer, so they would let anyone
+  // through on a real site.
+  if (
+    isTurnstileTestSecret(secretKey) &&
+    URL.canParse(siteUrl) &&
+    !LOCAL_HOSTNAMES.has(new URL(siteUrl).hostname)
+  ) {
+    problems.push(
+      "TURNSTILE_SECRET_KEY is one of Cloudflare's test keys, which work only when SITE_URL is localhost",
+    );
   }
   return { siteKey, secretKey };
 }
@@ -198,7 +217,7 @@ export function readServerEnv(env: Env = process.env): ServerEnv {
   }
 
   const storage = readStorage(env, problems);
-  const turnstile = readTurnstile(env, problems);
+  const turnstile = readTurnstile(env, siteUrl, problems);
   const clientIpHeader = readClientIpHeader(env, problems);
 
   const contactEmail = env.CONTACT_EMAIL?.trim() || undefined;

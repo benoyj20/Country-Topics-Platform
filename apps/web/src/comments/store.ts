@@ -462,31 +462,45 @@ export async function createComment(
 
 /**
  * A visible comment on a public topic, for votes and reports; refuses
- * otherwise. `locked` is whether its thread is locked.
+ * otherwise. `locked` is whether its thread is locked. With `lock`, inside
+ * a transaction, a moderator hiding the comment or locking its thread
+ * waits for the transaction, so a vote cannot slip in as they do.
  */
 async function commentForAction(
   db: Queryable,
   commentId: string,
+  { lock = false }: { lock?: boolean } = {},
 ): Promise<{ authorId: string | null; open: boolean; locked: boolean }> {
+  // The comment's own row is locked for update, as the vote will update
+  // its score: two voters taking a shared lock first would deadlock.
   const { rows } = await db.query<{
     author_id: string | null;
+    parent_id: string | null;
     state: string;
     locked: boolean;
   }>(
-    `SELECT c.author_id::text AS author_id, t.state::text AS state,
-            COALESCE(thread.locked, c.locked) IS TRUE AS locked
-       FROM comments c
-       JOIN topics t ON t.id = c.topic_id
-       LEFT JOIN comments thread ON thread.id = c.parent_id
-      WHERE c.id = $1 AND ${VISIBLE} AND ${PUBLIC_TOPIC}`,
+    `SELECT c.author_id::text AS author_id, c.parent_id::text AS parent_id,
+            t.state::text AS state, c.locked IS TRUE AS locked
+       FROM comments c JOIN topics t ON t.id = c.topic_id
+      WHERE c.id = $1 AND ${VISIBLE} AND ${PUBLIC_TOPIC}
+      ${lock ? "FOR NO KEY UPDATE OF c" : ""}`,
     [commentId],
   );
   const comment = rows[0];
   if (!comment) throw NOT_FOUND();
+  let locked = comment.locked;
+  if (comment.parent_id) {
+    const { rows: threads } = await db.query<{ locked: boolean }>(
+      `SELECT locked IS TRUE AS locked FROM comments WHERE id = $1
+       ${lock ? "FOR SHARE" : ""}`,
+      [comment.parent_id],
+    );
+    locked = threads[0]?.locked ?? false;
+  }
   return {
     authorId: comment.author_id,
     open: comment.state !== "archived",
-    locked: comment.locked,
+    locked,
   };
 }
 
@@ -509,7 +523,7 @@ export async function voteOnComment(
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const comment = await commentForAction(client, commentId);
+    const comment = await commentForAction(client, commentId, { lock: true });
     if (comment.authorId === voterId) {
       throw new CommentRefusal(403, "You cannot vote on your own comment.");
     }

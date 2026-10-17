@@ -9,7 +9,7 @@ import {
 } from "@countrytopics/domain";
 
 import { apiError, NO_STORE, readJsonBody } from "@/api/json";
-import { rateLimited, writingMember } from "@/api/member";
+import { rateLimited, refundRateLimited, writingMember } from "@/api/member";
 import {
   COMMENT_REQUEST_MAX_BYTES,
   newCommentSchema,
@@ -21,7 +21,12 @@ import {
   COMMENT_LIST_REFUSED,
   commentFailure,
 } from "@/comments/responses";
-import { createComment, findCommentTopic, listThreads } from "@/comments/store";
+import {
+  CommentRefusal,
+  createComment,
+  findCommentTopic,
+  listThreads,
+} from "@/comments/store";
 import { requestSearchIndex } from "@/content-jobs";
 import { loadPayload } from "@/payload-instance";
 import { readPool } from "@/read-pool";
@@ -103,7 +108,10 @@ export async function POST(request: Request, { params }: Context) {
   try {
     const pool = await writePool();
     const topic = isSlug(slug) ? await findCommentTopic(pool, slug) : null;
-    if (!topic) return apiError(404, NO_TOPIC);
+    if (!topic) {
+      await refundRateLimited("comment", profile.id);
+      return apiError(404, NO_TOPIC);
+    }
     const { comment, updatedAt } = await createComment(pool, {
       topic,
       authorId: profile.id,
@@ -118,6 +126,10 @@ export async function POST(request: Request, { params }: Context) {
     });
     return Response.json({ comment }, { status: 201, headers: NO_STORE });
   } catch (error) {
+    // Refused before anything was saved, so it does not count.
+    if (error instanceof CommentRefusal) {
+      await refundRateLimited("comment", profile.id);
+    }
     return commentFailure(error, "post");
   }
 }

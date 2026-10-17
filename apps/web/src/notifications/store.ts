@@ -10,13 +10,15 @@ import type { MemberNotification, NotificationPage } from "./types";
 // A member's notifications (ADR 0010), in SQL on the Notifications
 // collection's table. They are made where comments change: a reply in
 // src/comments/store.ts, a hidden comment in its moderation hooks. A reply
-// that a moderator has since hidden is no longer listed or counted.
+// is listed and counted only while its text is public: not once a
+// moderator hides it, nor while its topic is unpublished.
 
 type Queryable = Pick<Pool, "query">;
 
 const EXCERPT_LENGTH = 200;
 
-const LISTED = `NOT (n.kind = 'reply' AND c.status <> 'visible')`;
+const LISTED = `NOT (n.kind = 'reply' AND
+  (c.status <> 'visible' OR NOT (${PUBLIC_TOPIC})))`;
 
 function excerpt(text: string): string {
   const chars = [...text];
@@ -119,7 +121,9 @@ export async function unreadNotifications(
 ): Promise<number> {
   const { rows } = await db.query<{ count: number }>(
     `SELECT count(*)::int AS count FROM (
-       SELECT 1 FROM notifications n JOIN comments c ON c.id = n.comment_id
+       SELECT 1 FROM notifications n
+         JOIN comments c ON c.id = n.comment_id
+         JOIN topics t ON t.id = c.topic_id
         WHERE n.recipient_id = $1 AND n.read_at IS NULL AND ${LISTED}
         LIMIT $2
      ) unread`,

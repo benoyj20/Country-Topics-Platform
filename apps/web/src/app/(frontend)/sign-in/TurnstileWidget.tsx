@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from "react";
 
+import { TURNSTILE_ACTION } from "@/auth/turnstile-shared";
+
 // Cloudflare Turnstile's widget (ADR 0010), loaded only on the sign-in
 // page and only when the site has Turnstile keys. Its token goes with the
 // request for an email link, which Better Auth checks with Cloudflare.
@@ -85,7 +87,7 @@ export function TurnstileWidget({
         if (cancelled || !container.current) return;
         const id = api.render(container.current, {
           sitekey: siteKey,
-          action: "sign-in",
+          action: TURNSTILE_ACTION,
           callback: (token) => callbacks.current.onToken(token),
           "expired-callback": () => callbacks.current.onToken(null),
           "error-callback": () => callbacks.current.onToken(null),

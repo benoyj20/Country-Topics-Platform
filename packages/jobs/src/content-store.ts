@@ -8,10 +8,11 @@ import type {
   ReferenceState,
   ReferenceStore,
 } from "./reference-jobs.ts";
+import type { VideoState, VideoStore } from "./video-jobs.ts";
 
 // The worker writes the results of its checks straight to the tables the web
-// app's Payload collections use ("references" and "link-archives", see
-// apps/web/src/collections). It changes only the system fields those
+// app's Payload collections use ("references", "link-archives", and
+// "videos", see apps/web/src/collections). It changes only the system fields those
 // collections never accept from requests, so it does not need Payload or its
 // hooks. Queries are parameterised; table and column names are fixed.
 
@@ -22,7 +23,7 @@ const SAME_IDENTIFIERS = `doi IS NOT DISTINCT FROM $2
 
 export function createContentStore(
   pool: Pool,
-): ReferenceStore & LinkArchiveStore {
+): ReferenceStore & LinkArchiveStore & VideoStore {
   const identifiers = (job: ReferenceCheckJob) => [
     job.referenceId,
     job.doi,
@@ -84,6 +85,48 @@ export function createContentStore(
           record.message,
         ],
       );
+    },
+
+    async videoState(job): Promise<VideoState> {
+      const { rows } = await pool.query<{ waiting: boolean }>(
+        `SELECT (check_status = 'pending' AND youtube_id = $2) AS waiting
+           FROM videos WHERE id = $1`,
+        [job.videoId, job.youtubeId],
+      );
+      const [row] = rows;
+      if (!row) return "missing";
+      return row.waiting ? "pending" : "superseded";
+    },
+
+    async saveVideoCheck(job, result) {
+      // What YouTube no longer says (a failed check, a lookup without the
+      // Data API) keeps the title, channel, and length found before.
+      // confirmed_at records the first time the video was found playable.
+      const { rowCount } = await pool.query(
+        `UPDATE videos
+            SET check_status = $3,
+                title = COALESCE($4, title),
+                channel = COALESCE($5, channel),
+                duration_s = COALESCE($6, duration_s),
+                check_message = $7,
+                checked_at = now(),
+                confirmed_at = CASE WHEN $8::boolean
+                                    THEN COALESCE(confirmed_at, now())
+                                    ELSE confirmed_at END,
+                updated_at = now()
+          WHERE id = $1 AND youtube_id = $2 AND check_status = 'pending'`,
+        [
+          job.videoId,
+          job.youtubeId,
+          result.status,
+          result.title,
+          result.channel,
+          result.duration_s,
+          result.message,
+          result.status === "playable",
+        ],
+      );
+      return rowCount === 1;
     },
   };
 }

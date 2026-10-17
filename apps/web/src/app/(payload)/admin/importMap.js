@@ -16,6 +16,10 @@ import { HeadingFeatureClient as HeadingFeatureClient_e70f5e05f09f93e00b997edb1e
 import { ParagraphFeatureClient as ParagraphFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { LinkArchiveStatus as LinkArchiveStatus_d6371b5ada49b6e0a33cbe758939cb60 } from '../../../components/admin/LinkArchiveStatus'
 import { ReferenceLookup as ReferenceLookup_79cd71c645b9c9ba74d773f2edbb4c62 } from '../../../components/admin/ReferenceLookup'
+import { SnippetEditor as SnippetEditor_27b60b452efa383e8e7ec4f5408b60fe } from '../../../components/admin/SnippetEditor'
+import { TranscriptSummary as TranscriptSummary_bfdd9e5167d87bc2f84e911d676436e0 } from '../../../components/admin/TranscriptSummary'
+import { SnippetPreview as SnippetPreview_c85281f7d226f9f863188fa9fb77e2ae } from '../../../components/admin/SnippetPreview'
+import { VideoCheckStatus as VideoCheckStatus_226cf0c80bddcea48574708a7f7dc061 } from '../../../components/admin/VideoCheckStatus'
 import { PossibleDuplicates as PossibleDuplicates_c547412a95ae6a718553d0ed35ea35c5 } from '../../../components/admin/PossibleDuplicates'
 import { SignOutButton as SignOutButton_a9555241ee505d07c588e919bec4ed28 } from '../../../components/admin/SignOutButton'
 import { RefreshSession as RefreshSession_add370985535c5edf55826ec76648927 } from '../../../components/RefreshSession'
@@ -43,6 +47,10 @@ export const importMap = {
   "@payloadcms/richtext-lexical/client#ParagraphFeatureClient": ParagraphFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "/components/admin/LinkArchiveStatus#LinkArchiveStatus": LinkArchiveStatus_d6371b5ada49b6e0a33cbe758939cb60,
   "/components/admin/ReferenceLookup#ReferenceLookup": ReferenceLookup_79cd71c645b9c9ba74d773f2edbb4c62,
+  "/components/admin/SnippetEditor#SnippetEditor": SnippetEditor_27b60b452efa383e8e7ec4f5408b60fe,
+  "/components/admin/TranscriptSummary#TranscriptSummary": TranscriptSummary_bfdd9e5167d87bc2f84e911d676436e0,
+  "/components/admin/SnippetPreview#SnippetPreview": SnippetPreview_c85281f7d226f9f863188fa9fb77e2ae,
+  "/components/admin/VideoCheckStatus#VideoCheckStatus": VideoCheckStatus_226cf0c80bddcea48574708a7f7dc061,
   "/components/admin/PossibleDuplicates#PossibleDuplicates": PossibleDuplicates_c547412a95ae6a718553d0ed35ea35c5,
   "/components/admin/SignOutButton#SignOutButton": SignOutButton_a9555241ee505d07c588e919bec4ed28,
   "/components/RefreshSession#RefreshSession": RefreshSession_add370985535c5edf55826ec76648927,

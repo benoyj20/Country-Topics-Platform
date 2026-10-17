@@ -22,6 +22,7 @@ describe("readWorkerEnv", () => {
       siteUrl: valid.SITE_URL,
       contactEmail: undefined,
       googleBooksApiKey: undefined,
+      youtubeApiKey: undefined,
       wayback: undefined,
     });
   });
@@ -42,16 +43,18 @@ describe("readWorkerEnv", () => {
     assert.equal(env.redisUrl, "rediss://cache.example:6380");
   });
 
-  it("reads the optional contact address and Wayback Machine keys", () => {
+  it("reads the optional contact address and API keys", () => {
     const env = readWorkerEnv({
       ...valid,
       CONTACT_EMAIL: "team@example.test",
       GOOGLE_BOOKS_API_KEY: "books-key",
+      YOUTUBE_API_KEY: " youtube-key ",
       WAYBACK_ACCESS_KEY: "access",
       WAYBACK_SECRET_KEY: "secret",
     });
     assert.equal(env.contactEmail, "team@example.test");
     assert.equal(env.googleBooksApiKey, "books-key");
+    assert.equal(env.youtubeApiKey, "youtube-key");
     assert.deepEqual(env.wayback, { accessKey: "access", secretKey: "secret" });
   });
 

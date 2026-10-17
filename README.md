@@ -21,9 +21,9 @@ and the PR flow. Coding agents must also follow [AGENTS.md](AGENTS.md).
 
 ## Implementation status
 
-The repository contains a working **YouTube snippet prototype**: paste a link, cut a
-clip, paste a transcript, and watch it play with synced highlighting. It tests the
-riskiest part of the product (F4) on its own.
+The repository began with a **YouTube snippet prototype**: paste a link, cut a
+clip, paste a transcript, and watch it play with synced highlighting. It tested the
+riskiest part of the product (F4) on its own; the site now has its typed version.
 
 The **site and admin panel** (`apps/web`) run on Next.js and Payload with
 PostgreSQL. People sign in with Google or an emailed link (invite-only during the
@@ -36,8 +36,11 @@ countries and individuals, and publish them; every version is kept and each
 publish adds a change log entry. Topics carry evidence (documents, images, and
 web pages copied to the Wayback Machine) and references with the passage they
 support; files are stored in S3-compatible storage, and the worker confirms each
-reference's DOI, ISBN, or link before it can be published. A topic that names an
-individual needs evidence and a confirmed reference. There is a placeholder home
+reference's DOI, ISBN, or link before it can be published. Admins cut video
+snippets from YouTube videos with a pasted transcript, preview them with the
+transcript highlighted as the clip plays, and use them as evidence once the worker
+has found the video playable. A topic that names an individual needs evidence and
+a confirmed reference. There is a placeholder home
 page and a health check at `/api/v1/health`. Public pages and the other features
 follow the [MVP plan](docs/mvp-plan.md); see the checklist for what is verified.
 
@@ -51,11 +54,11 @@ Open `http://localhost:4173` and click **Try demo**. See
 ## Repository layout
 
 - `apps/web` — Next.js site, Payload admin, and `/api/v1`
-- `apps/worker` — background jobs on BullMQ: sign-in emails, reference checks, link archiving
-- `packages/domain` — roles, sign-up rules, name, slug, date, DOI, and ISBN rules, the topic workflow, and the evidence rules
+- `apps/worker` — background jobs on BullMQ: sign-in emails, reference checks, link archiving, video checks
+- `packages/domain` — roles, sign-up rules, name, slug, date, DOI, and ISBN rules, the topic workflow, the evidence rules, and snippet and transcript parsing
 - `packages/email` — the email adapter (SMTP) and email templates
 - `packages/jobs` — job queues shared by the web app and the worker, and the worker's database writes
-- `packages/sources` — outside services: Crossref, the DOI system, Open Library, Google Books (optional), the Wayback Machine, and safe link checks
+- `packages/sources` — outside services: Crossref, the DOI system, Open Library, Google Books (optional), the Wayback Machine, YouTube (oEmbed and the Data API), and safe link checks
 - `prototypes` — throwaway experiments; apps never import from here
 - `deploy/compose` — local PostgreSQL (pgvector), Redis-compatible Valkey, Mailpit, SeaweedFS (S3-compatible storage)
 - `deploy/scripts` — local setup helpers, such as the `make env` script

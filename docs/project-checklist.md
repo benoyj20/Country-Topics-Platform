@@ -1,6 +1,6 @@
 # Project and testing checklist
 
-Status snapshot: 14 October 2026. This is the current implementation and
+Status snapshot: 16 October 2026. This is the current implementation and
 verification checklist; [the MVP plan](mvp-plan.md) describes what comes next.
 
 A checked item means the stated work or verification was completed, with the
@@ -9,18 +9,19 @@ code exists. Update this file in the same PR that changes the status.
 
 ## Current working flow
 
-YouTube link → oEmbed lookup on a local Node server → editor player with start and
+In the admin panel: YouTube link → editor player (loaded on click) with start and
 end times → pasted transcript parsed into timed segments → visitor preview with a
-lazy-loaded privacy-enhanced player and synced transcript highlighting.
+lazy-loaded privacy-enhanced player and synced transcript highlighting → save →
+the worker checks the video with YouTube → the snippet is used as topic evidence.
 
 The site itself (`apps/web`) so far has sign-in (Google and email links,
 invite-only), roles, staff authenticator checks, the admin panel with countries,
-categories, tags, individuals, and versioned topics with a change log, a
-placeholder home page, and a health check; see Weeks 1 to 4 below.
+categories, tags, individuals, versioned topics with a change log, evidence and
+references, video snippets, a placeholder home page, and a health check; see
+Weeks 1 to 6 below.
 
-The snippet flow is a standalone prototype in `prototypes/youtube-snippet`. It has no
-database, accounts, or persistence beyond the browser's `localStorage`, and it is
-plain JavaScript; the typed version is built into `apps/web` in MVP week 6.
+The snippet flow began as a standalone prototype in `prototypes/youtube-snippet`
+(plain JavaScript, no database); its typed version is in the site since MVP week 6.
 
 ## Repository setup
 
@@ -332,8 +333,73 @@ See [ADR 0005](adr/0005-evidence-and-references.md) for the design.
   link, each confirmed by the worker), and published and then archived a TEST
   topic with evidence; this found that the change note could not be typed
   in, which is fixed with a regression test (2026-10-16).
-- [ ] Not built yet: video snippets and transcript excerpts as evidence (week 6).
+- [x] Video snippets and their transcripts as evidence came in week 6 (below).
 - [ ] Optional, after the pilot (v2): fresh Wayback Machine copies of evidence
   links. The code is in place and off; it turns on with a free Internet Archive
   account's keys (`WAYBACK_ACCESS_KEY`, `WAYBACK_SECRET_KEY`). Until then the
   worker finds existing copies only.
+
+### Week 6: video snippets and transcripts
+
+See [ADR 0006](adr/0006-snippets-and-transcripts.md) for the design.
+
+- [x] Parsing ported to TypeScript (`packages/domain`): links (watch, youtu.be,
+  shorts, embed, live, bare id, `t=` and `start=`), times, YouTube's transcript
+  panel, `m:ss text` lines, SRT, WebVTT, clipping to the snippet, timestamps
+  counted from the clip's start, and clip checks; the prototype's tests pass on
+  the port, plus cases for impossible timestamps and lines outside the clip
+  (unit tests, 2026-10-16).
+- [x] Snippets: a pasted link is stored as its video id; times are kept in
+  tenths; the server computes the transcript segments from the pasted text on
+  every save (moving the clip recomputes them); no transcript is allowed, while
+  text without timestamps or with no line inside the clip is refused, as are
+  reversed or negative times, bad language codes, and an end past the video's
+  known length. Edits are versioned and audited (integration tests,
+  2026-10-16).
+- [x] Videos: one record per YouTube id, added by the first snippet's save, with
+  one queued check however many snippets save it; the worker's result is stored
+  only while a check is awaited; the first time a video was found playable is
+  kept; a later "removed" keeps the title and length found before; saving a
+  snippet of a video that does not play asks again. Videos, their checks, and a
+  snippet's video and segments cannot be set through requests (integration and
+  unit tests, 2026-10-16).
+- [x] Access: verified admins write snippets; moderators read them; visitors
+  and unverified admins are refused (403). Videos used by snippets, snippets
+  used by topics, and individuals named as speakers cannot be deleted (409)
+  (integration tests, 2026-10-16).
+- [x] Publishing: a "Video snippet" evidence row needs no title and keeps only
+  its snippet; a topic is refused while a snippet's video was never found
+  playable, and publishes once the worker confirmed it (integration tests,
+  2026-10-16).
+- [x] YouTube adapter (`packages/sources`): oEmbed statuses, the Data API's
+  length, embedding, privacy, and age restriction, the key sent only in a
+  header, and Data API failures that keep oEmbed's answer (unit tests). Live,
+  with the developer's key: the prototype's demo video was found playable,
+  19 seconds long, titled "Me at the zoo" by "jawed"; an invented id was found
+  removed or private, with and without the key (2026-10-16).
+- [x] The migration rolls back with `payload migrate:down` on an empty test
+  database and applies again; with snippet evidence present, its rollback
+  refuses with a message instead of deleting evidence (test database,
+  2026-10-16).
+- [x] Real browser (headless Edge, production build on the test database, the
+  worker running against it with the YouTube key): no YouTube script or player
+  before a click; "Load video" opened the privacy-enhanced player, which gave
+  the length (19 s) and a default end; a typed end committed with Enter; the
+  transcript summary said "3 lines in the clip · 1 line outside it left out ·
+  1 line before the first timestamp ignored"; the preview listed the three
+  lines; saving showed "YouTube check pending", and after the worker's check
+  "Playable on this site. Me at the zoo · jawed · 0:19"; in the preview,
+  clicking a transcript line played from 0:12 with that line highlighted, and
+  playback stopped at the clip's end (0:17) with "Snippet ended", Replay, and
+  "Watch the full video on YouTube"; a topic naming an individual published
+  with the snippet as evidence and a confirmed reference; no browser errors
+  (2026-10-16). In headless Edge the first click on the thumbnail loaded the
+  player but YouTube did not start playing; that is still to confirm in a
+  real browser.
+- [ ] The developer adds a clip with a synced transcript in the admin panel and
+  watches the preview play in sync in a real browser (the week's manual test).
+- [ ] Each player edge case in a real browser: the first click starts playback,
+  stop at the end time, snap back when dragged before the start, Replay, and
+  the "watch full video" link.
+- [ ] Not built yet: public topic pages showing snippets (week 7), periodic
+  re-checks of videos, and transcript excerpts without a video.

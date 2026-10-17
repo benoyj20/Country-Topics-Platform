@@ -5,11 +5,13 @@ import {
   createLinkWorker,
   createRedisConnection,
   createReferenceWorker,
+  createVideoWorker,
 } from "@countrytopics/jobs";
 import {
   checkUrl,
   createBibliography,
   createWebArchive,
+  createYouTube,
   SOURCE_TIMEOUT_MS,
   sourceUserAgent,
   WEB_ARCHIVE_TIMEOUT_MS,
@@ -60,6 +62,15 @@ const workers: Record<string, ReturnType<typeof createEmailWorker>> = {
       env.wayback,
     ),
   }),
+  videos: createVideoWorker({
+    ...queues,
+    store,
+    youtube: createYouTube(sourceClient, {
+      dataApiKey: env.youtubeApiKey,
+      onDataApiError: (message) =>
+        console.warn(`Video check without the Data API: ${message}`),
+    }),
+  }),
 };
 
 // Log the job id and error only: email jobs contain sign-in links.
@@ -76,7 +87,7 @@ for (const [name, worker] of Object.entries(workers)) {
 }
 
 console.log(
-  `Worker started: queues ${Object.keys(workers).join(", ")}, prefix "${env.queuePrefix}"; Wayback Machine ${env.wayback ? "saving enabled" : "search only (no keys)"}; Google Books backup ${env.googleBooksApiKey ? "on" : "off"}`,
+  `Worker started: queues ${Object.keys(workers).join(", ")}, prefix "${env.queuePrefix}"; Wayback Machine ${env.wayback ? "saving enabled" : "search only (no keys)"}; Google Books backup ${env.googleBooksApiKey ? "on" : "off"}; YouTube Data API ${env.youtubeApiKey ? "on" : "off"}`,
 );
 
 // Containers stop with SIGTERM; finish in-flight jobs, then release Redis and

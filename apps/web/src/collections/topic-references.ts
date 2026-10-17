@@ -8,15 +8,37 @@ type Usage =
         | "category"
         | "tags"
         | "references.reference"
-        | "evidence.file";
+        | "evidence.file"
+        | "evidence.snippet";
     }
+  | { collection: "snippets"; field: "video" | "speaker" }
   | { collection: "individuals"; field: "photo" };
 
+/** Collections whose every saved version is kept, and so also counts. */
+const VERSIONED: ReadonlySet<Usage["collection"]> = new Set([
+  "topics",
+  "snippets",
+]);
+
+/** "topics or their history", "topics, their history, or individuals". */
+function describeUsers(usages: Usage[]): string {
+  const collections = [...new Set(usages.map((usage) => usage.collection))];
+  const names = [
+    ...collections.filter((collection) => VERSIONED.has(collection)),
+    ...(collections.some((collection) => VERSIONED.has(collection))
+      ? ["their history"]
+      : []),
+    ...collections.filter((collection) => !VERSIONED.has(collection)),
+  ];
+  if (names.length <= 2) return names.join(" or ");
+  return `${names.slice(0, -1).join(", ")}, or ${names.at(-1)}`;
+}
+
 /**
- * Refuses to delete a document that topics use, in their live version or in
- * any saved version (or that individuals use). Deleting it would silently
- * change published topics and their history (the database would clear or
- * drop the links), so it is edited instead.
+ * Refuses to delete a document that topics or snippets use, in their live
+ * version or in any saved version (or that individuals use). Deleting it
+ * would silently change published topics and their history (the database
+ * would clear or drop the links), so it is edited instead.
  */
 export function keepWhileUsed(
   label: string,
@@ -31,7 +53,7 @@ export function keepWhileUsed(
           overrideAccess: true,
           req,
         });
-        if (collection !== "topics") return [live];
+        if (!VERSIONED.has(collection)) return [live];
         const versions = req.payload.countVersions({
           collection,
           where: { [`version.${field}`]: { equals: id } },
@@ -42,13 +64,8 @@ export function keepWhileUsed(
       }),
     );
     if (counts.some(({ totalDocs }) => totalDocs > 0)) {
-      const users = usages.some(
-        ({ collection }) => collection === "individuals",
-      )
-        ? "topics, their history, or individuals"
-        : "topics or their history";
       throw new APIError(
-        `This ${label} is used by ${users}, so it cannot be deleted. Edit it instead.`,
+        `This ${label} is used by ${describeUsers(usages)}, so it cannot be deleted. Edit it instead.`,
         409,
         undefined,
         true,

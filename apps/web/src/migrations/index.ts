@@ -8,6 +8,7 @@ import * as migration_20261014_223300_name_similarity_indexes from './20261014_2
 import * as migration_20261014_223400_seed_countries from './20261014_223400_seed_countries';
 import * as migration_20261014_234019_topics from './20261014_234019_topics';
 import * as migration_20261015_033825_evidence_and_references from './20261015_033825_evidence_and_references';
+import * as migration_20261017_025328_snippets_and_videos from './20261017_025328_snippets_and_videos';
 
 export const migrations = [
   {
@@ -58,6 +59,11 @@ export const migrations = [
   {
     up: migration_20261015_033825_evidence_and_references.up,
     down: migration_20261015_033825_evidence_and_references.down,
-    name: '20261015_033825_evidence_and_references'
+    name: '20261015_033825_evidence_and_references',
+  },
+  {
+    up: migration_20261017_025328_snippets_and_videos.up,
+    down: migration_20261017_025328_snippets_and_videos.down,
+    name: '20261017_025328_snippets_and_videos'
   },
 ];

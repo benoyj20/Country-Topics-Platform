@@ -1,0 +1,158 @@
+/* The clip editor in the admin panel; colours come from Payload's theme. */
+
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--base) / 2);
+  margin-bottom: var(--base);
+}
+
+.editor input:not([type="range"]) {
+  padding: 8px 10px;
+  border: 1px solid var(--theme-elevation-150);
+  border-radius: var(--style-radius-s);
+  background: var(--theme-input-bg);
+  color: var(--theme-elevation-800);
+  font: inherit;
+}
+
+.label {
+  color: var(--theme-elevation-800);
+}
+
+.required {
+  color: var(--theme-error-500);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: calc(var(--base) / 2);
+}
+
+.grow {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.frame {
+  position: relative;
+  max-width: 720px;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--style-radius-s);
+  overflow: hidden;
+  background: #000;
+}
+
+.player,
+.player iframe,
+.facade,
+.empty {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.player iframe {
+  border: 0;
+}
+
+.facade {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: #000;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.facade img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.6;
+}
+
+.facade span {
+  position: relative;
+  padding: 8px 14px;
+  border-radius: var(--style-radius-s);
+  background: rgb(0 0 0 / 75%);
+}
+
+.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  color: rgb(255 255 255 / 70%);
+}
+
+.scrubRow {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--base) / 2);
+  max-width: 720px;
+}
+
+/* The clip's range is shaded between --clip-from and --clip-to. */
+.scrub {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  appearance: none;
+  background: linear-gradient(
+    to right,
+    var(--theme-elevation-150) var(--clip-from, 0%),
+    var(--theme-success-500) var(--clip-from, 0%),
+    var(--theme-success-500) var(--clip-to, 0%),
+    var(--theme-elevation-150) var(--clip-to, 0%)
+  );
+}
+
+.scrub::-webkit-slider-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  appearance: none;
+  background: var(--theme-elevation-800);
+}
+
+.scrub::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--theme-elevation-800);
+}
+
+.mono {
+  font-family: ui-monospace, monospace;
+}
+
+.time {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.problems {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.error {
+  margin: 0;
+  color: var(--theme-error-500);
+}
+
+.warning {
+  color: var(--theme-warning-500);
+}

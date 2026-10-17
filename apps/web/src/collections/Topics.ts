@@ -5,6 +5,7 @@ import {
   EVIDENCE_KINDS,
   type EvidenceKind,
   evidenceProblems,
+  type SnippetEvidence,
   TOPIC_PERSON_ROLES,
   TOPIC_STATES,
   type TopicChangeKind,
@@ -42,6 +43,7 @@ const EVIDENCE_KIND_LABELS: Record<EvidenceKind, string> = {
   document: "Document (PDF)",
   image: "Image",
   link: "Web page",
+  snippet: "Video snippet",
 };
 
 const STANCE_LABELS: Record<ClaimStance, string> = {
@@ -305,6 +307,66 @@ function rows(value: unknown): Record<string, unknown>[] {
     : [];
 }
 
+/** The snippets a topic's evidence uses, with their videos' checks. */
+async function snippetEvidence(
+  req: PayloadRequest,
+  evidence: unknown,
+): Promise<SnippetEvidence[]> {
+  const snippetIds = [
+    ...new Set(
+      rows(evidence).flatMap((row) => {
+        const id = row.kind === "snippet" ? relationId(row.snippet) : null;
+        return id ? [id] : [];
+      }),
+    ),
+  ];
+  if (snippetIds.length === 0) return [];
+  const { docs: snippets } = await req.payload.find({
+    collection: "snippets",
+    where: { id: { in: snippetIds } },
+    select: { caption: true, endS: true, video: true },
+    pagination: false,
+    depth: 0,
+    overrideAccess: true,
+    req,
+  });
+  const videoIds = snippets.flatMap((snippet) => {
+    const id = relationId(snippet.video);
+    return id ? [id] : [];
+  });
+  const { docs: videos } =
+    videoIds.length > 0
+      ? await req.payload.find({
+          collection: "videos",
+          where: { id: { in: videoIds } },
+          select: { checkStatus: true, confirmedAt: true, durationS: true },
+          pagination: false,
+          depth: 0,
+          overrideAccess: true,
+          req,
+        })
+      : { docs: [] };
+  const videosById = new Map(videos.map((video) => [String(video.id), video]));
+  const snippetsById = new Map(
+    snippets.map((snippet) => [String(snippet.id), snippet]),
+  );
+  return snippetIds.map((id) => {
+    const snippet = snippetsById.get(id);
+    const video = videosById.get(relationId(snippet?.video) ?? "");
+    return {
+      caption: snippet?.caption ?? "Unknown snippet",
+      end_s: snippet?.endS ?? 0,
+      video: video
+        ? {
+            checkStatus: video.checkStatus,
+            confirmed: Boolean(video.confirmedAt),
+            duration_s: video.durationS ?? null,
+          }
+        : null,
+    };
+  });
+}
+
 /**
  * Why the topic's evidence does not allow publishing: it names individuals
  * without evidence or a reference, or cites references that are not confirmed.
@@ -343,6 +405,7 @@ async function evidenceErrors(
       title: cited.get(id)?.title ?? "Unknown reference",
       checkStatus: cited.get(id)?.checkStatus ?? null,
     })),
+    snippets: await snippetEvidence(req, topic.evidence),
   }).map(({ field, message }) => ({
     path: field,
     label: field === "evidence" ? "Evidence" : "References",
@@ -367,6 +430,7 @@ function comparable(field: (typeof AUDITED_FIELDS)[number], value: unknown) {
       kind: row.kind ?? null,
       title: row.title ?? null,
       file: relationId(row.file),
+      snippet: relationId(row.snippet),
       url: row.url ?? null,
       archiveUrl: row.archiveUrl ?? null,
       note: row.note ?? null,
@@ -451,11 +515,13 @@ const recordChange: CollectionAfterChangeHook = async ({
 /** Clears the fields that do not apply to each evidence row's kind. */
 const tidyEvidence: CollectionBeforeChangeHook = ({ data }) => {
   if (Array.isArray(data.evidence)) {
-    data.evidence = rows(data.evidence).map((row) =>
-      row.kind === "link"
-        ? { ...row, file: null }
-        : { ...row, url: null, archiveUrl: null },
-    );
+    data.evidence = rows(data.evidence).map((row) => {
+      if (row.kind === "link") return { ...row, file: null, snippet: null };
+      const notLink = { ...row, url: null, archiveUrl: null };
+      return row.kind === "snippet"
+        ? { ...notLink, file: null }
+        : { ...notLink, snippet: null };
+    });
   }
   return data;
 };
@@ -592,7 +658,7 @@ export const Topics: CollectionConfig = {
       labels: { singular: "Evidence", plural: "Evidence" },
       admin: {
         description:
-          "What shows it happened: documents, images, and web pages (copied to the Wayback Machine). A topic that names individuals needs at least one.",
+          "What shows it happened: documents, images, web pages (copied to the Wayback Machine), and video snippets. A topic that names individuals needs at least one.",
       },
       fields: [
         {
@@ -611,10 +677,18 @@ export const Topics: CollectionConfig = {
             {
               name: "title",
               type: "text",
-              required: true,
               maxLength: 200,
+              // A snippet already has a caption, shown when this is empty.
+              validate: (
+                value: unknown,
+                { siblingData }: { siblingData: unknown },
+              ) =>
+                value || evidenceKind(siblingData) === "snippet"
+                  ? true
+                  : "Give the evidence a title.",
               admin: {
-                description: "Such as 'Ministry press release, 3 May 2024'.",
+                description:
+                  "Such as 'Ministry press release, 3 May 2024'. Optional for snippets, which show their caption.",
               },
             },
           ],
@@ -634,7 +708,23 @@ export const Topics: CollectionConfig = {
             },
           }),
           admin: {
-            condition: (_, siblingData) => evidenceKind(siblingData) !== "link",
+            condition: (_, siblingData) => {
+              const kind = evidenceKind(siblingData);
+              return kind !== "link" && kind !== "snippet";
+            },
+          },
+        },
+        {
+          name: "snippet",
+          type: "relationship",
+          relationTo: "snippets",
+          required: true,
+          index: true,
+          admin: {
+            condition: (_, siblingData) =>
+              evidenceKind(siblingData) === "snippet",
+            description:
+              "A clip of a YouTube video with its transcript, made under Snippets.",
           },
         },
         {

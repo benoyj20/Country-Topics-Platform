@@ -2,7 +2,13 @@
 
 import type { TopicSort } from "@countrytopics/search/topic-search";
 import { useSearchParams } from "next/navigation";
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import {
+  type FormEvent,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
 import {
   type BrowseQuery,
@@ -51,6 +57,26 @@ const FACETS: { key: ListKey; title: string; grouped?: boolean }[] = [
 /** Wide enough to show the filters open beside nothing else on the line. */
 const WIDE_SCREEN = "(min-width: 48rem)";
 
+function onScreenChange(notify: () => void): () => void {
+  const query = window.matchMedia(WIDE_SCREEN);
+  query.addEventListener("change", notify);
+  return () => query.removeEventListener("change", notify);
+}
+
+/**
+ * Whether the screen is wide. The server cannot know, so it renders the
+ * filters folded; React hydrates with that and then uses the real width,
+ * where reading it during the first render would make the server's HTML
+ * and the browser's disagree.
+ */
+function useWideScreen(): boolean {
+  return useSyncExternalStore(
+    onScreenChange,
+    () => window.matchMedia(WIDE_SCREEN).matches,
+    () => false,
+  );
+}
+
 async function fetchPage(
   search: string,
   cursor: string | null,
@@ -92,10 +118,11 @@ export function TopicBrowser() {
   // What was wrong with the link as opened, until the visitor changes
   // something; the address itself is corrected to what is shown.
   const [linkProblems, setLinkProblems] = useState(problems);
-  const [filtersOpen, setFiltersOpen] = useState(
-    () =>
-      typeof window !== "undefined" && window.matchMedia(WIDE_SCREEN).matches,
-  );
+  // Open on wide screens and folded on narrow ones, until the visitor
+  // opens or folds them.
+  const wide = useWideScreen();
+  const [filtersToggled, setFiltersOpen] = useState<boolean>();
+  const filtersOpen = filtersToggled ?? wide;
   const [results, setResults] = useState<{ search: string } & BrowseResult>();
   const [failure, setFailure] = useState<{ search: string; message: string }>();
   const [attempt, setAttempt] = useState(0);

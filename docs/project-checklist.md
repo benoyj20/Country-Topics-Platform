@@ -593,6 +593,12 @@ See [ADR 0008](adr/0008-browsing-and-search.md) for the design.
   new index stayed empty; the worker now also rebuilds when it starts
   (integration test, which failed without it; the development index then
   held its one listed topic, 2026-10-17).
+- [x] Found in the developer's manual test: in development, where the
+  browser component is also rendered on the server, `/topics` logged a
+  hydration error. The filters' open state was read from the screen width
+  during the first render, which the server cannot know. It now hydrates
+  folded and opens once the width is known; no errors at 1280 and 390 px on
+  three addresses in the development server (2026-10-17).
 - [x] Noted, not a defect: a form submitted in the first few milliseconds
   of a page load, before its script runs, is a plain page load, which ends
   that page's link prefetches; React logs "Connection closed" on the page

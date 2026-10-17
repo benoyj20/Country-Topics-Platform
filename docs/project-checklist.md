@@ -292,7 +292,8 @@ See [ADR 0005](adr/0005-evidence-and-references.md) for the design.
   when the worker ran before the save committed, leaving the reference "being
   checked". The save now stores the request's time and the job carries the
   same value, so the worker waits until the save is visible without comparing
-  clocks (integration test that fails without the fix, 2026-10-16).
+  clocks; the worker also queues every waiting check again when it starts
+  (integration test that fails without the fix, 2026-10-16).
 - [x] "Look up" fills a reference from its DOI or ISBN; only verified admins can
   call it, responses are not cached, and a service that does not answer gives a
   clear 503 (integration tests with a fake service, 2026-10-14).
@@ -366,9 +367,11 @@ See [ADR 0006](adr/0006-snippets-and-transcripts.md) for the design.
   its video cannot change. Edits are versioned and audited (integration tests,
   2026-10-16).
 - [x] Videos: one record per YouTube id, added by the first snippet's save, with
-  one queued check however many snippets save it; the worker's result is stored
-  only while a check is awaited, and a job that arrives before its save commits
-  waits instead of being dropped; the first time a video was found playable is
+  one queued check per request however many snippets save it; the worker's
+  result is stored only while a check is awaited, and a job that arrives before
+  its save commits waits instead of being dropped; a video waiting without a
+  request time gets one when a snippet of it is saved; the worker's start-up
+  pass finds every waiting reference and video as the job it needs; the first time a video was found playable is
   kept; a later "removed" keeps the title and length found before; saving a
   snippet of a video that does not play asks again. Videos, their checks, and a
   snippet's video and segments cannot be set through requests (integration and

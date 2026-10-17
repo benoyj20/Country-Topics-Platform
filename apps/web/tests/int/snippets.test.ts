@@ -173,9 +173,17 @@ describe("snippets", () => {
       youtubeId: "https://www.youtube.com/watch?v=TESTsnip001",
     });
     expect((await videoOf(second)).id).toBe(video.id);
+    // Both saves found the video waiting with one request: one job.
     const jobs = (await waitingVideoJobs()).filter(
-      (job) => job.id === videoJobId(video.id),
+      (job) => job.data.videoId === video.id,
     );
+    expect(jobs.map((job) => job.id)).toEqual([
+      videoJobId({
+        videoId: video.id,
+        youtubeId: "TESTsnip001",
+        requestedAt: video.checkRequestedAt ?? "",
+      }),
+    ]);
     expect(jobs.map((job) => job.data)).toEqual([
       {
         videoId: video.id,
@@ -396,19 +404,49 @@ describe("videos", () => {
       confirmedAt: checked.confirmedAt,
     });
 
-    // Saving a snippet of a video that does not play asks again.
+    // Saving a snippet of a video that does not play asks again, with a
+    // new request and its own job.
     await updateSnippet(snippet.id, { caption: "TEST snippet, saved again" });
-    expect(
-      (
-        await payload.findByID({
-          collection: "videos",
-          id,
-          overrideAccess: true,
-        })
-      ).checkStatus,
-    ).toBe("pending");
+    const asked = await payload.findByID({
+      collection: "videos",
+      id,
+      overrideAccess: true,
+    });
+    expect(asked.checkStatus).toBe("pending");
+    expect(asked.checkRequestedAt).not.toBe(checked.checkRequestedAt);
+    const askedJob = {
+      videoId: id,
+      youtubeId: "TESTsnip006",
+      requestedAt: asked.checkRequestedAt ?? "",
+    };
     expect((await waitingVideoJobs()).map((job) => job.id)).toEqual([
-      videoJobId(id),
+      videoJobId(askedJob),
+    ]);
+    // The worker's start-up pass finds it waiting, as the job it needs.
+    expect((await worker.store.pendingChecks(1_000)).videos).toContainEqual(
+      askedJob,
+    );
+
+    // A video waiting without a request time (from before it was recorded)
+    // gets one, and a job, when a snippet of it is saved.
+    await worker.queues.videos.obliterate({ force: true });
+    await payload.update({
+      collection: "videos",
+      id,
+      data: { checkRequestedAt: null },
+      overrideAccess: true,
+    });
+    await updateSnippet(snippet.id, {
+      caption: "TEST snippet, saved once more",
+    });
+    const stamped = await payload.findByID({
+      collection: "videos",
+      id,
+      overrideAccess: true,
+    });
+    expect(stamped.checkRequestedAt).toBeTruthy();
+    expect((await waitingVideoJobs()).map((job) => job.data)).toEqual([
+      { ...askedJob, requestedAt: stamped.checkRequestedAt },
     ]);
   });
 

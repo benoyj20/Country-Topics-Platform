@@ -29,8 +29,7 @@ export const VIDEO_JOB_OPTIONS: JobsOptions = {
   // in total before the video is marked "could not finish".
   attempts: 6,
   backoff: { type: "exponential", delay: 10_000 },
-  // A kept job would block its fixed id, so saving a snippet again could not
-  // queue the video again; the failure is stored with the video instead.
+  // The failure is stored with the video; a kept job would only take space.
   removeOnComplete: true,
   removeOnFail: true,
 };
@@ -64,13 +63,19 @@ export type VideoStore = {
 };
 
 export type VideoQueue = {
-  /** A video already waiting for a check is not queued twice. */
+  /** The same request is not queued twice; a newer request gets its own job. */
   enqueue(job: VideoCheckJob): Promise<void>;
   close(): Promise<void>;
 };
 
-export function videoJobId(videoId: string): string {
-  return `video-${videoId}`;
+/**
+ * One job per check request. An id per video would drop a newer request
+ * while an older job waited to retry, and that older job then gives way to
+ * the newer request, leaving the video with no job. (BullMQ ids cannot
+ * contain ":", so the time is in milliseconds.)
+ */
+export function videoJobId({ videoId, requestedAt }: VideoCheckJob): string {
+  return `video-${videoId}-${Date.parse(requestedAt)}`;
 }
 
 export function createVideoQueue({
@@ -83,7 +88,7 @@ export function createVideoQueue({
       const data = videoCheckJobSchema.parse(job);
       await queue.add("check-video", data, {
         ...VIDEO_JOB_OPTIONS,
-        jobId: videoJobId(data.videoId),
+        jobId: videoJobId(data),
       });
     },
     close: () => queue.close(),

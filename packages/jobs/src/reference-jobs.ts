@@ -44,7 +44,10 @@ export const REFERENCE_JOB_OPTIONS: JobsOptions = {
   attempts: 6,
   backoff: { type: "exponential", delay: 10_000 },
   removeOnComplete: true,
-  removeOnFail: { age: 7 * 24 * 60 * 60 },
+  // A kept job would block its id, so the same request could not be queued
+  // again (see requeuePendingChecks); failures are logged by the worker and
+  // stored with the reference.
+  removeOnFail: true,
 };
 
 export type ReferenceCheckers = {
@@ -82,6 +85,14 @@ export type ReferenceQueue = {
   close(): Promise<void>;
 };
 
+/** One job per check request, so queueing the same request twice adds one. */
+export function referenceJobId({
+  referenceId,
+  requestedAt,
+}: ReferenceCheckJob): string {
+  return `reference-${referenceId}-${Date.parse(requestedAt)}`;
+}
+
 export function createReferenceQueue({
   connection,
   prefix,
@@ -90,7 +101,10 @@ export function createReferenceQueue({
   return {
     async enqueue(job) {
       const data = referenceCheckJobSchema.parse(job);
-      await queue.add("check-reference", data, REFERENCE_JOB_OPTIONS);
+      await queue.add("check-reference", data, {
+        ...REFERENCE_JOB_OPTIONS,
+        jobId: referenceJobId(data),
+      });
     },
     close: () => queue.close(),
   };

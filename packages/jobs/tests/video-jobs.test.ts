@@ -60,7 +60,7 @@ const unavailable = async (): Promise<never> => {
 };
 
 describe("videoCheckJobSchema and videoJobId", () => {
-  it("accepts a record id and a YouTube id only, one job per video", () => {
+  it("accepts a record id and a YouTube id only, one job per request", () => {
     assert.equal(videoCheckJobSchema.safeParse(job).success, true);
     for (const bad of [
       { ...job, videoId: "not-a-uuid" },
@@ -70,7 +70,13 @@ describe("videoCheckJobSchema and videoJobId", () => {
     ]) {
       assert.equal(videoCheckJobSchema.safeParse(bad).success, false);
     }
-    assert.equal(videoJobId(job.videoId), `video-${job.videoId}`);
+    const id = videoJobId(job);
+    assert.equal(id, `video-${job.videoId}-${Date.parse(job.requestedAt)}`);
+    assert.ok(!id.includes(":"), "BullMQ refuses ids with colons");
+    assert.notEqual(
+      videoJobId({ ...job, requestedAt: "2026-10-16T12:00:00.001Z" }),
+      id,
+    );
   });
 });
 

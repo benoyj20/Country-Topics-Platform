@@ -35,8 +35,10 @@ check results are never accepted from a request (as for references in
   when the video was first found playable (`confirmed_at`), which is never
   cleared.
 - **When a video is checked again**: saving a snippet queues a check when the
-  video is new, not playable, or last checked over a day ago. One job id per
-  video keeps repeated saves from queueing duplicates. There are no periodic
+  video is new, not playable, or last checked over a day ago; a video already
+  waiting keeps its request. Job ids name the record and the request, so
+  repeated saves add one job per request and a newer request is never
+  swallowed by an older job that is still retrying. There are no periodic
   checks yet.
 - **Telling an uncommitted save from an earlier check.** Jobs are queued inside
   the save's transaction, so a fast worker can still see the record as it was
@@ -48,6 +50,11 @@ check results are never accepted from a request (as for references in
   ([ADR 0005](0005-evidence-and-references.md)) had the same gap when a
   reference was saved again (unchanged after "not found" or "could not
   finish", or with new identifiers), and now use the same rule.
+- **Lost checks are queued again.** When the worker starts, it queues a job
+  for every reference and video still waiting for a check (up to 1,000 per
+  start), so a check lost to an emptied Redis, a bug, or a job from before a
+  deploy does not stay "being checked". The migration that added the request
+  time stamped the records already waiting.
 - **Snippets are their own collection**, versioned and audited like
   references, so one snippet can back several topics: a caption, the YouTube
   id (a pasted link is stored as its id), start and end in seconds (stored in

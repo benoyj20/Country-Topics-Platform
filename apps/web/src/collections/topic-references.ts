@@ -47,25 +47,26 @@ export async function isUsed(
   id: string | number,
   usages: Usage[],
 ): Promise<boolean> {
-  const counts = await Promise.all(
-    usages.flatMap(({ collection, field }) => {
-      const live = req.payload.count({
-        collection,
-        where: { [field]: { equals: id } },
-        overrideAccess: true,
-        req,
-      });
-      if (!VERSIONED.has(collection)) return [live];
-      const versions = req.payload.countVersions({
-        collection,
-        where: { [`version.${field}`]: { equals: id } },
-        overrideAccess: true,
-        req,
-      });
-      return [live, versions];
-    }),
-  );
-  return counts.some(({ totalDocs }) => totalDocs > 0);
+  // One after another: inside the request's transaction they share one
+  // connection, where parallel queries gain nothing and are deprecated by pg.
+  for (const { collection, field } of usages) {
+    const live = await req.payload.count({
+      collection,
+      where: { [field]: { equals: id } },
+      overrideAccess: true,
+      req,
+    });
+    if (live.totalDocs > 0) return true;
+    if (!VERSIONED.has(collection)) continue;
+    const versions = await req.payload.countVersions({
+      collection,
+      where: { [`version.${field}`]: { equals: id } },
+      overrideAccess: true,
+      req,
+    });
+    if (versions.totalDocs > 0) return true;
+  }
+  return false;
 }
 
 /**

@@ -265,6 +265,10 @@ describe("references", () => {
         jobs.find((job) => job.data.referenceId === reference.id)?.data,
       ),
     ).toBe("pending");
+    // The worker's start-up pass would queue exactly that job again.
+    expect((await worker.store.pendingChecks(1_000)).references).toContainEqual(
+      queued,
+    );
 
     await expect(createReference({})).rejects.toMatchObject({ status: 400 });
     await expect(

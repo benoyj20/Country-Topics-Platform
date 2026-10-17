@@ -1,5 +1,6 @@
 "use client";
 
+import type { TranscriptSegment } from "@countrytopics/domain";
 import { useConfig } from "@payloadcms/ui";
 import type { UIFieldClientComponent } from "payload";
 import { useEffect, useState } from "react";
@@ -11,6 +12,8 @@ import { useSnippetForm } from "./use-snippet-form";
 import { useVideoRecord } from "./use-video-record";
 
 const individual = z.object({ name: z.string() });
+// One array for "no lines", so the player's timer is not reset on every render.
+const NO_SEGMENTS: TranscriptSegment[] = [];
 
 /** The speaker's name, for the preview's byline. */
 function useSpeakerName(id: string | null): string | null {
@@ -77,7 +80,11 @@ export const SnippetPreview: UIFieldClientComponent = () => {
           speaker={speaker}
           videoTitle={video?.title}
           channel={video?.channel}
-          segments={transcript?.problem ? [] : (transcript?.segments ?? [])}
+          segments={
+            transcript && !transcript.problem
+              ? transcript.segments
+              : NO_SEGMENTS
+          }
           videoUnavailable={unavailable}
         />
       ) : (

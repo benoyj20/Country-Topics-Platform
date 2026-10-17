@@ -6,6 +6,11 @@
 
 const PRIVACY_ENHANCED_HOST = "https://www.youtube-nocookie.com";
 const IFRAME_API_URL = "https://www.youtube.com/iframe_api";
+/**
+ * The API loads a second script and then calls back; if something blocks
+ * that script, the callback never comes. Headless browsers took about 10 s.
+ */
+const IFRAME_API_TIMEOUT_MS = 20_000;
 
 export const PlayerState = {
   UNSTARTED: -1,
@@ -71,16 +76,22 @@ export function loadYouTubeIframeApi(): Promise<YouTubeIframeApi> {
     const script = document.createElement("script");
     // A failed load is forgotten, so the next click tries again.
     const fail = (message: string) => {
+      clearTimeout(timer);
       loading = null;
       script.remove();
       reject(new Error(message));
     };
+    const timer = setTimeout(
+      () => fail("The YouTube player did not start in time."),
+      IFRAME_API_TIMEOUT_MS,
+    );
     const previous = window.onYouTubeIframeAPIReady;
     window.onYouTubeIframeAPIReady = () => {
       previous?.();
       const api = readyApi();
-      if (api) resolve(api);
-      else fail("The YouTube player API did not start.");
+      if (!api) return fail("The YouTube player API did not start.");
+      clearTimeout(timer);
+      resolve(api);
     };
     script.src = IFRAME_API_URL;
     script.async = true;

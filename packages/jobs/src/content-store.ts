@@ -3,6 +3,7 @@ import type { Pool } from "pg";
 import { v7 as uuidv7 } from "uuid";
 
 import type { LinkArchiveRecord, LinkArchiveStore } from "./link-jobs.ts";
+import type { PendingCheckStore } from "./pending-checks.ts";
 import type {
   ReferenceCheckJob,
   ReferenceState,
@@ -52,7 +53,7 @@ function stateFor(
 
 export function createContentStore(
   pool: Pool,
-): ReferenceStore & LinkArchiveStore & VideoStore {
+): ReferenceStore & LinkArchiveStore & VideoStore & PendingCheckStore {
   const identifiers = (job: ReferenceCheckJob) => [
     job.referenceId,
     job.doi,
@@ -118,6 +119,49 @@ export function createContentStore(
           record.message,
         ],
       );
+    },
+
+    async pendingChecks(limit) {
+      // Rows without a request time predate it and cannot be matched to a
+      // job; the migration that added it stamped the pending ones.
+      const [references, videos] = await Promise.all([
+        pool.query<{
+          id: string;
+          doi: string | null;
+          isbn: string | null;
+          url: string | null;
+          requested_at: Date;
+        }>(
+          `SELECT id, doi, isbn, url, check_requested_at AS requested_at
+             FROM "references"
+            WHERE check_status = 'pending' AND check_requested_at IS NOT NULL
+            ORDER BY check_requested_at
+            LIMIT $1`,
+          [limit],
+        ),
+        pool.query<{ id: string; youtube_id: string; requested_at: Date }>(
+          `SELECT id, youtube_id, check_requested_at AS requested_at
+             FROM videos
+            WHERE check_status = 'pending' AND check_requested_at IS NOT NULL
+            ORDER BY check_requested_at
+            LIMIT $1`,
+          [limit],
+        ),
+      ]);
+      return {
+        references: references.rows.map((row) => ({
+          referenceId: row.id,
+          doi: row.doi,
+          isbn: row.isbn,
+          url: row.url,
+          requestedAt: row.requested_at.toISOString(),
+        })),
+        videos: videos.rows.map((row) => ({
+          videoId: row.id,
+          youtubeId: row.youtube_id,
+          requestedAt: row.requested_at.toISOString(),
+        })),
+      };
     },
 
     async videoState(job): Promise<VideoState> {

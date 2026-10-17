@@ -31,6 +31,30 @@ export type VideoRecordState =
   | { kind: "error" };
 
 /**
+ * The editor, the preview, and the sidebar all need the record; they share
+ * one request per video and save instead of sending one each.
+ */
+let shared: { key: string; request: Promise<VideoRecordState> } | null = null;
+
+function lookUp(url: string, key: string): Promise<VideoRecordState> {
+  if (shared?.key === key) return shared.request;
+  const request = fetch(url, { credentials: "same-origin" })
+    .then(async (response): Promise<VideoRecordState> => {
+      if (!response.ok) throw new Error(`Lookup failed: ${response.status}`);
+      const [video] = videoList.parse(await response.json()).docs;
+      return video ? { kind: "found", video } : { kind: "new" };
+    })
+    .catch((error: unknown): VideoRecordState => {
+      console.error(error);
+      // Not kept, so the next render tries again.
+      if (shared?.key === key) shared = null;
+      return { kind: "error" };
+    });
+  shared = { key, request };
+  return request;
+}
+
+/**
  * The video record for a YouTube id, read again after each save of the
  * document (the worker fills it in after the save).
  */
@@ -46,30 +70,19 @@ export function useVideoRecord(youtubeId: string | null): VideoRecordState {
 
   useEffect(() => {
     if (!valid) return;
-    const controller = new AbortController();
+    let current = true;
     const params = new URLSearchParams({
       "where[youtubeId][equals]": valid,
       limit: "1",
       depth: "0",
     });
-    fetch(`${config.serverURL}${config.routes.api}/videos?${params}`, {
-      credentials: "same-origin",
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        if (!response.ok) throw new Error(`Lookup failed: ${response.status}`);
-        const [video] = videoList.parse(await response.json()).docs;
-        setResult({
-          youtubeId: valid,
-          state: video ? { kind: "found", video } : { kind: "new" },
-        });
-      })
-      .catch((error: unknown) => {
-        if (controller.signal.aborted) return;
-        console.error(error);
-        setResult({ youtubeId: valid, state: { kind: "error" } });
-      });
-    return () => controller.abort();
+    const url = `${config.serverURL}${config.routes.api}/videos?${params}`;
+    void lookUp(url, `${url}#${lastUpdateTime}`).then((state) => {
+      if (current) setResult({ youtubeId: valid, state });
+    });
+    return () => {
+      current = false;
+    };
   }, [valid, lastUpdateTime, config.serverURL, config.routes.api]);
 
   if (!valid || result?.youtubeId !== valid) return { kind: "none" };

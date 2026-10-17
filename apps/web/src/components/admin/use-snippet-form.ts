@@ -5,12 +5,45 @@ import {
   secondsOrNull,
   type SnippetTranscript,
   snippetTranscript,
+  type TranscriptTimebase,
   YOUTUBE_ID_PATTERN,
 } from "@countrytopics/domain";
 import { useFormFields } from "@payloadcms/ui";
-import { useMemo } from "react";
 
 const asText = (value: unknown) => (typeof value === "string" ? value : "");
+
+type TranscriptInput = {
+  text: string;
+  timebase: TranscriptTimebase;
+  start_s: number;
+  end_s: number;
+};
+
+/**
+ * The transcript summary and the preview both need the parsed transcript
+ * (the text can be 200,000 characters); the last result is kept, so they
+ * parse it once per change between them.
+ */
+let lastTranscript: {
+  input: TranscriptInput;
+  result: SnippetTranscript;
+} | null = null;
+
+function parsedTranscript(input: TranscriptInput): SnippetTranscript {
+  const last = lastTranscript?.input;
+  if (
+    lastTranscript &&
+    last?.text === input.text &&
+    last.timebase === input.timebase &&
+    last.start_s === input.start_s &&
+    last.end_s === input.end_s
+  ) {
+    return lastTranscript.result;
+  }
+  const result = snippetTranscript(input);
+  lastTranscript = { input, result };
+  return result;
+}
 
 /**
  * The snippet form's values and what follows from them, computed with the
@@ -42,13 +75,10 @@ export function useSnippetForm() {
     end_s !== null &&
     clipProblems({ start_s, end_s }).errors.length === 0;
 
-  const transcript: SnippetTranscript | null = useMemo(
-    () =>
-      clipValid && start_s !== null && end_s !== null
-        ? snippetTranscript({ text: transcriptText, timebase, start_s, end_s })
-        : null,
-    [clipValid, transcriptText, timebase, start_s, end_s],
-  );
+  const transcript: SnippetTranscript | null =
+    clipValid && start_s !== null && end_s !== null
+      ? parsedTranscript({ text: transcriptText, timebase, start_s, end_s })
+      : null;
 
   return {
     youtubeId: YOUTUBE_ID_PATTERN.test(youtubeId) ? youtubeId : null,

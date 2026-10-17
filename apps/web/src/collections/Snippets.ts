@@ -12,12 +12,12 @@ import {
   VIDEO_LENGTH_TOLERANCE_S,
   YOUTUBE_ID_PATTERN,
 } from "@countrytopics/domain";
+import type { VideoCheckJob } from "@countrytopics/jobs";
 import {
   type CollectionAfterChangeHook,
   type CollectionBeforeChangeHook,
   type CollectionConfig,
   type PayloadRequest,
-  ValidationError,
 } from "payload";
 
 import { verifiedAdminsOnly, verifiedStaffOnly } from "@/access";
@@ -25,12 +25,14 @@ import { auditHooks, relationId } from "@/audit";
 import { queueVideoCheck } from "@/content-jobs";
 import { lockForTransaction } from "@/transaction-lock";
 
+import { refuse } from "./refuse";
 import { isUsed, keepWhileUsedByTopics } from "./topic-references";
 
 /** A video is asked about again when a snippet of it is saved this long after. */
 const VIDEO_RECHECK_AFTER_MS = 24 * 60 * 60 * 1000;
 const LANGUAGE_TAG = /^[a-z]{2,3}(-[a-z0-9]{1,8})*$/i;
 const LANGUAGE_MAX_LENGTH = 35;
+const VIDEO_CHECKS = "videoChecks";
 
 const TIMEBASE_LABELS: Record<TranscriptTimebase, string> = {
   video: "The start of the video",
@@ -85,7 +87,11 @@ async function videoFor(req: PayloadRequest, youtubeId: string) {
   }
   const checkedAt = existing.checkedAt ? Date.parse(existing.checkedAt) : 0;
   const stale = Date.now() - checkedAt > VIDEO_RECHECK_AFTER_MS;
-  if (existing.checkStatus === "pending") return existing;
+  // A pending video without a request time (from before it was recorded)
+  // could never be matched to a job, so it gets a new request below.
+  if (existing.checkStatus === "pending" && existing.checkRequestedAt) {
+    return existing;
+  }
   if (existing.checkStatus !== "playable" || stale) {
     return req.payload.update({
       collection: "videos",
@@ -101,17 +107,17 @@ async function videoFor(req: PayloadRequest, youtubeId: string) {
   return existing;
 }
 
-function refuse(
-  req: PayloadRequest,
-  path: string,
-  label: string,
-  message: string,
-): never {
-  throw new ValidationError({
-    collection: "snippets",
-    errors: [{ path, label, message }],
-    req,
-  });
+/**
+ * The video checks this request's snippet saves need, by video id: found in
+ * beforeChange and queued in afterChange. Always reached through
+ * req.context, because nested local API calls copy the context object.
+ */
+function videoChecks(req: PayloadRequest): Map<string, VideoCheckJob> {
+  const existing: unknown = req.context[VIDEO_CHECKS];
+  if (existing instanceof Map) return existing;
+  const created = new Map<string, VideoCheckJob>();
+  req.context[VIDEO_CHECKS] = created;
+  return created;
 }
 
 /**
@@ -144,6 +150,7 @@ const prepareSnippet: CollectionBeforeChangeHook = async ({
       ]))
     ) {
       refuse(
+        "snippets",
         req,
         "youtubeId",
         "YouTube video",
@@ -152,6 +159,13 @@ const prepareSnippet: CollectionBeforeChangeHook = async ({
     }
     const video = await videoFor(req, youtubeId);
     data.video = video.id;
+    if (video.checkStatus === "pending" && video.checkRequestedAt) {
+      videoChecks(req).set(String(video.id), {
+        videoId: String(video.id),
+        youtubeId: video.youtubeId,
+        requestedAt: video.checkRequestedAt,
+      });
+    }
     // The length is known once the worker has checked the video with the
     // Data API; the editor's player checks it before that.
     const duration_s = video.durationS ?? null;
@@ -161,6 +175,7 @@ const prepareSnippet: CollectionBeforeChangeHook = async ({
       roundToTenths(end_s) > duration_s + VIDEO_LENGTH_TOLERANCE_S
     ) {
       refuse(
+        "snippets",
         req,
         "endS",
         "End",
@@ -190,27 +205,17 @@ const prepareSnippet: CollectionBeforeChangeHook = async ({
   return data;
 };
 
-/** Asks the worker about the snippet's video when it waits for a check. */
+/**
+ * Asks the worker about the snippet's video when it waits for a check. A
+ * video already waiting keeps its request time, and job ids are per request,
+ * so saving again re-queues a lost job without adding a duplicate.
+ */
 const checkVideo: CollectionAfterChangeHook = async ({ doc, req }) => {
   const videoId = relationId(doc.video);
-  if (!videoId) return;
-  const video = await req.payload.findByID({
-    collection: "videos",
-    id: videoId,
-    depth: 0,
-    select: { youtubeId: true, checkStatus: true, checkRequestedAt: true },
-    overrideAccess: true,
-    req,
-  });
-  // Queueing again for a video already waiting reuses its request time; one
-  // job id per video keeps it to one job.
-  if (video.checkStatus === "pending" && video.checkRequestedAt) {
-    await queueVideoCheck(req, {
-      videoId,
-      youtubeId: video.youtubeId,
-      requestedAt: video.checkRequestedAt,
-    });
-  }
+  const job = videoId ? videoChecks(req).get(videoId) : undefined;
+  if (!videoId || !job) return;
+  videoChecks(req).delete(videoId);
+  await queueVideoCheck(req, job);
 };
 
 const audit = auditHooks({

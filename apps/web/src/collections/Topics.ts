@@ -34,6 +34,7 @@ import { queueLinkArchives } from "@/content-jobs";
 import { richTextHasText, richTextLinksTo } from "@/editor";
 
 import { DOCUMENT_MIME_TYPES, IMAGE_MIME_TYPES } from "./Media";
+import { refuse } from "./refuse";
 import { fillSlug, slugField } from "./slug";
 import { httpUrl, optionalHttpUrl } from "./url-field";
 
@@ -101,19 +102,6 @@ function pendingChanges(req: PayloadRequest): Map<string, PendingChange> {
   return created;
 }
 
-function refuse(
-  req: PayloadRequest,
-  path: string,
-  label: string,
-  message: string,
-): never {
-  throw new ValidationError({
-    collection: "topics",
-    errors: [{ path, label, message }],
-    req,
-  });
-}
-
 /**
  * Blocks, before anything is written, the operations that would take a
  * published topic offline or replace it without a change log entry:
@@ -140,6 +128,7 @@ const guardLiveVersion: CollectionBeforeOperationHook = async ({
     status === "draft"
   ) {
     refuse(
+      "topics",
       req,
       "_status",
       "Status",
@@ -168,6 +157,7 @@ const guardLiveVersion: CollectionBeforeOperationHook = async ({
       : null;
     if (topic?.firstPublishedAt) {
       refuse(
+        "topics",
         req,
         "changeNote",
         "Change note",
@@ -243,6 +233,7 @@ const applyWorkflow: CollectionBeforeChangeHook = async ({
     typeof data.changeNote === "string" ? data.changeNote.trim() : "";
   if (changeNoteRequired(save) && !note) {
     refuse(
+      "topics",
       req,
       "changeNote",
       "Change note",
@@ -250,7 +241,7 @@ const applyWorkflow: CollectionBeforeChangeHook = async ({
     );
   }
   if (publishing && !richTextHasText(data.body ?? stored?.body)) {
-    refuse(req, "body", "Body", "Write the topic before publishing.");
+    refuse("topics", req, "body", "Body", "Write the topic before publishing.");
   }
 
   const kind = topicChangeKind(save);

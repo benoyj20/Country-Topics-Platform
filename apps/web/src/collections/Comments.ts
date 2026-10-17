@@ -1,27 +1,41 @@
-import { COMMENT_BODY_MAX_LENGTH } from "@countrytopics/domain";
-import type { CollectionConfig } from "payload";
+import {
+  COMMENT_BODY_MAX_LENGTH,
+  COMMENT_STATUSES,
+  MODERATION_NOTE_MAX_LENGTH,
+  MODERATION_REASONS,
+} from "@countrytopics/domain";
+import type { CollectionConfig, FieldAccess } from "payload";
 
 import { nobody, verifiedStaffOnly } from "@/access";
+import { afterModeration, moderateComment } from "@/comments/moderation-hooks";
+import {
+  COMMENT_REPORT_REASON_LABELS,
+  COMMENT_STATUS_LABELS,
+} from "@/content-labels";
 
 // F6 comments on topics, in two levels: a comment with no parent starts a
 // thread, and replies point to it (ADR 0009). Members write them through
-// /api/v1 (src/comments), which checks who may post and where; Payload's own
-// API only lets staff read them. Hiding and locking come with moderation
-// (MVP week 10).
+// /api/v1 (src/comments), which checks who may post and where. In the admin
+// panel, staff can only moderate them: hide or show a comment, lock a
+// thread, and, for admins, remove a comment's text when the law requires
+// it (ADR 0010).
+
+const fixed: { update: FieldAccess } = { update: () => false };
+
 export const Comments: CollectionConfig = {
   slug: "comments",
   admin: {
     group: "Discussion",
     useAsTitle: "body",
-    defaultColumns: ["body", "topic", "author", "score", "createdAt"],
+    defaultColumns: ["body", "topic", "author", "status", "createdAt"],
     description:
-      "Written by members on topic pages. Read-only here; moderation tools come later.",
+      "Written by members on topic pages. Staff hide comments that break the rules and lock threads; the text itself cannot be edited.",
   },
   defaultSort: "-createdAt",
   access: {
     read: verifiedStaffOnly,
     create: nobody,
-    update: nobody,
+    update: verifiedStaffOnly,
     delete: nobody,
   },
   // Threads are listed per topic by score or date, and replies per thread
@@ -31,19 +45,29 @@ export const Comments: CollectionConfig = {
     { fields: ["topic", "parent", "score", "createdAt"] },
     { fields: ["parent", "createdAt"] },
   ],
+  hooks: {
+    beforeChange: [moderateComment],
+    afterChange: [afterModeration],
+  },
   fields: [
     {
       name: "topic",
       type: "relationship",
       relationTo: "topics",
       required: true,
+      access: fixed,
+      admin: { readOnly: true },
     },
     {
       name: "parent",
       label: "Reply to",
       type: "relationship",
       relationTo: "comments",
-      admin: { description: "Empty for a comment that starts a thread." },
+      access: fixed,
+      admin: {
+        readOnly: true,
+        description: "Empty for a comment that starts a thread.",
+      },
     },
     {
       // Optional so that deleting an account keeps the discussion readable;
@@ -52,22 +76,116 @@ export const Comments: CollectionConfig = {
       type: "relationship",
       relationTo: "users",
       index: true,
+      access: fixed,
+      admin: { readOnly: true },
     },
     {
       name: "body",
       label: "Comment",
       type: "textarea",
       required: true,
-      maxLength: COMMENT_BODY_MAX_LENGTH,
+      access: fixed,
+      admin: { readOnly: true },
+      // Empty only once removed; the moderation hook erases it.
+      validate: (
+        value: string | null | undefined,
+        { siblingData }: { siblingData: Partial<{ status: unknown }> },
+      ) => {
+        if (siblingData.status === "removed") return true;
+        if (!value) return "A comment needs text.";
+        return value.length <= COMMENT_BODY_MAX_LENGTH
+          ? true
+          : `Comments can be at most ${COMMENT_BODY_MAX_LENGTH} characters.`;
+      },
     },
     {
       name: "score",
       type: "number",
       required: true,
       defaultValue: 0,
+      access: fixed,
       admin: {
         readOnly: true,
         description: "Up votes minus down votes.",
+      },
+    },
+    {
+      name: "status",
+      type: "select",
+      required: true,
+      defaultValue: "visible",
+      options: COMMENT_STATUSES.map((value) => ({
+        value,
+        label: COMMENT_STATUS_LABELS[value],
+      })),
+      admin: {
+        position: "sidebar",
+        description:
+          "Hidden comments leave the topic page; their author is told why. Only admins can remove one, which erases its text for good: use it only when the law requires it.",
+      },
+    },
+    {
+      name: "moderationReason",
+      label: "Reason",
+      type: "select",
+      options: MODERATION_REASONS.map((value) => ({
+        value,
+        label: COMMENT_REPORT_REASON_LABELS[value],
+      })),
+      admin: {
+        position: "sidebar",
+        description: "Shown to the author.",
+        condition: (data) => data.status !== "visible",
+      },
+    },
+    {
+      name: "moderationNote",
+      label: "Note for staff",
+      type: "textarea",
+      maxLength: MODERATION_NOTE_MAX_LENGTH,
+      admin: {
+        position: "sidebar",
+        description: "Never shown to members.",
+      },
+    },
+    {
+      name: "locked",
+      label: "Lock this thread",
+      type: "checkbox",
+      defaultValue: false,
+      admin: {
+        position: "sidebar",
+        description:
+          "No new replies or votes in the thread; it stays readable and reportable.",
+        condition: (data) => !data.parent,
+      },
+    },
+    {
+      name: "moderatedBy",
+      type: "relationship",
+      relationTo: "users",
+      access: fixed,
+      admin: { position: "sidebar", readOnly: true },
+    },
+    {
+      name: "moderatedAt",
+      type: "date",
+      access: fixed,
+      admin: {
+        position: "sidebar",
+        readOnly: true,
+        date: { pickerAppearance: "dayAndTime" },
+      },
+    },
+    {
+      name: "reports",
+      type: "join",
+      collection: "comment-reports",
+      on: "comment",
+      // Reports come only from members, on topic pages.
+      admin: {
+        allowCreate: false,
+        defaultColumns: ["reason", "note", "status", "createdAt"],
       },
     },
   ],

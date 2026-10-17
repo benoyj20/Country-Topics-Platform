@@ -1,40 +1,76 @@
 import {
   COMMENT_REPORT_NOTE_MAX_LENGTH,
   COMMENT_REPORT_REASONS,
+  COMMENT_REPORT_STATUSES,
 } from "@countrytopics/domain";
-import type { CollectionConfig } from "payload";
+import type { CollectionConfig, FieldAccess } from "payload";
 
 import { nobody, verifiedStaffOnly } from "@/access";
-import { COMMENT_REPORT_REASON_LABELS } from "@/content-labels";
+import { auditHooks } from "@/audit";
+import {
+  COMMENT_REPORT_REASON_LABELS,
+  COMMENT_REPORT_STATUS_LABELS,
+} from "@/content-labels";
 
 // A member's report that a comment breaks the rules, at most one per member
-// and comment. Staff read them here; acting on them (hiding, dismissing)
-// comes with moderation (MVP week 10). Reporting changes nothing a visitor
-// sees.
+// and comment. Staff work through the open ones: hiding the comment marks
+// its reports "acted on", and a report that needs nothing done is dismissed
+// (ADR 0010). Reporting alone changes nothing a visitor sees.
+
+const fixed: { update: FieldAccess } = { update: () => false };
+
+const audit = auditHooks({
+  collection: "comment-reports",
+  action: "comment-report",
+  snapshot: (doc) => ({ status: doc.status }),
+});
+
 export const CommentReports: CollectionConfig = {
   slug: "comment-reports",
   labels: { singular: "Comment report", plural: "Comment reports" },
   admin: {
     group: "Discussion",
     useAsTitle: "reason",
-    defaultColumns: ["comment", "reason", "note", "createdAt"],
+    defaultColumns: ["comment", "reason", "note", "status", "createdAt"],
     description:
-      "Sent by members from topic pages. Read-only here; moderation tools come later.",
+      "Sent by members from topic pages, open ones first. Open the comment to hide it, which marks its reports acted on, or dismiss a report that needs nothing done.",
   },
-  defaultSort: "-createdAt",
+  // Statuses sort in the order they are listed: open first.
+  defaultSort: ["status", "-createdAt"],
   access: {
     read: verifiedStaffOnly,
     create: nobody,
-    update: nobody,
+    update: verifiedStaffOnly,
     delete: nobody,
   },
-  indexes: [{ fields: ["comment", "reporter"], unique: true }],
+  indexes: [
+    { fields: ["comment", "reporter"], unique: true },
+    { fields: ["status", "createdAt"] },
+  ],
+  hooks: {
+    beforeChange: [
+      ({ data, operation, originalDoc, req }) => {
+        if (operation !== "update" || data.status === originalDoc?.status) {
+          return data;
+        }
+        const open = data.status === "open";
+        return {
+          ...data,
+          resolvedBy: open ? null : (req.user?.id ?? null),
+          resolvedAt: open ? null : new Date().toISOString(),
+        };
+      },
+    ],
+    afterChange: audit.afterChange,
+  },
   fields: [
     {
       name: "comment",
       type: "relationship",
       relationTo: "comments",
       required: true,
+      access: fixed,
+      admin: { readOnly: true },
     },
     {
       // Optional so that deleting an account keeps its reports for review.
@@ -42,11 +78,15 @@ export const CommentReports: CollectionConfig = {
       type: "relationship",
       relationTo: "users",
       index: true,
+      access: fixed,
+      admin: { readOnly: true },
     },
     {
       name: "reason",
       type: "select",
       required: true,
+      access: fixed,
+      admin: { readOnly: true },
       options: COMMENT_REPORT_REASONS.map((value) => ({
         value,
         label: COMMENT_REPORT_REASON_LABELS[value],
@@ -56,6 +96,36 @@ export const CommentReports: CollectionConfig = {
       name: "note",
       type: "textarea",
       maxLength: COMMENT_REPORT_NOTE_MAX_LENGTH,
+      access: fixed,
+      admin: { readOnly: true },
+    },
+    {
+      name: "status",
+      type: "select",
+      required: true,
+      defaultValue: "open",
+      options: COMMENT_REPORT_STATUSES.map((value) => ({
+        value,
+        label: COMMENT_REPORT_STATUS_LABELS[value],
+      })),
+      admin: { position: "sidebar" },
+    },
+    {
+      name: "resolvedBy",
+      type: "relationship",
+      relationTo: "users",
+      access: fixed,
+      admin: { position: "sidebar", readOnly: true },
+    },
+    {
+      name: "resolvedAt",
+      type: "date",
+      access: fixed,
+      admin: {
+        position: "sidebar",
+        readOnly: true,
+        date: { pickerAppearance: "dayAndTime" },
+      },
     },
   ],
 };

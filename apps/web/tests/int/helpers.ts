@@ -303,3 +303,28 @@ export async function countryId(
   if (!docs[0]) throw new Error(`Country ${code} is not seeded`);
   return docs[0].id;
 }
+
+/**
+ * Forgets every member's rate-limit counters on the tests' queue prefix,
+ * so tests that post a lot do not run into each other's limits.
+ */
+export async function clearRateLimits(): Promise<void> {
+  const env = serverEnv();
+  const connection = createRedisConnection(env.redisUrl, "worker");
+  try {
+    let cursor = "0";
+    do {
+      const [next, keys] = await connection.scan(
+        cursor,
+        "MATCH",
+        `${env.queuePrefix}:rate:*`,
+        "COUNT",
+        500,
+      );
+      cursor = next;
+      if (keys.length > 0) await connection.del(...keys);
+    } while (cursor !== "0");
+  } finally {
+    await connection.quit();
+  }
+}

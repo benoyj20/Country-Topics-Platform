@@ -4,7 +4,7 @@ import {
 } from "@countrytopics/domain";
 
 import { apiError, NO_STORE, readJsonBody } from "@/api/json";
-import { writingMember } from "@/api/member";
+import { rateLimited, writingMember } from "@/api/member";
 import {
   displayNameSchema,
   problemsOf,
@@ -30,6 +30,8 @@ export async function PUT(request: Request) {
   const displayName = normalizeDisplayName(parsed.data.displayName);
   const problem = displayNameProblem(displayName);
   if (problem) return apiError(400, problem);
+  const limited = await rateLimited("display-name", member.profile.id);
+  if (limited) return limited;
   try {
     const payload = await loadPayload();
     await payload.update({

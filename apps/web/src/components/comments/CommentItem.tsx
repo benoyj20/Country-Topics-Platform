@@ -1,7 +1,7 @@
 "use client";
 
-import type { CommentVoteValue } from "@countrytopics/domain";
-import { type ReactNode, useState } from "react";
+import { type CommentVoteValue, commentSegments } from "@countrytopics/domain";
+import { Fragment, type ReactNode, useState } from "react";
 
 import type { PublicComment } from "@/comments/types";
 import { counted } from "@/public/format";
@@ -19,7 +19,41 @@ export type CommentStanding = {
   reported: boolean;
   /** New comments and votes are taken (the topic is not archived). */
   open: boolean;
+  /** Its thread is locked: no new replies or votes. */
+  locked: boolean;
+  /** The reader is staff, with a link to moderate it. */
+  staff: boolean;
 };
+
+/** Plain text, with web addresses as links that pass on no ranking. */
+function CommentBody({ body }: { body: string }) {
+  return (
+    <p className={styles.body}>
+      {commentSegments(body).map((segment, index) =>
+        segment.href ? (
+          <a
+            key={index}
+            href={segment.href}
+            rel="ugc nofollow noopener noreferrer"
+          >
+            {segment.text}
+          </a>
+        ) : (
+          <Fragment key={index}>{segment.text}</Fragment>
+        ),
+      )}
+    </p>
+  );
+}
+
+function ModerateLink({ id }: { id: string }) {
+  // The admin panel checks the reader's role and authenticator itself.
+  return (
+    <a href={`/admin/collections/comments/${id}`} className={styles.tool}>
+      Moderate
+    </a>
+  );
+}
 
 export function CommentItem({
   comment,
@@ -27,6 +61,8 @@ export function CommentItem({
   onVote,
   onReply,
   onReported,
+  threadLocked = false,
+  linked = false,
   children,
 }: {
   comment: PublicComment;
@@ -36,6 +72,10 @@ export function CommentItem({
   /** Opens a reply form; absent where replies cannot be written. */
   onReply?: () => void;
   onReported: () => void;
+  /** For the comment that starts a thread: says the thread is locked. */
+  threadLocked?: boolean;
+  /** The comment a link to the page pointed at, shown highlighted. */
+  linked?: boolean;
   /** A reply form and replies, under the comment. */
   children?: ReactNode;
 }) {
@@ -43,7 +83,16 @@ export function CommentItem({
   const [error, setError] = useState<string | null>(null);
   // One vote at a time: a second click waits for the first to count.
   const [voting, setVoting] = useState(false);
-  const canVote = standing.signedIn && !standing.mine && standing.open;
+  const canVote =
+    standing.signedIn && !standing.mine && standing.open && !standing.locked;
+  const articleClass = linked
+    ? `${styles.comment} ${styles.linked}`
+    : styles.comment;
+  const lockedNote = threadLocked ? (
+    <p className={styles.help}>
+      A moderator locked this thread: it takes no new replies or votes.
+    </p>
+  ) : null;
 
   async function vote(value: Exclude<CommentVoteValue, 0>) {
     setError(null);
@@ -60,9 +109,31 @@ export function CommentItem({
     }
   }
 
+  if (comment.hidden) {
+    return (
+      <article
+        id={`comment-${comment.id}`}
+        className={articleClass}
+        aria-label="Hidden comment"
+      >
+        <p className={`${styles.body} ${styles.hiddenNote}`}>
+          A moderator hid this comment.
+        </p>
+        {standing.staff ? (
+          <div className={styles.tools}>
+            <ModerateLink id={comment.id} />
+          </div>
+        ) : null}
+        {lockedNote}
+        {children}
+      </article>
+    );
+  }
+
   return (
     <article
-      className={styles.comment}
+      id={`comment-${comment.id}`}
+      className={articleClass}
       aria-label={`Comment by ${comment.author ?? "a former member"}`}
     >
       <p className={styles.byline}>
@@ -72,7 +143,7 @@ export function CommentItem({
           {formatCommentTime(comment.createdAt)}
         </time>
       </p>
-      <p className={styles.body}>{comment.body}</p>
+      <CommentBody body={comment.body} />
       <div className={styles.tools}>
         {canVote ? (
           <span className={styles.votes}>
@@ -124,7 +195,9 @@ export function CommentItem({
             </button>
           )
         ) : null}
+        {standing.staff ? <ModerateLink id={comment.id} /> : null}
       </div>
+      {lockedNote}
       {error ? (
         <p className="notice error" role="alert">
           {error}

@@ -1,5 +1,7 @@
+export * from "./comment-links.ts";
 export * from "./comments.ts";
 export * from "./identifiers.ts";
+export * from "./moderation.ts";
 export * from "./names.ts";
 export * from "./partial-dates.ts";
 export * from "./rich-text.ts";

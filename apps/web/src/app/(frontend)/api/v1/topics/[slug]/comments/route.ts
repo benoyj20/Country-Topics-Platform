@@ -1,11 +1,15 @@
 import {
   commentBodyProblem,
+  commentLinkCount,
+  commentLinkProblem,
+  isRole,
   isSlug,
+  isStaff,
   normalizeCommentBody,
 } from "@countrytopics/domain";
 
 import { apiError, NO_STORE, readJsonBody } from "@/api/json";
-import { writingMember } from "@/api/member";
+import { rateLimited, writingMember } from "@/api/member";
 import {
   COMMENT_REQUEST_MAX_BYTES,
   newCommentSchema,
@@ -28,8 +32,8 @@ import { writePool } from "@/write-pool";
 // for everyone. Only canonical requests are answered, as GET
 // /api/v1/topics does: other parameters get 400, and another spelling of
 // the same request a 308 to its one address.
-// POST: a signed-in member's comment or reply, `{ body, parentId? }`.
-// Rate limits come with moderation (MVP week 10).
+// POST: a signed-in member's comment or reply, `{ body, parentId? }`,
+// within the rate and link limits (ADR 0010).
 
 export const dynamic = "force-dynamic";
 
@@ -84,6 +88,17 @@ export async function POST(request: Request, { params }: Context) {
   const body = normalizeCommentBody(parsed.data.body);
   const problem = commentBodyProblem(body);
   if (problem) return apiError(400, problem);
+  const { profile } = member;
+  const linkProblem = commentLinkProblem({
+    links: commentLinkCount(body),
+    accountCreatedAt: new Date(profile.createdAt),
+    staff: isRole(profile.role) && isStaff(profile.role),
+  });
+  if (linkProblem) {
+    return apiError(403, linkProblem, { code: "link-limit" });
+  }
+  const limited = await rateLimited("comment", profile.id);
+  if (limited) return limited;
 
   try {
     const pool = await writePool();
@@ -91,7 +106,7 @@ export async function POST(request: Request, { params }: Context) {
     if (!topic) return apiError(404, NO_TOPIC);
     const { comment, updatedAt } = await createComment(pool, {
       topic,
-      authorId: member.profile.id,
+      authorId: profile.id,
       parentId: parsed.data.parentId ?? null,
       body,
     });

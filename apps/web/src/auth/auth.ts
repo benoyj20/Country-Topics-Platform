@@ -9,6 +9,7 @@ import { loadPayload } from "@/payload-instance";
 
 import { ensureUserProfile, maySignIn } from "./accounts";
 import { adminVerification } from "./admin-verification";
+import { turnstilePlugins } from "./turnstile";
 
 export const MAGIC_LINK_EXPIRES_IN_MINUTES = 10;
 const SESSION_EXPIRES_IN_S = 7 * 24 * 60 * 60;
@@ -43,6 +44,12 @@ function createAuth() {
     advanced: {
       database: { generateId: "uuid" },
       useSecureCookies: env.siteUrl.startsWith("https://"),
+      // Rate limits count per client address. Behind a proxy (Cloudflare,
+      // week 12) only the proxy's header can be trusted; set it only when
+      // every request comes through that proxy (ADR 0010).
+      ...(env.clientIpHeader
+        ? { ipAddress: { ipAddressHeaders: [env.clientIpHeader] } }
+        : {}),
     },
     // Prefixed so they sit apart from Payload's tables (`users` holds profiles).
     user: { modelName: "auth_user" },
@@ -87,6 +94,7 @@ function createAuth() {
         twoFactorTable: "auth_two_factor",
       }),
       adminVerification(),
+      ...turnstilePlugins(env.turnstile),
     ],
     databaseHooks: {
       user: {

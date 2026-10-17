@@ -47,9 +47,12 @@ publish date, and sorting, all kept in the address so a link opens the same
 results. The worker keeps a PostgreSQL full-text search index up to date as
 topics are published. Signed-in members discuss each topic under a public name
 they choose: comments with one level of replies, up and down votes, sorting, and
-a report button; staff read comments and reports in the admin panel, and
-`/topics` can sort by the most discussed. There is a health check at
-`/api/v1/health`. Moderation and the other features follow the
+a report button, within rate limits, with links only from accounts older than
+three days; `/topics` can sort by the most discussed. Moderators work through
+reports in the admin panel, hide comments, and lock threads. Members see replies
+to their threads and moderators' actions at `/notifications`, and the email
+sign-in form can ask for a Cloudflare Turnstile check. There is a health check
+at `/api/v1/health`. The remaining features follow the
 [MVP plan](docs/mvp-plan.md); see the checklist for what is verified.
 
 ```sh

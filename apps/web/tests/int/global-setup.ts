@@ -27,6 +27,10 @@ export default function setup(): void {
     ADMIN_EMAILS: `owner-${runId}@example.test`,
     GOOGLE_CLIENT_ID: "test-client.apps.googleusercontent.com",
     GOOGLE_CLIENT_SECRET: "test-client-secret",
+    // Turnstile would call Cloudflare; its wiring has unit tests instead.
+    TURNSTILE_SITE_KEY: "",
+    TURNSTILE_SECRET_KEY: "",
+    CLIENT_IP_HEADER: "",
     // Mailpit keeps old messages, so each run uses fresh addresses.
     TEST_RUN_ID: runId,
   });

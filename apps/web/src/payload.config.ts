@@ -14,6 +14,7 @@ import { Individuals } from "./collections/Individuals";
 import { Invitations } from "./collections/Invitations";
 import { LinkArchives } from "./collections/LinkArchives";
 import { Media, UPLOAD_MAX_BYTES } from "./collections/Media";
+import { Notifications } from "./collections/Notifications";
 import { References } from "./collections/References";
 import { Snippets } from "./collections/Snippets";
 import { Tags } from "./collections/Tags";
@@ -56,6 +57,7 @@ export default buildConfig({
     Comments,
     CommentReports,
     CommentVotes,
+    Notifications,
     Users,
     Invitations,
     AuditLog,

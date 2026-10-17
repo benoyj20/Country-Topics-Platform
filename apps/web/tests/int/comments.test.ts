@@ -13,7 +13,15 @@ import {
   type Payload,
   type RequiredDataFromCollectionSlug,
 } from "payload";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 import { PUT as putDisplayName } from "@/app/(frontend)/api/v1/account/display-name/route";
 import { GET as getViewer } from "@/app/(frontend)/api/v1/account/comments/route";
@@ -40,6 +48,7 @@ import type { Topic, User } from "@/payload-types";
 
 import { richText, workerSide } from "./fixtures";
 import {
+  clearRateLimits,
   CookieJar,
   countryId,
   payloadRest,
@@ -215,6 +224,9 @@ beforeAll(async () => {
   });
 }, 120_000);
 
+// The rate limits have tests of their own (moderation.test.ts).
+beforeEach(clearRateLimits);
+
 afterAll(async () => {
   await stopEmailWorker?.();
   await worker?.close();
@@ -230,7 +242,10 @@ describe("display names", () => {
     expect(await response.json()).toMatchObject({
       code: "display-name-required",
     });
-    expect((await viewer([], alice)).account).toEqual({ displayName: null });
+    expect((await viewer([], alice)).account).toEqual({
+      displayName: null,
+      staff: false,
+    });
   });
 
   it("are checked, tidied, and audited with the member as the actor", async () => {
@@ -242,6 +257,7 @@ describe("display names", () => {
     expect((await setName(bob, "TEST Bob")).status).toBe(200);
     expect((await viewer([], alice)).account).toEqual({
       displayName: "TEST Alice",
+      staff: false,
     });
     const { docs } = await payload.find({
       collection: "audit-log",
@@ -474,6 +490,8 @@ describe("listing", () => {
     const thread = await posted(tides, alice, "TEST busy thread.");
     const replies: string[] = [];
     for (let count = 0; count < THREAD_REPLIES_SHOWN + 2; count += 1) {
+      // More replies than one member may post in a minute.
+      await clearRateLimits();
       replies.push(
         (await posted(tides, bob, `TEST reply ${count}`, thread.id)).id,
       );

@@ -7,12 +7,14 @@ import {
 
 import type {
   CommentPage,
+  CommentThread,
   CommentViewer,
   PublicComment,
   ReplyPage,
 } from "@/comments/types";
+import type { NotificationPage } from "@/notifications/types";
 
-// The browser's side of the comment routes (ADR 0009). Each call answers
+// The browser's side of the comment routes (ADRs 0009 and 0010). Each call answers
 // the route's JSON or throws CommentApiError with the message to show.
 
 export class CommentApiError extends Error {
@@ -79,6 +81,19 @@ export function fetchThreads(
   return call(
     `/api/v1/topics/${encodeURIComponent(slug)}/comments${search ? `?${search}` : ""}`,
     "The comments could not be loaded.",
+    { signal },
+  );
+}
+
+/** The thread holding one comment, for a link to it (ADR 0010). */
+export function fetchThread(
+  slug: string,
+  commentId: string,
+  signal?: AbortSignal,
+): Promise<{ open: boolean; thread: CommentThread }> {
+  return call(
+    `/api/v1/topics/${encodeURIComponent(slug)}/comments/${encodeURIComponent(commentId)}`,
+    "The linked comment could not be loaded.",
     { signal },
   );
 }
@@ -158,3 +173,37 @@ export function formatCommentTime(iso: string): string {
   const date = new Date(iso);
   return Number.isNaN(date.getTime()) ? iso : WHEN.format(date);
 }
+
+export function fetchNotifications(
+  cursor: string | null,
+  signal?: AbortSignal,
+): Promise<NotificationPage> {
+  return call(
+    `/api/v1/account/notifications${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`,
+    "Your notifications could not be loaded.",
+    { signal, cache: "no-store" },
+  );
+}
+
+export function fetchUnreadNotifications(
+  signal?: AbortSignal,
+): Promise<{ unread: number }> {
+  return call(
+    "/api/v1/account/notifications/unread",
+    "Your notifications could not be counted.",
+    { signal, cache: "no-store" },
+  );
+}
+
+export async function markNotificationsRead(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  await call(
+    "/api/v1/account/notifications/read",
+    "Your notifications could not be marked as read.",
+    { method: "POST", json: { ids } },
+  );
+  // The header's count listens for this.
+  window.dispatchEvent(new Event(NOTIFICATIONS_READ_EVENT));
+}
+
+export const NOTIFICATIONS_READ_EVENT = "countrytopics:notifications-read";

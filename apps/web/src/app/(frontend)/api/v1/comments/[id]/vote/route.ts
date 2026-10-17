@@ -1,5 +1,5 @@
 import { apiError, NO_STORE, readJsonBody } from "@/api/json";
-import { writingMember } from "@/api/member";
+import { rateLimited, writingMember } from "@/api/member";
 import {
   commentIdSchema,
   problemsOf,
@@ -12,7 +12,8 @@ import { writePool } from "@/write-pool";
 
 // PUT /api/v1/comments/[id]/vote, `{ value: 1 | -1 | 0 }`: a signed-in
 // member's vote on someone else's comment; 0 takes it back. Answers the
-// comment's new score. Repeating a vote changes nothing (ADR 0009).
+// comment's new score. Repeating a vote changes nothing (ADR 0009). Locked
+// threads take no votes, and votes are rate-limited (ADR 0010).
 
 export async function PUT(
   request: Request,
@@ -32,6 +33,8 @@ export async function PUT(
   if (!commentIdSchema.safeParse(id).success) {
     return apiError(404, "That comment does not exist or is not public.");
   }
+  const limited = await rateLimited("vote", member.profile.id);
+  if (limited) return limited;
   try {
     const result = await voteOnComment(await writePool(), {
       voterId: member.profile.id,

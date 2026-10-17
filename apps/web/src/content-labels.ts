@@ -1,6 +1,8 @@
 import type {
   ClaimStance,
   CommentReportReason,
+  CommentReportStatus,
+  CommentStatus,
   EvidenceKind,
   ReferenceKind,
   TopicChangeKind,
@@ -75,4 +77,17 @@ export const COMMENT_REPORT_REASON_LABELS: Record<CommentReportReason, string> =
     misleading: "False or misleading",
     "off-topic": "Off topic",
     other: "Something else",
+  };
+
+export const COMMENT_STATUS_LABELS: Record<CommentStatus, string> = {
+  visible: "Visible",
+  hidden: "Hidden by a moderator",
+  removed: "Removed (text erased)",
+};
+
+export const COMMENT_REPORT_STATUS_LABELS: Record<CommentReportStatus, string> =
+  {
+    open: "Open",
+    dismissed: "Dismissed",
+    actioned: "Acted on",
   };

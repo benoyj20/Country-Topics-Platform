@@ -208,3 +208,17 @@
   align-items: baseline;
   gap: 0.4rem;
 }
+
+.hiddenNote {
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* The comment a link pointed at, such as from a notification. */
+.linked {
+  padding: 0.5rem;
+  margin: -0.5rem;
+  border-radius: 0.4rem;
+  outline: 2px solid var(--accent);
+  scroll-margin-top: 1rem;
+}

@@ -17,3 +17,4 @@ record that supersedes it and update the old record's status line to point to it
 | [0007](0007-public-pages-and-caching.md) | Public pages, what they show, and how they are cached | Accepted |
 | [0008](0008-browsing-and-search.md) | Browsing, filters, and search | Accepted |
 | [0009](0009-comments-votes-and-reports.md) | Comments, votes, and reports | Accepted |
+| [0010](0010-moderation-limits-and-notifications.md) | Moderation, rate and link limits, Turnstile, and notifications | Accepted |

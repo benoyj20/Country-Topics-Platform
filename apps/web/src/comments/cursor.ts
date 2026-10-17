@@ -1,12 +1,13 @@
 import type { CommentSort } from "@countrytopics/domain";
 import * as z from "zod";
 
-// Page cursors for comment lists: the last comment's sort keys, as
-// base64url JSON, checked against the list they are used with. Scores
+// Page cursors for comment lists, and for a member's notifications about
+// comments: the last item's sort keys, as base64url JSON, checked against
+// the list they are used with. Scores
 // change between pages, so "top" can repeat or skip a comment whose score
 // changed meanwhile; dates and ids never change.
 
-export type CommentList = CommentSort | "replies";
+export type CommentList = CommentSort | "replies" | "notifications";
 
 /** Cursors longer than this were not issued here. */
 const CURSOR_MAX_LENGTH = 200;
@@ -18,6 +19,7 @@ const KEYS = {
   new: z.tuple([iso, uuid]),
   old: z.tuple([iso, uuid]),
   replies: z.tuple([iso, uuid]),
+  notifications: z.tuple([iso, uuid]),
 } as const;
 
 type Keys = (string | number)[];

@@ -36,6 +36,8 @@ describe("readServerEnv", () => {
       },
       contactEmail: undefined,
       googleBooksApiKey: undefined,
+      turnstile: undefined,
+      clientIpHeader: undefined,
     });
     expect(
       readServerEnv({ ...valid, GOOGLE_BOOKS_API_KEY: " key " })
@@ -63,6 +65,26 @@ describe("readServerEnv", () => {
     expect(() =>
       readServerEnv({ ...valid, CONTACT_EMAIL: "not an address" }),
     ).toThrow(/CONTACT_EMAIL/);
+  });
+
+  it("turns Turnstile on with both keys and reads the client address header", () => {
+    expect(
+      readServerEnv({
+        ...valid,
+        TURNSTILE_SITE_KEY: " site ",
+        TURNSTILE_SECRET_KEY: "secret",
+        CLIENT_IP_HEADER: "CF-Connecting-IP",
+      }),
+    ).toMatchObject({
+      turnstile: { siteKey: "site", secretKey: "secret" },
+      clientIpHeader: "cf-connecting-ip",
+    });
+    expect(() =>
+      readServerEnv({ ...valid, TURNSTILE_SITE_KEY: "site" }),
+    ).toThrow(/TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY/);
+    expect(() =>
+      readServerEnv({ ...valid, CLIENT_IP_HEADER: "x-real-ip: 1.2.3.4" }),
+    ).toThrow(/CLIENT_IP_HEADER/);
   });
 
   it("uses a replica only when it differs from the primary", () => {

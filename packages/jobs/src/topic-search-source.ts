@@ -149,8 +149,11 @@ SELECT t.id::text AS id, t.slug, t.title, t.summary, t.body,
          WHERE e._parent_id = t.id
       ) ev
   ) evidence ON TRUE
+  -- Hidden comments are not counted, but hiding one changes its updatedAt,
+  -- so the version moves and the count is replaced (ADR 0010).
   LEFT JOIN LATERAL (
-    SELECT count(*)::int AS count, max(c.updated_at) AS updated_at
+    SELECT count(*) FILTER (WHERE c.status = 'visible')::int AS count,
+           max(c.updated_at) AS updated_at
       FROM comments c WHERE c.topic_id = t.id
   ) discussion ON TRUE
  WHERE t.id = ANY($1::uuid[])`;

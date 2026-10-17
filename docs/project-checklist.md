@@ -17,8 +17,9 @@ the worker checks the video with YouTube → the snippet is used as topic eviden
 The site itself (`apps/web`) so far has sign-in (Google and email links,
 invite-only), roles, staff authenticator checks, the admin panel with countries,
 categories, tags, individuals, versioned topics with a change log, evidence and
-references, video snippets, a placeholder home page, and a health check; see
-Weeks 1 to 6 below.
+references, video snippets, public pages for visitors (home, countries,
+topics, individuals, and the files they show), and a health check; see Weeks
+1 to 7 below.
 
 The snippet flow began as a standalone prototype in `prototypes/youtube-snippet`
 (plain JavaScript, no database); its typed version is in the site since MVP week 6.
@@ -220,9 +221,9 @@ See [ADR 0003](adr/0003-countries-and-individuals.md) for the design.
   in the admin panel, and four added by script at the developer's request, with
   names, aliases, descriptions, offices, and dates taken from Wikidata
   (2026-10-14).
-- [ ] Not built yet: public pages for countries and individuals (week 7).
-  Topics link individuals since week 4, and photos with their licence came with
-  uploads in week 5.
+- [x] Public pages for countries and individuals came in week 7 (below);
+  profiles show who a person is and the topics that name them, not the bio
+  or country roles.
 
 ### Week 4: topics, workflow, versions, change log
 
@@ -421,5 +422,56 @@ See [ADR 0006](adr/0006-snippets-and-transcripts.md) for the design.
   check pending" for good because a `make dev` started before the day's
   changes still ran the old queue code; after restarting it, saving again
   queued the check.
-- [ ] Not built yet: public topic pages showing snippets (week 7), periodic
-  re-checks of videos, and transcript excerpts without a video.
+- [x] Public topic pages showing snippets came in week 7 (below).
+- [ ] Not built yet: periodic re-checks of videos, and transcript excerpts
+  without a video.
+
+### Week 7: public pages and caching
+
+See [ADR 0007](adr/0007-public-pages-and-caching.md) for the design.
+
+- [x] Visibility: a topic is public once published, and visitors see its live
+  version, never a later draft; an archived topic keeps its page but leaves
+  the home, country, and individual lists; drafts and unknown slugs have no
+  page. An individual has a page while a published topic names them (in its
+  people, by a link in its text, or as a snippet's speaker), and not
+  otherwise. A file is public as evidence of a published topic or as a
+  public individual's photo; an unused file and the photo of a person no
+  topic names are not (integration tests, 2026-10-17).
+- [x] Public fields only: page data carries no editor, check details, pasted
+  transcript text outside the clip, staff email, or later draft; profiles
+  leave out the bio and country roles; links in a topic's text to a draft
+  topic become plain text (integration tests, 2026-10-17).
+- [x] Topics record the individuals their text links to, on every save and,
+  by the migration, for existing topics and versions; such an individual
+  cannot be deleted (409). On the test database the migration's statements
+  rebuilt exactly the six rows the save hook had recorded (one live topic,
+  five versions), and the migration rolled back and applied again on the
+  development database (integration tests and SQL check, 2026-10-17).
+- [x] Purges: publishing a topic purges the topic pages and lists, a draft
+  save does not, and a change to any other shown collection purges its pages
+  (integration tests with Next.js's request APIs replaced by recorders,
+  2026-10-17).
+- [x] The guard tests failed when the published filter, the purge on
+  publish, and the recording of body links were removed (2026-10-17).
+- [x] Real browser and HTTP (headless Edge and `fetch`, production build on
+  the test database, the worker running against it with the YouTube key):
+  topic, home, country, and individual pages answered 200 with
+  `s-maxage=3600, stale-while-revalidate=…`, and a second visit was a cache
+  hit; the topic page showed the person, the image, the archived link, the
+  snippet, and the reference; the image came from `/files/[id]` as
+  `image/png`, `public, max-age=3600`, `nosniff`; an unknown topic and file
+  gave 404; no staff email in the pages. Publishing a new title showed it on
+  the topic page and the home page on the next request, with the change
+  note; a draft save did not change the page; editing the individual's
+  summary showed on their page. No YouTube script or player before a click,
+  then the privacy-enhanced player; the header said "Your account" when
+  signed in and "Sign in" after clearing cookies; at 390 px the topic, home,
+  country, and individual pages had no horizontal scroll; no browser errors
+  (2026-10-17).
+- [ ] The developer browses as a visitor, including on a phone.
+- [ ] Before running two web containers (week 11): a shared Redis cache
+  handler, so purges reach every instance and no cache sits on local disk.
+- [ ] Not built yet: paging past 50 topics, filters and search (week 8), a
+  public JSON API, and serving video thumbnails through the site (decided
+  with the consent banner after the pilot).

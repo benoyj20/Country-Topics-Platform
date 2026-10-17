@@ -1,10 +1,12 @@
 import type { CollectionConfig } from "payload";
 
 import { nobody, verifiedStaffOnly } from "@/access";
+import { TOPIC_CHANGE_LABELS } from "@/content-labels";
 
 // A topic's public change log (F3): one entry per publish, written by the topic
-// hooks and never edited or deleted. Visitors see it from week 7; the full
-// content of every version stays in Payload's version history.
+// hooks and never edited or deleted. Visitors see it on the topic's page,
+// without who made each change; the full content of every version stays in
+// Payload's version history.
 export const TopicChanges: CollectionConfig = {
   slug: "topic-changes",
   labels: { singular: "Topic change", plural: "Topic changes" },
@@ -32,12 +34,10 @@ export const TopicChanges: CollectionConfig = {
       name: "kind",
       type: "select",
       required: true,
-      options: [
-        { label: "First published", value: "published" },
-        { label: "Updated", value: "updated" },
-        { label: "Archived", value: "archived" },
-        { label: "Restored", value: "restored" },
-      ],
+      options: Object.entries(TOPIC_CHANGE_LABELS).map(([value, label]) => ({
+        value,
+        label,
+      })),
     },
     { name: "note", type: "textarea", required: true },
     {

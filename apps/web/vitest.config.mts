@@ -23,6 +23,8 @@ export default defineConfig({
           include: ["tests/int/**/*.test.ts"],
           // Rebuilds the dedicated test database from the committed migrations.
           globalSetup: ["tests/int/global-setup.ts"],
+          // Next.js request APIs, replaced for code called outside a request.
+          setupFiles: ["tests/int/next-runtime.ts"],
           // The test files share one database.
           fileParallelism: false,
           hookTimeout: 60_000,

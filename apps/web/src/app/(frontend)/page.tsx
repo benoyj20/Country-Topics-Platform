@@ -1,20 +1,47 @@
 import Link from "next/link";
 
-// Static, so it can be cached for everyone; /sign-in sends people who are
-// already signed in on to their account.
-export default function HomePage() {
+import styles from "@/components/public/public.module.css";
+import { TopicList } from "@/components/public/TopicList";
+import { homePage } from "@/public/cached";
+
+// Cached for everyone and purged when content changes (ADR 0007); equal to
+// PUBLIC_REVALIDATE_S, written out because Next.js reads it as a literal.
+export const revalidate = 3600;
+
+export default async function HomePage() {
+  const { topics, countries } = await homePage();
   return (
-    <section className="home stack">
+    <div className="stack">
       <h1>Country Topics</h1>
-      <p>
-        Topics organised by country, each backed by timestamped video snippets,
-        transcripts, and references. The public pages arrive in MVP week 7.
+      <p className="muted">
+        Topics organised by country, each backed by evidence: timestamped video
+        snippets with their transcripts, documents, archived pages, and
+        references to the books, papers, and reports that support or contradict
+        them.
       </p>
-      <div>
-        <Link className="button" href="/sign-in">
-          Sign in
-        </Link>
-      </div>
-    </section>
+
+      <section className={styles.section} aria-labelledby="latest">
+        <h2 id="latest">Latest topics</h2>
+        <TopicList topics={topics} empty="No topics are published yet." />
+      </section>
+
+      {countries.length > 0 ? (
+        <section className={styles.section} aria-labelledby="countries">
+          <h2 id="countries">Countries</h2>
+          <ul className={styles.chips}>
+            {countries.map((country) => (
+              <li key={country.slug}>
+                <Link
+                  className={styles.chip}
+                  href={`/countries/${country.slug}`}
+                >
+                  {country.name}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+    </div>
   );
 }

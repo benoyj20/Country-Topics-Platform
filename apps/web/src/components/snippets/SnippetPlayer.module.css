@@ -1,5 +1,5 @@
-/* The snippet player, in the admin preview now and on topic pages from week
-   7. Colours follow the surrounding page; only the highlight is set here. */
+/* The snippet player, on topic pages and in the admin preview. Colours
+   follow the surrounding page; only the highlight is set here. */
 
 .snippet {
   --snippet-accent: #2563eb;

@@ -2,6 +2,7 @@ import type { CollectionConfig } from "payload";
 
 import { nobody, verifiedAdminsOnly, verifiedStaffOnly } from "@/access";
 import { auditHooks } from "@/audit";
+import { PUBLIC_TAGS, purgeOnChange } from "@/public-cache";
 
 import { slugField } from "./slug";
 
@@ -94,15 +95,18 @@ export const Countries: CollectionConfig = {
     },
     slugField,
   ],
-  hooks: auditHooks({
-    collection: "countries",
-    action: "country",
-    snapshot: (doc) => ({
-      code: doc.code,
-      name: doc.name,
-      slug: doc.slug,
-      region: doc.region ?? null,
-      subregion: doc.subregion ?? null,
+  hooks: purgeOnChange(
+    PUBLIC_TAGS.countries,
+    auditHooks({
+      collection: "countries",
+      action: "country",
+      snapshot: (doc) => ({
+        code: doc.code,
+        name: doc.name,
+        slug: doc.slug,
+        region: doc.region ?? null,
+        subregion: doc.subregion ?? null,
+      }),
     }),
-  }),
+  ),
 };

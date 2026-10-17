@@ -9,6 +9,7 @@ export type Usage =
       collection: "topics";
       field:
         | "people.individual"
+        | "linkedIndividuals"
         | "category"
         | "tags"
         | "references.reference"

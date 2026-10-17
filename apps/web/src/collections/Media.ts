@@ -3,6 +3,8 @@ import type { CollectionConfig } from "payload";
 
 import { verifiedAdminsOnly, verifiedStaffOnly } from "@/access";
 import { auditHooks } from "@/audit";
+import { LICENCE_LABELS } from "@/content-labels";
+import { PUBLIC_TAGS, purgeOnChange } from "@/public-cache";
 
 import { keepWhileUsed } from "./topic-references";
 import { optionalHttpUrl } from "./url-field";
@@ -13,20 +15,10 @@ export const DOCUMENT_MIME_TYPES = ["application/pdf"];
 /** Larger files belong on their publisher's site, linked and archived. */
 export const UPLOAD_MAX_BYTES = 20 * 1024 * 1024;
 
-const LICENCES = [
-  { value: "public_domain", label: "Public domain or CC0" },
-  { value: "cc_by", label: "CC BY" },
-  { value: "cc_by_sa", label: "CC BY-SA" },
-  { value: "other_open", label: "Other open licence (name it in Credit)" },
-  { value: "permission", label: "Used with the owner's permission" },
-  { value: "own_work", label: "Our own work" },
-  { value: "official_document", label: "Official or public record" },
-];
-
 // F3 evidence files (documents and images) and F2 photos of individuals,
 // stored in S3-compatible storage (ADR 0005), never on the web server's disk.
-// Files are served through Payload with the same access as their records:
-// staff only until public pages arrive (week 7).
+// Payload serves files to staff only; visitors get the files that public
+// pages show through /files/[id] (ADR 0007).
 export const Media: CollectionConfig = {
   slug: "media",
   labels: { singular: "File", plural: "Files" },
@@ -73,7 +65,10 @@ export const Media: CollectionConfig = {
       name: "licence",
       type: "select",
       required: true,
-      options: LICENCES,
+      options: Object.entries(LICENCE_LABELS).map(([value, label]) => ({
+        value,
+        label,
+      })),
       admin: {
         description:
           "Only upload files we may publish (AGENTS.md: licensed photos only).",
@@ -99,7 +94,7 @@ export const Media: CollectionConfig = {
       },
     },
   ],
-  hooks: {
+  hooks: purgeOnChange(PUBLIC_TAGS.media, {
     beforeDelete: [
       keepWhileUsed("file", [
         { collection: "topics", field: "evidence.file" },
@@ -119,5 +114,5 @@ export const Media: CollectionConfig = {
         sourceUrl: doc.sourceUrl ?? null,
       }),
     }),
-  },
+  }),
 };

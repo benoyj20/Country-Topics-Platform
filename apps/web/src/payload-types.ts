@@ -236,6 +236,7 @@ export interface Topic {
    */
   slug: string;
   state: 'draft' | 'in_review' | 'published' | 'updated' | 'archived';
+  linkedIndividuals?: (string | Individual)[] | null;
   firstPublishedAt?: string | null;
   lastPublishedAt?: string | null;
   lastEditedBy?: (string | null) | User;
@@ -327,7 +328,7 @@ export interface Individual {
    */
   summary?: string | null;
   /**
-   * Countries this person is linked to, their role there, and when.
+   * Countries this person is linked to, their role there, and when. Seen by staff only: public profiles do not show it yet.
    */
   countries?:
     | {
@@ -346,7 +347,7 @@ export interface Individual {
    */
   photo?: (string | null) | Media;
   /**
-   * Plain text. Keep to what the linked evidence and references support.
+   * Plain text. Keep to what the linked evidence and references support. Seen by staff only: public profiles do not show it yet.
    */
   bio?: string | null;
   /**
@@ -760,6 +761,7 @@ export interface TopicsSelect<T extends boolean = true> {
   archived?: T;
   slug?: T;
   state?: T;
+  linkedIndividuals?: T;
   firstPublishedAt?: T;
   lastPublishedAt?: T;
   lastEditedBy?: T;

@@ -1,9 +1,7 @@
 import {
   CLAIM_STANCES,
-  type ClaimStance,
   changeNoteRequired,
   EVIDENCE_KINDS,
-  type EvidenceKind,
   evidenceProblems,
   type SnippetEvidence,
   TOPIC_PERSON_ROLES,
@@ -30,8 +28,15 @@ import {
   verifiedStaffOnly,
 } from "@/access";
 import { recordAudit, relationId } from "@/audit";
+import {
+  EVIDENCE_KIND_LABELS,
+  PERSON_ROLE_LABELS,
+  STANCE_LABELS,
+  TOPIC_STATE_LABELS,
+} from "@/content-labels";
 import { queueLinkArchives } from "@/content-jobs";
-import { richTextHasText, richTextLinksTo } from "@/editor";
+import { richTextHasText, richTextLinkedIds, richTextLinksTo } from "@/editor";
+import { PUBLIC_TAGS, purgePublicPages } from "@/public-cache";
 
 import { DOCUMENT_MIME_TYPES, IMAGE_MIME_TYPES } from "./Media";
 import { refuse } from "./refuse";
@@ -40,27 +45,6 @@ import { httpUrl, optionalHttpUrl } from "./url-field";
 
 const CHANGE_NOTE_MAX_LENGTH = 500;
 const EVIDENCE_TITLE_MAX_LENGTH = 200;
-
-const EVIDENCE_KIND_LABELS: Record<EvidenceKind, string> = {
-  document: "Document (PDF)",
-  image: "Image",
-  link: "Web page",
-  snippet: "Video snippet",
-};
-
-const STANCE_LABELS: Record<ClaimStance, string> = {
-  supports: "Supports",
-  contradicts: "Contradicts",
-  context: "Context",
-};
-
-const STATE_LABELS: Record<(typeof TOPIC_STATES)[number], string> = {
-  draft: "Draft",
-  in_review: "In review",
-  published: "Published",
-  updated: "Updated",
-  archived: "Archived",
-};
 
 // Set only by the hooks below; never from the request.
 const systemField = {
@@ -462,6 +446,9 @@ const recordChange: CollectionAfterChangeHook = async ({
   const version = latest ? String(latest.id) : null;
 
   if (pending) {
+    // Every publish has a change log entry, so this is where the live
+    // version changes; draft saves leave visitors' pages alone.
+    purgePublicPages([PUBLIC_TAGS.topics]);
     await req.payload.create({
       collection: "topic-changes",
       data: {
@@ -504,6 +491,18 @@ const recordChange: CollectionAfterChangeHook = async ({
   });
 };
 
+/**
+ * Keeps the individuals linked in the body as a relationship, so a public
+ * page can ask which topics name a person without reading every body.
+ */
+const recordBodyLinks: CollectionBeforeChangeHook = ({ data, originalDoc }) => {
+  data.linkedIndividuals = richTextLinkedIds(
+    data.body ?? originalDoc?.body,
+    "individuals",
+  );
+  return data;
+};
+
 /** Clears the fields that do not apply to each evidence row's kind. */
 const tidyEvidence: CollectionBeforeChangeHook = ({ data }) => {
   if (Array.isArray(data.evidence)) {
@@ -536,7 +535,7 @@ function evidenceKind(siblingData: unknown): unknown {
 }
 
 // F3: an event, policy, or public claim about one or more countries. Every save
-// is kept as a version; visitors (from week 7) see only the published one.
+// is kept as a version; visitors see only the published one.
 export const Topics: CollectionConfig = {
   slug: "topics",
   admin: {
@@ -635,9 +634,9 @@ export const Topics: CollectionConfig = {
               type: "select",
               required: true,
               defaultValue: "subject",
-              options: TOPIC_PERSON_ROLES.map((role) => ({
-                label: role[0]?.toUpperCase() + role.slice(1),
-                value: role,
+              options: TOPIC_PERSON_ROLES.map((value) => ({
+                value,
+                label: PERSON_ROLE_LABELS[value],
               })),
             },
           ],
@@ -868,10 +867,19 @@ export const Topics: CollectionConfig = {
       defaultValue: "draft",
       index: true,
       options: TOPIC_STATES.map((value) => ({
-        label: STATE_LABELS[value],
+        label: TOPIC_STATE_LABELS[value],
         value,
       })),
       ...systemField,
+    },
+    {
+      name: "linkedIndividuals",
+      type: "relationship",
+      relationTo: "individuals",
+      hasMany: true,
+      // Kept by recordBodyLinks from the body's links; not shown in the form.
+      access: systemField.access,
+      admin: { hidden: true },
     },
     { name: "firstPublishedAt", type: "date", index: true, ...systemField },
     { name: "lastPublishedAt", type: "date", ...systemField },
@@ -885,7 +893,7 @@ export const Topics: CollectionConfig = {
   hooks: {
     beforeValidate: [fillSlug("topics", "title")],
     beforeOperation: [guardLiveVersion],
-    beforeChange: [tidyEvidence, applyWorkflow],
+    beforeChange: [tidyEvidence, recordBodyLinks, applyWorkflow],
     afterChange: [recordChange, archiveEvidenceLinks],
     afterDelete: [
       async ({ doc, req }) => {

@@ -10,6 +10,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@aws-sdk/client-s3':
+        specifier: 3.1152.0
+        version: 3.1152.0
       '@better-auth/utils':
         specifier: 0.4.2
         version: 0.4.2

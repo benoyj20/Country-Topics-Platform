@@ -19,6 +19,7 @@ import {
   verifiedStaffOnly,
 } from "@/access";
 import { auditHooks, relationId } from "@/audit";
+import { PUBLIC_TAGS, purgeOnChange } from "@/public-cache";
 import {
   findPossibleDuplicates,
   lockNameKeys,
@@ -175,8 +176,9 @@ const possibleDuplicatesEndpoint: Endpoint = {
 };
 
 // F2: politicians, officials, experts, and others that topics are about or
-// quote. Profiles are not public yet (public pages come in week 7), and every
-// published statement about a person needs evidence (AGENTS.md).
+// quote. Every published statement about a person needs evidence (AGENTS.md),
+// so a public profile shows only who they are and the published topics that
+// name them; the bio and country roles stay staff-only (ADR 0007).
 export const Individuals: CollectionConfig = {
   slug: "individuals",
   admin: {
@@ -250,7 +252,7 @@ export const Individuals: CollectionConfig = {
       labels: { singular: "Country", plural: "Countries" },
       admin: {
         description:
-          "Countries this person is linked to, their role there, and when.",
+          "Countries this person is linked to, their role there, and when. Seen by staff only: public profiles do not show it yet.",
       },
       fields: [
         {
@@ -320,7 +322,7 @@ export const Individuals: CollectionConfig = {
       maxLength: 5000,
       admin: {
         description:
-          "Plain text. Keep to what the linked evidence and references support.",
+          "Plain text. Keep to what the linked evidence and references support. Seen by staff only: public profiles do not show it yet.",
       },
     },
     {
@@ -370,11 +372,12 @@ export const Individuals: CollectionConfig = {
     slugField,
     { name: "nameKey", type: "text", index: true, admin: { hidden: true } },
   ],
-  hooks: {
+  hooks: purgeOnChange(PUBLIC_TAGS.individuals, {
     beforeValidate: [fillSlug("individuals")],
     beforeDelete: [
       keepWhileUsed("individual", [
         { collection: "topics", field: "people.individual" },
+        { collection: "topics", field: "linkedIndividuals" },
         { collection: "snippets", field: "speaker" },
       ]),
     ],
@@ -406,5 +409,5 @@ export const Individuals: CollectionConfig = {
           : [],
       }),
     }),
-  },
+  }),
 };

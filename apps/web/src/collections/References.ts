@@ -5,7 +5,6 @@ import {
   REFERENCE_CHECK_STATUSES,
   REFERENCE_KINDS,
   type ReferenceCheckStatus,
-  type ReferenceKind,
   URL_MAX_LENGTH,
 } from "@countrytopics/domain";
 import { SourceUnavailableError } from "@countrytopics/sources";
@@ -23,22 +22,14 @@ import {
 } from "@/access";
 import { auditHooks } from "@/audit";
 import { queueLinkArchives, queueReferenceCheck } from "@/content-jobs";
+import { REFERENCE_KIND_LABELS } from "@/content-labels";
+import { PUBLIC_TAGS, purgeOnChange } from "@/public-cache";
 import { bibliography } from "@/sources";
 
 import { keepWhileUsedByTopics } from "./topic-references";
 import { httpUrl } from "./url-field";
 
 const NO_STORE = { "Cache-Control": "no-store" };
-
-const KIND_LABELS: Record<ReferenceKind, string> = {
-  article: "Article or paper",
-  book: "Book",
-  chapter: "Book chapter",
-  report: "Report",
-  web_page: "Web page",
-  dataset: "Dataset",
-  other: "Other",
-};
 
 const CHECK_LABELS: Record<ReferenceCheckStatus, string> = {
   pending: "Being checked",
@@ -277,7 +268,7 @@ export const References: CollectionConfig = {
           defaultValue: "article",
           options: REFERENCE_KINDS.map((value) => ({
             value,
-            label: KIND_LABELS[value],
+            label: REFERENCE_KIND_LABELS[value],
           })),
         },
         {
@@ -347,10 +338,10 @@ export const References: CollectionConfig = {
       admin: { ...systemField.admin, hidden: true },
     },
   ],
-  hooks: {
+  hooks: purgeOnChange(PUBLIC_TAGS.references, {
     beforeDelete: [keepWhileUsedByTopics("references.reference", "reference")],
     beforeChange: [markForCheck],
     afterChange: [queueChecks, ...audit.afterChange],
     afterDelete: audit.afterDelete,
-  },
+  }),
 };

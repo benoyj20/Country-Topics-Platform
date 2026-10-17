@@ -22,6 +22,7 @@ import {
 
 import { verifiedAdminsOnly, verifiedStaffOnly } from "@/access";
 import { auditHooks, relationId } from "@/audit";
+import { PUBLIC_TAGS, purgeOnChange } from "@/public-cache";
 import { queueVideoCheck } from "@/content-jobs";
 import { lockForTransaction } from "@/transaction-lock";
 
@@ -454,10 +455,10 @@ export const Snippets: CollectionConfig = {
       },
     },
   ],
-  hooks: {
+  hooks: purgeOnChange(PUBLIC_TAGS.snippets, {
     beforeDelete: [keepWhileUsedByTopics("evidence.snippet", "snippet")],
     beforeChange: [prepareSnippet],
     afterChange: [checkVideo, ...audit.afterChange],
     afterDelete: audit.afterDelete,
-  },
+  }),
 };

@@ -2,6 +2,7 @@ import type { CollectionConfig } from "payload";
 
 import { verifiedAdminsOnly, verifiedStaffOnly } from "@/access";
 import { auditHooks } from "@/audit";
+import { PUBLIC_TAGS, purgeOnChange } from "@/public-cache";
 
 import { fillSlug, slugField } from "./slug";
 import { keepWhileUsedByTopics } from "./topic-references";
@@ -25,7 +26,7 @@ export const Tags: CollectionConfig = {
     { name: "name", type: "text", required: true, unique: true, maxLength: 60 },
     slugField,
   ],
-  hooks: {
+  hooks: purgeOnChange(PUBLIC_TAGS.tags, {
     beforeValidate: [fillSlug("tags")],
     beforeDelete: [keepWhileUsedByTopics("tags", "tag")],
     ...auditHooks({
@@ -33,5 +34,5 @@ export const Tags: CollectionConfig = {
       action: "tag",
       snapshot: (doc) => ({ name: doc.name, slug: doc.slug }),
     }),
-  },
+  }),
 };

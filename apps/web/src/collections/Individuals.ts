@@ -227,6 +227,8 @@ export const Individuals: CollectionConfig = {
       type: "checkbox",
       virtual: true,
       admin: {
+        // Payload makes virtual fields read-only unless told otherwise.
+        readOnly: false,
         components: {
           Field: "/components/admin/PossibleDuplicates#PossibleDuplicates",
         },

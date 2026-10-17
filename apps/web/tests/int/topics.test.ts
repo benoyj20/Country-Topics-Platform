@@ -131,6 +131,22 @@ describe("topic drafts", () => {
 });
 
 describe("publishing a topic", () => {
+  it("lets admins type a change note in the panel, at most 500 characters", async () => {
+    // Payload makes virtual fields read-only in the admin panel by default.
+    const note = payload.collections.topics.config.fields.find(
+      (field) => "name" in field && field.name === "changeNote",
+    );
+    expect(note).toMatchObject({ admin: { readOnly: false } });
+
+    const draft = await createDraft({
+      title: "Fictional topic with a long note",
+    });
+    await publish(draft.id, publishable(draft.title));
+    await expect(
+      publish(draft.id, { summary: "Changed.", changeNote: "x".repeat(501) }),
+    ).rejects.toMatchObject(fieldError("changeNote"));
+  });
+
   it("requires a summary, text in the body, a country, and safe links", async () => {
     const draft = await createDraft({ title: "Fictional incomplete topic" });
 

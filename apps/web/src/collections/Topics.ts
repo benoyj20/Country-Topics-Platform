@@ -737,7 +737,16 @@ export const Topics: CollectionConfig = {
       virtual: true,
       hooks: { afterRead: [() => null] },
       maxLength: CHANGE_NOTE_MAX_LENGTH,
+      // Payload makes virtual fields read-only and skips their checks unless
+      // told otherwise, so both are set here.
+      validate: (value: unknown) =>
+        value === null ||
+        value === undefined ||
+        (typeof value === "string" && value.length <= CHANGE_NOTE_MAX_LENGTH)
+          ? true
+          : `Keep the note to ${CHANGE_NOTE_MAX_LENGTH} characters.`,
       admin: {
+        readOnly: false,
         position: "sidebar",
         description:
           "Required when publishing changes to a published topic. Shown in its public change log.",

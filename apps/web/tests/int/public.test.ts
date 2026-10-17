@@ -390,7 +390,7 @@ describe("individual pages", () => {
     expect(await loadIndividualPage(unnamedWithPhoto.slug)).toBeNull();
   });
 
-  it("show who the person is, but not the bio or country roles without sources", async () => {
+  it("show who the person is, and never the bio or country roles", async () => {
     const page = await loadIndividualPage(subject.slug);
     expect(page).toMatchObject({
       name: "TEST Public Subject",
@@ -399,7 +399,7 @@ describe("individual pages", () => {
       links: [{ label: "Official page", url: "https://example.org/subject" }],
       photo: null,
     });
-    expect(page?.backed).toBeNull();
+    expect(page?.statements).toEqual([]);
     expect(JSON.stringify(page)).not.toContain("TEST bio");
     expect((await loadIndividualPage(portrayed.slug))?.photo?.url).toBe(
       `/files/${photo.id}`,
@@ -572,75 +572,172 @@ describe("saves that do not publish", () => {
   });
 });
 
-describe("profile sources", () => {
-  it("show the bio and country roles only while every cited source is confirmed", async () => {
-    const source = await payload.create({
+describe("profile statements", () => {
+  it("are shown one by one, each only with its own evidence and confirmed sources", async () => {
+    const statementFile = await upload(
+      "statement.pdf",
+      "application/pdf",
+      PDF_BYTES,
+    );
+    const confirmed = await confirmedReference(
+      "https://example.org/statement-1",
+    );
+    const pending = await payload.create({
       collection: "references",
       data: {
-        title: "TEST profile source",
+        title: "TEST statement source",
         kind: "web_page",
-        url: "https://example.org/profile-source",
+        url: "https://example.org/statement-2",
         checkStatus: "pending",
       },
       user: admin,
       overrideAccess: false,
+    });
+    // Its video is never confirmed, so a statement relying on it stays hidden.
+    const unchecked = await payload.create({
+      collection: "snippets",
+      data: {
+        caption: "TEST unchecked clip",
+        youtubeId: "TESTpubl002",
+        startS: 1,
+        endS: 5,
+        language: "en",
+        transcriptTimebase: "video",
+      },
+      user: admin,
+      overrideAccess: false,
+    });
+    const source = (reference: string) => ({
+      reference,
+      passage: "TEST quoted passage",
+      locator: "p. 1",
     });
     await payload.update({
       collection: "individuals",
       id: subject.id,
       data: {
         countries: [{ country: kenya, role: "TEST role", startDate: "2019" }],
-        sources: [
+        statements: [
           {
-            reference: source.id,
-            passage: "TEST quoted passage",
-            locator: "p. 1",
+            text: "TEST statement with a document",
+            evidence: [
+              {
+                kind: "document",
+                title: "TEST document",
+                file: statementFile.id,
+              },
+            ],
+            sources: [source(pending.id)],
+          },
+          {
+            text: "TEST statement without evidence",
+            evidence: [],
+            sources: [source(confirmed.id)],
+          },
+          {
+            text: "TEST statement without sources",
+            evidence: [
+              {
+                kind: "link",
+                title: "TEST page",
+                url: "https://example.org/s",
+              },
+            ],
+            sources: [],
+          },
+          {
+            text: "TEST statement on an unchecked video",
+            evidence: [{ kind: "snippet", snippet: unchecked.id }],
+            sources: [source(confirmed.id)],
           },
         ],
       },
       user: admin,
       overrideAccess: false,
     });
-    // Cited but still being checked: nothing more is shown.
-    expect((await loadIndividualPage(subject.slug))?.backed).toBeNull();
+    // The one complete statement waits for its source to be confirmed.
+    expect((await loadIndividualPage(subject.slug))?.statements).toEqual([]);
+    expect(await loadPublicFile(statementFile.id)).toBeNull();
 
-    await runReferenceCheck(payload, worker.store, source.id);
-    expect((await loadIndividualPage(subject.slug))?.backed).toEqual({
-      bio: "TEST bio that cites no evidence",
-      countries: [
-        {
-          country: { name: "Kenya", slug: kenyaSlug },
-          role: "TEST role",
-          startDate: "2019",
-          endDate: null,
-        },
-      ],
-      sources: [
-        expect.objectContaining({
-          passage: "TEST quoted passage",
-          locator: "p. 1",
-          reference: expect.objectContaining({ title: "TEST profile source" }),
-        }),
-      ],
-    });
+    await runReferenceCheck(payload, worker.store, pending.id);
+    const page = await loadIndividualPage(subject.slug);
+    expect(page?.statements).toEqual([
+      {
+        text: "TEST statement with a document",
+        evidence: [
+          expect.objectContaining({
+            kind: "document",
+            file: expect.objectContaining({
+              url: `/files/${statementFile.id}`,
+            }),
+          }),
+        ],
+        sources: [
+          {
+            passage: "TEST quoted passage",
+            locator: "p. 1",
+            reference: expect.objectContaining({
+              title: "TEST statement source",
+            }),
+          },
+        ],
+      },
+    ]);
+    // Notes for staff stay private, backed statements or not.
+    expect(JSON.stringify(page)).not.toContain("TEST bio");
+    expect(JSON.stringify(page)).not.toContain("TEST role");
+    expect(await loadPublicFile(statementFile.id)).not.toBeNull();
 
-    // A cited reference stays; editing it withdraws the profile until it is
-    // confirmed again.
-    await expect(
-      payload.delete({
-        collection: "references",
-        id: source.id,
-        user: admin,
-        overrideAccess: false,
-      }),
-    ).rejects.toMatchObject({ status: 409 });
+    // What a shown statement cites stays; editing its reference hides the
+    // statement, and its file, until the reference is confirmed again.
+    for (const [collection, id] of [
+      ["references", pending.id],
+      ["media", statementFile.id],
+    ] as const) {
+      await expect(
+        payload.delete({ collection, id, user: admin, overrideAccess: false }),
+      ).rejects.toMatchObject({ status: 409 });
+    }
     await payload.update({
       collection: "references",
-      id: source.id,
-      data: { url: "https://example.org/profile-source-moved" },
+      id: pending.id,
+      data: { url: "https://example.org/statement-2-moved" },
       user: admin,
       overrideAccess: false,
     });
-    expect((await loadIndividualPage(subject.slug))?.backed).toBeNull();
+    expect((await loadIndividualPage(subject.slug))?.statements).toEqual([]);
+    expect(await loadPublicFile(statementFile.id)).toBeNull();
+  });
+
+  it("do not make files public on a profile no published topic shows", async () => {
+    const hiddenFile = await upload(
+      "hidden-statement.pdf",
+      "application/pdf",
+      PDF_BYTES,
+    );
+    const confirmed = await confirmedReference(
+      "https://example.org/statement-3",
+    );
+    await payload.update({
+      collection: "individuals",
+      id: draftOnly.id,
+      data: {
+        statements: [
+          {
+            text: "TEST statement on a private profile",
+            evidence: [
+              { kind: "document", title: "TEST document", file: hiddenFile.id },
+            ],
+            sources: [
+              { reference: confirmed.id, passage: "TEST quoted passage" },
+            ],
+          },
+        ],
+      },
+      user: admin,
+      overrideAccess: false,
+    });
+    expect(await loadIndividualPage(draftOnly.slug)).toBeNull();
+    expect(await loadPublicFile(hiddenFile.id)).toBeNull();
   });
 });

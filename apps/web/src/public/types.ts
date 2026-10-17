@@ -101,12 +101,11 @@ export type ProfileSource = {
   reference: PublicReference;
 };
 
-export type CountryRole = {
-  country: CountryLink;
-  role: string | null;
-  /** Partial dates: YYYY, YYYY-MM, or YYYY-MM-DD. */
-  startDate: string | null;
-  endDate: string | null;
+/** A statement on a profile, with the evidence and sources that back it. */
+export type ProfileStatement = {
+  text: string;
+  evidence: PublicEvidence[];
+  sources: ProfileSource[];
 };
 
 export type TopicChangeEntry = {
@@ -135,15 +134,8 @@ export type IndividualPage = {
   photo: PublicFile | null;
   links: { label: string; url: string }[];
   wikidataId: string | null;
-  /**
-   * The profile's own statements and the sources behind them: present only
-   * while every cited source is confirmed (profileIsBacked), else null.
-   */
-  backed: {
-    bio: string | null;
-    countries: CountryRole[];
-    sources: ProfileSource[];
-  } | null;
+  /** The profile's statements that are backed; the others are left out. */
+  statements: ProfileStatement[];
   topics: LimitedList<TopicSummary>;
 };
 

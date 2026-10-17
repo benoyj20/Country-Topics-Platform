@@ -342,7 +342,7 @@ export const References: CollectionConfig = {
     beforeDelete: [
       keepWhileUsed("reference", [
         { collection: "topics", field: "references.reference" },
-        { collection: "individuals", field: "sources.reference" },
+        { collection: "individuals", field: "statements.sources.reference" },
       ]),
     ],
     beforeChange: [markForCheck],

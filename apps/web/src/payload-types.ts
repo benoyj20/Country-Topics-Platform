@@ -328,7 +328,7 @@ export interface Individual {
    */
   summary?: string | null;
   /**
-   * Countries this person is linked to, their role there, and when. Shown on the public profile only while the profile cites at least one source below and every cited reference is confirmed.
+   * Countries this person is linked to, their role there, and when. Seen by staff only; to say a role on the public profile, add it as a statement below, with its evidence and sources.
    */
   countries?:
     | {
@@ -347,20 +347,56 @@ export interface Individual {
    */
   photo?: (string | null) | Media;
   /**
-   * Plain text. Keep to what the sources below support. Shown on the public profile only while the profile cites at least one source below and every cited reference is confirmed.
+   * Notes for staff, never shown publicly. What the public profile says goes under Statements, each with its evidence and sources.
    */
   bio?: string | null;
   /**
-   * References that support the bio and the country roles, each with the passage that does. Until every one is confirmed, the public profile shows only the name, description, photo, links, and topics.
+   * What the public profile says about this person, one fact per statement. Each statement is shown only with its own evidence and sources, every source confirmed and every video found playable; until then it stays hidden, and the others are still shown.
    */
-  sources?:
+  statements?:
     | {
-        reference: string | Reference;
         /**
-         * The words in the reference that support the profile, quoted exactly.
+         * One fact, such as 'Minister of Finance from May 2019 to March 2022.' Say only what the evidence and sources below show.
          */
-        passage: string;
-        locator?: string | null;
+        text: string;
+        /**
+         * What shows the statement is true: an official document, an archived web page, a photo, or a video snippet. At least one.
+         */
+        evidence?:
+          | {
+              kind: 'document' | 'image' | 'link' | 'snippet';
+              /**
+               * Such as 'Ministry press release, 3 May 2024'. Optional for snippets, which show their caption.
+               */
+              title?: string | null;
+              file?: (string | null) | Media;
+              /**
+               * A clip of a YouTube video with its transcript, made under Snippets.
+               */
+              snippet?: (string | null) | Snippet;
+              url?: string | null;
+              /**
+               * Optional, such as an archive.today link, when the Wayback Machine cannot copy the page.
+               */
+              archiveUrl?: string | null;
+              note?: string | null;
+              id?: string | null;
+            }[]
+          | null;
+        /**
+         * References that support the statement, each with the passage that does. At least one, all confirmed.
+         */
+        sources?:
+          | {
+              reference: string | Reference;
+              /**
+               * The words in the reference that support the statement, quoted exactly.
+               */
+              passage: string;
+              locator?: string | null;
+              id?: string | null;
+            }[]
+          | null;
         id?: string | null;
       }[]
     | null;
@@ -422,37 +458,6 @@ export interface Media {
   height?: number | null;
   focalX?: number | null;
   focalY?: number | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "references".
- */
-export interface Reference {
-  id: string;
-  doi?: string | null;
-  isbn?: string | null;
-  /**
-   * Where to read it: the publisher's page or the report itself. Needed when there is no DOI or ISBN.
-   */
-  url?: string | null;
-  kind: 'article' | 'book' | 'chapter' | 'report' | 'web_page' | 'dataset' | 'other';
-  publishedDate?: string | null;
-  title: string;
-  /**
-   * One per line, as printed.
-   */
-  authors?: string | null;
-  containerTitle?: string | null;
-  publisher?: string | null;
-  /**
-   * Whether the DOI, ISBN, and link exist. Topics cite only confirmed references when published. Save again to retry a check.
-   */
-  checkStatus: 'pending' | 'resolved' | 'not_found' | 'failed';
-  checkMessage?: string | null;
-  checkedAt?: string | null;
-  checkRequestedAt?: string | null;
-  updatedAt: string;
-  createdAt: string;
 }
 /**
  * Clips of YouTube videos with what is said in them. Topics use them as evidence.
@@ -517,6 +522,37 @@ export interface Video {
    * Snippets back published topics only once their video was found playable.
    */
   confirmedAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "references".
+ */
+export interface Reference {
+  id: string;
+  doi?: string | null;
+  isbn?: string | null;
+  /**
+   * Where to read it: the publisher's page or the report itself. Needed when there is no DOI or ISBN.
+   */
+  url?: string | null;
+  kind: 'article' | 'book' | 'chapter' | 'report' | 'web_page' | 'dataset' | 'other';
+  publishedDate?: string | null;
+  title: string;
+  /**
+   * One per line, as printed.
+   */
+  authors?: string | null;
+  containerTitle?: string | null;
+  publisher?: string | null;
+  /**
+   * Whether the DOI, ISBN, and link exist. Topics cite only confirmed references when published. Save again to retry a check.
+   */
+  checkStatus: 'pending' | 'resolved' | 'not_found' | 'failed';
+  checkMessage?: string | null;
+  checkedAt?: string | null;
+  checkRequestedAt?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -921,12 +957,30 @@ export interface IndividualsSelect<T extends boolean = true> {
       };
   photo?: T;
   bio?: T;
-  sources?:
+  statements?:
     | T
     | {
-        reference?: T;
-        passage?: T;
-        locator?: T;
+        text?: T;
+        evidence?:
+          | T
+          | {
+              kind?: T;
+              title?: T;
+              file?: T;
+              snippet?: T;
+              url?: T;
+              archiveUrl?: T;
+              note?: T;
+              id?: T;
+            };
+        sources?:
+          | T
+          | {
+              reference?: T;
+              passage?: T;
+              locator?: T;
+              id?: T;
+            };
         id?: T;
       };
   links?:

@@ -99,6 +99,7 @@ export const Media: CollectionConfig = {
       keepWhileUsed("file", [
         { collection: "topics", field: "evidence.file" },
         { collection: "individuals", field: "photo" },
+        { collection: "individuals", field: "statements.evidence.file" },
       ]),
     ],
     ...auditHooks({

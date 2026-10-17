@@ -100,7 +100,7 @@ export function ReferenceList({
   );
 }
 
-/** The references a profile cites for the bio and roles, with their passages. */
+/** The references a profile statement cites, with their passages. */
 export function SourceList({ sources }: { sources: ProfileSource[] }) {
   return (
     <ol className={styles.list}>

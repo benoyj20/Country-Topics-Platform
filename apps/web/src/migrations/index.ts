@@ -11,7 +11,7 @@ import * as migration_20261015_033825_evidence_and_references from './20261015_0
 import * as migration_20261017_025328_snippets_and_videos from './20261017_025328_snippets_and_videos';
 import * as migration_20261017_035339_check_requests from './20261017_035339_check_requests';
 import * as migration_20261017_050139_linked_individuals from './20261017_050139_linked_individuals';
-import * as migration_20261017_060916_profile_sources from './20261017_060916_profile_sources';
+import * as migration_20261017_063102_profile_statements from './20261017_063102_profile_statements';
 
 export const migrations = [
   {
@@ -80,8 +80,8 @@ export const migrations = [
     name: '20261017_050139_linked_individuals',
   },
   {
-    up: migration_20261017_060916_profile_sources.up,
-    down: migration_20261017_060916_profile_sources.down,
-    name: '20261017_060916_profile_sources'
+    up: migration_20261017_063102_profile_statements.up,
+    down: migration_20261017_063102_profile_statements.down,
+    name: '20261017_063102_profile_statements'
   },
 ];

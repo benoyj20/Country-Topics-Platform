@@ -222,8 +222,9 @@ See [ADR 0003](adr/0003-countries-and-individuals.md) for the design.
   names, aliases, descriptions, offices, and dates taken from Wikidata
   (2026-10-14).
 - [x] Public pages for countries and individuals came in week 7 (below);
-  profiles show who a person is and the topics that name them, and the bio
-  and country roles only while confirmed sources back them.
+  profiles show who a person is, the topics that name them, and only the
+  profile statements that carry their own evidence and confirmed sources;
+  the bio and country roles are staff notes.
 
 ### Week 4: topics, workflow, versions, change log
 
@@ -442,11 +443,15 @@ See [ADR 0007](adr/0007-public-pages-and-caching.md) for the design.
   transcript text outside the clip, staff email, or later draft; links in a
   topic's text to a draft topic become plain text (integration tests,
   2026-10-17).
-- [x] Profile sources: the bio and country roles appear, with the sources and
-  their passages, only while the profile cites at least one source and every
-  cited reference is confirmed; a source still being checked hides them, and
-  so does editing a confirmed one; a cited reference cannot be deleted (409)
-  (integration and unit tests, 2026-10-17).
+- [x] Profile statements: each is shown only with its own evidence and its
+  own sources, every source confirmed and every snippet's video found
+  playable; a statement without evidence, without sources, with a source
+  still being checked, or with an unchecked video is left out while the
+  others show; editing a confirmed source hides its statement again; the
+  bio and country roles never appear; evidence and references a statement
+  uses cannot be deleted (409); a statement's file is public only while the
+  statement is shown on a public profile (integration and unit tests,
+  2026-10-17).
 - [x] Topics record the individuals their text links to, on every save and,
   by the migration, for existing topics and versions; such an individual
   cannot be deleted (409). On the test database the migration's statements
@@ -470,7 +475,7 @@ See [ADR 0007](adr/0007-public-pages-and-caching.md) for the design.
   2026-10-17).
 - [x] The guard tests failed when the published filter, the purge on
   publish, the recording of body links, the speaker rule, the draft rule,
-  and the profile source rule were removed (2026-10-17).
+  and the profile statement rule were removed (2026-10-17).
 - [x] Real browser and HTTP (headless Edge and `fetch`, production build on
   the test database, the worker running against it with the YouTube key):
   topic, home, country, and individual pages answered 200 with
@@ -481,8 +486,9 @@ See [ADR 0007](adr/0007-public-pages-and-caching.md) for the design.
   gave 404; no staff email in the pages. Publishing a new title showed it on
   the topic page and the home page on the next request, with the change
   note; a draft save did not change the page; editing the individual's
-  summary showed on their page; their bio and role appeared only after a
-  confirmed source was added, under "Sources for this profile". No YouTube script or player before a click,
+  summary showed on their page; a profile statement appeared only once it
+  had evidence and a confirmed source, with both under "Evidence and
+  sources". No YouTube script or player before a click,
   then the privacy-enhanced player; the header said "Your account" when
   signed in and "Sign in" after clearing cookies; at 390 px the topic, home,
   country, and individual pages had no horizontal scroll; no browser errors

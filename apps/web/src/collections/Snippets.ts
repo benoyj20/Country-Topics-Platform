@@ -27,7 +27,13 @@ import { PUBLIC_TAGS, purgeOnChange } from "@/public-cache";
 import { lockForTransaction } from "@/transaction-lock";
 
 import { refuse } from "./refuse";
-import { isUsed, keepWhileUsedByTopics } from "./topic-references";
+import { isUsed, keepWhileUsed, type Usage } from "./topic-references";
+
+/** Where snippets are used as evidence. */
+const SNIPPET_USES: Usage[] = [
+  { collection: "topics", field: "evidence.snippet" },
+  { collection: "individuals", field: "statements.evidence.snippet" },
+];
 
 /** A video is asked about again when a snippet of it is saved this long after. */
 const VIDEO_RECHECK_AFTER_MS = 24 * 60 * 60 * 1000;
@@ -146,16 +152,14 @@ const prepareSnippet: CollectionBeforeChangeHook = async ({
     if (
       stored &&
       stored.youtubeId !== youtubeId &&
-      (await isUsed(req, stored.id, [
-        { collection: "topics", field: "evidence.snippet" },
-      ]))
+      (await isUsed(req, stored.id, SNIPPET_USES))
     ) {
       refuse(
         "snippets",
         req,
         "youtubeId",
         "YouTube video",
-        "Topics use this snippet, so its video cannot change. Make a new snippet for the other video.",
+        "Topics or profiles use this snippet as evidence, so its video cannot change. Make a new snippet for the other video.",
       );
     }
     const video = await videoFor(req, youtubeId);
@@ -493,7 +497,7 @@ export const Snippets: CollectionConfig = {
     },
   ],
   hooks: purgeOnChange(PUBLIC_TAGS.snippets, {
-    beforeDelete: [keepWhileUsedByTopics("evidence.snippet", "snippet")],
+    beforeDelete: [keepWhileUsed("snippet", SNIPPET_USES)],
     beforeChange: [prepareSnippet],
     afterChange: [checkVideo, ...audit.afterChange],
     afterDelete: audit.afterDelete,

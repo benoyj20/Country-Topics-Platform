@@ -1,4 +1,4 @@
-import { profileIsBacked } from "@countrytopics/domain";
+import { type SnippetEvidence, statementIsBacked } from "@countrytopics/domain";
 import type { Payload, Where } from "payload";
 
 import { relationId } from "@/audit";
@@ -23,6 +23,7 @@ import type {
   IndividualLink,
   IndividualPage,
   LimitedList,
+  ProfileStatement,
   PublicEvidence,
   PublicFile,
   PublicReference,
@@ -41,9 +42,11 @@ import type {
 //   later draft. Archived topics keep their page but leave every list.
 // - An individual is public while a published topic names them: in its list
 //   of people, by a link in its text, or as the speaker of a snippet it uses
-//   as evidence. Their page shows who they are and those topics, and the bio
-//   and country roles only while the profile cites sources that are all
-//   confirmed (profileIsBacked, ADR 0007).
+//   as evidence. Their page shows who they are, those topics, and only the
+//   profile statements that carry their own evidence and confirmed sources
+//   (statementIsBacked, ADR 0007). The bio and country roles are staff notes.
+// - A file is also public while it is evidence for a statement shown on a
+//   public individual's profile.
 // - A file is public while a published topic uses it as evidence, or it is
 //   the photo of a public individual.
 
@@ -259,15 +262,24 @@ type SnippetFields = Pick<
 >;
 type VideoFields = Pick<
   Video,
-  "id" | "title" | "channel" | "checkStatus" | "checkMessage"
+  | "id"
+  | "title"
+  | "channel"
+  | "checkStatus"
+  | "checkMessage"
+  | "confirmedAt"
+  | "durationS"
 >;
+
+/** A snippet as visitors see it, and the facts the evidence rule checks. */
+type ResolvedSnippet = { snippet: PublicSnippet; check: SnippetEvidence };
 
 const UNAVAILABLE_MESSAGE = "YouTube no longer plays this video here.";
 
 async function snippetsById(
   payload: Payload,
   idList: string[],
-): Promise<Map<string, PublicSnippet>> {
+): Promise<Map<string, ResolvedSnippet>> {
   if (idList.length === 0) return new Map();
   const { docs } = await payload.find({
     collection: "snippets",
@@ -298,6 +310,8 @@ async function snippetsById(
             channel: true,
             checkStatus: true,
             checkMessage: true,
+            confirmedAt: true,
+            durationS: true,
           },
           depth: 0,
           pagination: false,
@@ -320,9 +334,8 @@ async function snippetsById(
       const gone =
         video?.checkStatus === "unavailable" ||
         video?.checkStatus === "not_embeddable";
-      return [
-        String(snippet.id),
-        {
+      const resolved: ResolvedSnippet = {
+        snippet: {
           youtubeId: snippet.youtubeId,
           start_s: snippet.startS,
           end_s: snippet.endS,
@@ -340,15 +353,34 @@ async function snippetsById(
             ? (video?.checkMessage ?? UNAVAILABLE_MESSAGE)
             : null,
         },
-      ];
+        check: {
+          caption: snippet.caption,
+          end_s: snippet.endS,
+          video: video
+            ? {
+                checkStatus: video.checkStatus,
+                confirmed: Boolean(video.confirmedAt),
+                duration_s: video.durationS ?? null,
+              }
+            : null,
+        },
+      };
+      return [String(snippet.id), resolved];
     }),
   );
 }
 
-async function evidenceOf(
+type EvidenceRow = NonNullable<Topic["evidence"]>[number];
+
+/**
+ * Each evidence row as visitors see it, in the same positions: null for a
+ * row whose file or snippet is gone. Snippet rows also carry what the
+ * evidence rule checks.
+ */
+async function resolveEvidence(
   payload: Payload,
-  evidence: NonNullable<Topic["evidence"]>,
-): Promise<PublicEvidence[]> {
+  evidence: EvidenceRow[],
+): Promise<{ item: PublicEvidence | null; check: SnippetEvidence | null }[]> {
   const urls = evidence.flatMap((row) =>
     row.kind === "link" && row.url ? [row.url] : [],
   );
@@ -377,17 +409,22 @@ async function evidenceOf(
       .map((doc) => [doc.url, doc]),
   );
 
-  return evidence.flatMap((row): PublicEvidence[] => {
+  return evidence.map((row) => {
     const base = { title: row.title || null, note: row.note || null };
     if (row.kind === "snippet") {
-      const snippet = snippets.get(relationId(row.snippet) ?? "");
-      return snippet ? [{ ...base, kind: "snippet", snippet }] : [];
+      const found = snippets.get(relationId(row.snippet) ?? "");
+      return found
+        ? {
+            item: { ...base, kind: "snippet", snippet: found.snippet },
+            check: found.check,
+          }
+        : { item: null, check: null };
     }
     if (row.kind === "link") {
-      if (!row.url) return [];
+      if (!row.url) return { item: null, check: null };
       const archive = archives.get(row.url);
-      return [
-        {
+      return {
+        item: {
           ...base,
           kind: "link",
           url: row.url,
@@ -399,12 +436,25 @@ async function evidenceOf(
             : null,
           otherArchiveUrl: row.archiveUrl || null,
         },
-      ];
+        check: null,
+      };
     }
     const media = files.get(relationId(row.file) ?? "");
     const file = media ? publicFile(media) : null;
-    return file ? [{ ...base, kind: row.kind, file }] : [];
+    return {
+      item: file ? { ...base, kind: row.kind, file } : null,
+      check: null,
+    };
   });
+}
+
+async function evidenceOf(
+  payload: Payload,
+  evidence: EvidenceRow[],
+): Promise<PublicEvidence[]> {
+  return (await resolveEvidence(payload, evidence)).flatMap(({ item }) =>
+    item ? [item] : [],
+  );
 }
 
 function publicReference(reference: Reference): PublicReference {
@@ -623,10 +673,83 @@ type IndividualFields = Pick<
   | "photo"
   | "links"
   | "wikidataId"
-  | "bio"
-  | "countries"
-  | "sources"
+  | "statements"
 >;
+
+type WithStatements = Pick<Individual, "id" | "statements">;
+
+/**
+ * The statements on individuals' profiles that visitors may see, by
+ * individual: each must carry its own evidence and sources and pass the
+ * topic publishing check (statementIsBacked). The others are left out one by
+ * one. Every individual's evidence and references load in one batch.
+ */
+async function backedStatements(
+  payload: Payload,
+  individuals: WithStatements[],
+): Promise<Map<string, ProfileStatement[]>> {
+  const statements = individuals.flatMap((individual) =>
+    rows(individual.statements).map((statement) => ({
+      owner: String(individual.id),
+      statement,
+    })),
+  );
+  const evidenceRows = statements.flatMap(({ statement }) =>
+    rows(statement.evidence),
+  );
+  const [resolved, references] = await Promise.all([
+    resolveEvidence(payload, evidenceRows),
+    referencesById(
+      payload,
+      ids(
+        statements.flatMap(({ statement }) =>
+          rows(statement.sources).map((source) => source.reference),
+        ),
+      ),
+    ),
+  ]);
+
+  const result = new Map<string, ProfileStatement[]>(
+    individuals.map((individual) => [String(individual.id), []]),
+  );
+  let position = 0;
+  for (const { owner, statement } of statements) {
+    const evidence = resolved.slice(
+      position,
+      position + rows(statement.evidence).length,
+    );
+    position += evidence.length;
+    const cited = rows(statement.sources).map((source) => ({
+      source,
+      reference: references.get(relationId(source.reference) ?? ""),
+    }));
+    const backed = statementIsBacked({
+      evidenceCount: evidence.filter(({ item }) => item).length,
+      references: cited.map(({ reference }) => ({
+        title: reference?.title ?? "Unknown reference",
+        checkStatus: reference?.checkStatus ?? null,
+      })),
+      snippets: evidence.flatMap(({ check }) => (check ? [check] : [])),
+    });
+    if (!backed) continue;
+    result.get(owner)?.push({
+      text: statement.text,
+      evidence: evidence.flatMap(({ item }) => (item ? [item] : [])),
+      sources: cited.flatMap(({ source, reference }) =>
+        reference
+          ? [
+              {
+                passage: source.passage,
+                locator: source.locator || null,
+                reference: publicReference(reference),
+              },
+            ]
+          : [],
+      ),
+    });
+  }
+  return result;
+}
 
 /** A public individual's page, or null when no public individual has the slug. */
 export async function loadIndividualPage(
@@ -644,9 +767,7 @@ export async function loadIndividualPage(
       photo: true,
       links: true,
       wikidataId: true,
-      bio: true,
-      countries: true,
-      sources: true,
+      statements: true,
     },
     limit: 1,
     pagination: false,
@@ -658,24 +779,12 @@ export async function loadIndividualPage(
   const naming = await namingTopics(payload, [String(individual.id)]);
   if (!(await anyNamed(payload, naming))) return null;
 
-  const sources = rows(individual.sources);
-  const roles = rows(individual.countries);
-  const [photos, topics, references, countries] = await Promise.all([
+  const [photos, topics, statements] = await Promise.all([
     byId<Media>(payload, "media", ids([individual.photo]), FILE_FIELDS),
     topicList(payload, naming, TOPIC_LIST_LIMIT),
-    referencesById(payload, ids(sources.map((row) => row.reference))),
-    countryLinks(payload, ids(roles.map((row) => row.country))),
+    backedStatements(payload, [individual]),
   ]);
   const photo = photos.get(relationId(individual.photo) ?? "");
-  const cited = sources.map((row) => ({
-    row,
-    reference: references.get(relationId(row.reference) ?? ""),
-  }));
-  const backed = profileIsBacked(
-    cited.map(({ reference }) => ({
-      checkStatus: reference?.checkStatus ?? null,
-    })),
-  );
   return {
     name: individual.name,
     slug: individual.slug,
@@ -684,35 +793,7 @@ export async function loadIndividualPage(
     photo: photo ? publicFile(photo) : null,
     links: rows(individual.links).map(({ label, url }) => ({ label, url })),
     wikidataId: individual.wikidataId ?? null,
-    backed: backed
-      ? {
-          bio: individual.bio || null,
-          countries: roles.flatMap((row) => {
-            const country = countries.get(relationId(row.country) ?? "");
-            return country
-              ? [
-                  {
-                    country,
-                    role: row.role || null,
-                    startDate: row.startDate || null,
-                    endDate: row.endDate || null,
-                  },
-                ]
-              : [];
-          }),
-          sources: cited.flatMap(({ row, reference }) =>
-            reference
-              ? [
-                  {
-                    passage: row.passage,
-                    locator: row.locator || null,
-                    reference: publicReference(reference),
-                  },
-                ]
-              : [],
-          ),
-        }
-      : null,
+    statements: statements.get(String(individual.id)) ?? [],
     topics,
   };
 }
@@ -825,6 +906,35 @@ export async function loadPublicFile(
     overrideAccess: true,
   });
   let isPublic = evidence.totalDocs > 0;
+  if (!isPublic) {
+    // Evidence in a profile statement counts only while that statement is
+    // shown: backed, on the profile of a public individual. Filtering to
+    // the individuals with such a statement first lets one query ask
+    // whether any of them is public.
+    const { docs: citing } = await payload.find({
+      collection: "individuals",
+      where: { "statements.evidence.file": { equals: id } },
+      select: { statements: true },
+      depth: 0,
+      pagination: false,
+      overrideAccess: true,
+    });
+    const shown = await backedStatements(payload, citing as WithStatements[]);
+    const showing = [...shown]
+      .filter(([, statements]) =>
+        statements.some((statement) =>
+          statement.evidence.some(
+            (item) =>
+              (item.kind === "image" || item.kind === "document") &&
+              item.file.url === `/files/${id}`,
+          ),
+        ),
+      )
+      .map(([individualId]) => individualId);
+    isPublic =
+      showing.length > 0 &&
+      (await anyNamed(payload, await namingTopics(payload, showing)));
+  }
   if (!isPublic) {
     const { docs: portrayed } = await payload.find({
       collection: "individuals",

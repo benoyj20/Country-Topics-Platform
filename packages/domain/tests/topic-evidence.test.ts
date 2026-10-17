@@ -3,8 +3,8 @@ import { describe, it } from "node:test";
 
 import {
   evidenceProblems,
-  profileIsBacked,
   referenceCheckResult,
+  statementIsBacked,
   type SnippetEvidence,
   type TopicEvidence,
 } from "../src/topic-evidence.ts";
@@ -155,30 +155,46 @@ describe("referenceCheckResult", () => {
   });
 });
 
-describe("profileIsBacked", () => {
-  it("needs at least one source, every one confirmed", () => {
-    assert.equal(profileIsBacked([]), false);
-    assert.equal(profileIsBacked([{ checkStatus: "resolved" }]), true);
+describe("statementIsBacked", () => {
+  const confirmed = { title: "R", checkStatus: "resolved" as const };
+  const statement = (overrides: Partial<TopicEvidence>) => ({
+    evidenceCount: 1,
+    references: [confirmed],
+    snippets: [],
+    ...overrides,
+  });
+
+  it("needs evidence and a reference, every reference confirmed", () => {
+    assert.equal(statementIsBacked(statement({})), true);
+    assert.equal(statementIsBacked(statement({ evidenceCount: 0 })), false);
+    assert.equal(statementIsBacked(statement({ references: [] })), false);
     assert.equal(
-      profileIsBacked([
-        { checkStatus: "resolved" },
-        { checkStatus: "resolved" },
-      ]),
-      true,
+      statementIsBacked(
+        statement({
+          references: [confirmed, { title: "S", checkStatus: "pending" }],
+        }),
+      ),
+      false,
     );
   });
 
-  it("is withdrawn while any source is unconfirmed", () => {
-    for (const checkStatus of [
-      "pending",
-      "not_found",
-      "failed",
-      null,
-    ] as const) {
-      assert.equal(
-        profileIsBacked([{ checkStatus: "resolved" }, { checkStatus }]),
-        false,
-      );
-    }
+  it("needs every snippet's video to have been found playable", () => {
+    const snippet = (confirmedVideo: boolean): SnippetEvidence => ({
+      caption: "C",
+      end_s: 10,
+      video: {
+        checkStatus: confirmedVideo ? "playable" : "pending",
+        confirmed: confirmedVideo,
+        duration_s: 60,
+      },
+    });
+    assert.equal(
+      statementIsBacked(statement({ snippets: [snippet(true)] })),
+      true,
+    );
+    assert.equal(
+      statementIsBacked(statement({ snippets: [snippet(false)] })),
+      false,
+    );
   });
 });

@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  formatDate,
-  formatFileSize,
-  formatPartialDate,
-  formatPeriod,
-} from "@/public/format";
+import { formatDate, formatFileSize, formatPartialDate } from "@/public/format";
 
 describe("formatDate", () => {
   it("shows the day in UTC, whatever the server's time zone", () => {
@@ -35,14 +30,5 @@ describe("formatFileSize", () => {
     expect(formatFileSize(10)).toBe("1 KB");
     expect(formatFileSize(840 * 1024)).toBe("840 KB");
     expect(formatFileSize(2.4 * 1024 * 1024)).toBe("2.4 MB");
-  });
-});
-
-describe("formatPeriod", () => {
-  it("says what is known of a period, and nothing without dates", () => {
-    expect(formatPeriod("2019", "2022-03")).toBe("2019 to March 2022");
-    expect(formatPeriod("2019-05", null)).toBe("from May 2019");
-    expect(formatPeriod(null, "2022")).toBe("until 2022");
-    expect(formatPeriod(null, null)).toBe("");
   });
 });

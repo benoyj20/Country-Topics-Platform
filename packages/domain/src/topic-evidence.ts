@@ -216,16 +216,16 @@ export function evidenceProblems(topic: TopicEvidence): EvidenceProblem[] {
 }
 
 /**
- * Whether a profile's own statements about a person (the bio and country
- * roles) may be shown publicly: it cites at least one source, and every cited
- * reference is confirmed now. Checked on every read, since editing a
- * reference makes it "being checked" again.
+ * Whether a statement on an individual's profile may be shown publicly: it
+ * passes the same check as publishing a topic that names someone (evidence,
+ * at least one reference, every reference confirmed, every snippet's video
+ * found playable). Checked on every read, since a reference edited later is
+ * "being checked" again.
  */
-export function profileIsBacked(
-  sources: { checkStatus: ReferenceCheckStatus | null }[],
+export function statementIsBacked(
+  statement: Omit<TopicEvidence, "namesIndividuals">,
 ): boolean {
   return (
-    sources.length > 0 &&
-    sources.every((source) => source.checkStatus === "resolved")
+    evidenceProblems({ ...statement, namesIndividuals: true }).length === 0
   );
 }

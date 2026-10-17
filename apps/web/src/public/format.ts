@@ -31,16 +31,6 @@ export function formatPartialDate(value: string): string {
   return day ? DAY.format(date) : MONTH.format(date);
 }
 
-/** "2019 to 2022", "from May 2019", "until 2022", or "" without dates. */
-export function formatPeriod(start: string | null, end: string | null): string {
-  if (start && end) {
-    return `${formatPartialDate(start)} to ${formatPartialDate(end)}`;
-  }
-  if (start) return `from ${formatPartialDate(start)}`;
-  if (end) return `until ${formatPartialDate(end)}`;
-  return "";
-}
-
 const KB = 1024;
 
 /** "840 KB", "2.4 MB". */

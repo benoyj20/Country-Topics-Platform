@@ -3805,8 +3805,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.individuals_sources": {
-      "name": "individuals_sources",
+    "public.individuals_statements_evidence": {
+      "name": "individuals_statements_evidence",
       "schema": "",
       "columns": {
         "_order": {
@@ -3817,7 +3817,183 @@
         },
         "_parent_id": {
           "name": "_parent_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "enum_individuals_statements_evidence_kind",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'document'"
+        },
+        "title": {
+          "name": "title",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "file_id": {
+          "name": "file_id",
           "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "snippet_id": {
+          "name": "snippet_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "url": {
+          "name": "url",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "archive_url": {
+          "name": "archive_url",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "note": {
+          "name": "note",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "individuals_statements_evidence_order_idx": {
+          "name": "individuals_statements_evidence_order_idx",
+          "columns": [
+            {
+              "expression": "_order",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "individuals_statements_evidence_parent_id_idx": {
+          "name": "individuals_statements_evidence_parent_id_idx",
+          "columns": [
+            {
+              "expression": "_parent_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "individuals_statements_evidence_file_idx": {
+          "name": "individuals_statements_evidence_file_idx",
+          "columns": [
+            {
+              "expression": "file_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "individuals_statements_evidence_snippet_idx": {
+          "name": "individuals_statements_evidence_snippet_idx",
+          "columns": [
+            {
+              "expression": "snippet_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "individuals_statements_evidence_file_id_media_id_fk": {
+          "name": "individuals_statements_evidence_file_id_media_id_fk",
+          "tableFrom": "individuals_statements_evidence",
+          "tableTo": "media",
+          "columnsFrom": [
+            "file_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "individuals_statements_evidence_snippet_id_snippets_id_fk": {
+          "name": "individuals_statements_evidence_snippet_id_snippets_id_fk",
+          "tableFrom": "individuals_statements_evidence",
+          "tableTo": "snippets",
+          "columnsFrom": [
+            "snippet_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "individuals_statements_evidence_parent_id_fk": {
+          "name": "individuals_statements_evidence_parent_id_fk",
+          "tableFrom": "individuals_statements_evidence",
+          "tableTo": "individuals_statements",
+          "columnsFrom": [
+            "_parent_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.individuals_statements_sources": {
+      "name": "individuals_statements_sources",
+      "schema": "",
+      "columns": {
+        "_order": {
+          "name": "_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "_parent_id": {
+          "name": "_parent_id",
+          "type": "varchar",
           "primaryKey": false,
           "notNull": true
         },
@@ -3847,8 +4023,8 @@
         }
       },
       "indexes": {
-        "individuals_sources_order_idx": {
-          "name": "individuals_sources_order_idx",
+        "individuals_statements_sources_order_idx": {
+          "name": "individuals_statements_sources_order_idx",
           "columns": [
             {
               "expression": "_order",
@@ -3862,8 +4038,8 @@
           "method": "btree",
           "with": {}
         },
-        "individuals_sources_parent_id_idx": {
-          "name": "individuals_sources_parent_id_idx",
+        "individuals_statements_sources_parent_id_idx": {
+          "name": "individuals_statements_sources_parent_id_idx",
           "columns": [
             {
               "expression": "_parent_id",
@@ -3877,8 +4053,8 @@
           "method": "btree",
           "with": {}
         },
-        "individuals_sources_reference_idx": {
-          "name": "individuals_sources_reference_idx",
+        "individuals_statements_sources_reference_idx": {
+          "name": "individuals_statements_sources_reference_idx",
           "columns": [
             {
               "expression": "reference_id",
@@ -3894,9 +4070,9 @@
         }
       },
       "foreignKeys": {
-        "individuals_sources_reference_id_references_id_fk": {
-          "name": "individuals_sources_reference_id_references_id_fk",
-          "tableFrom": "individuals_sources",
+        "individuals_statements_sources_reference_id_references_id_fk": {
+          "name": "individuals_statements_sources_reference_id_references_id_fk",
+          "tableFrom": "individuals_statements_sources",
           "tableTo": "references",
           "columnsFrom": [
             "reference_id"
@@ -3907,9 +4083,91 @@
           "onDelete": "set null",
           "onUpdate": "no action"
         },
-        "individuals_sources_parent_id_fk": {
-          "name": "individuals_sources_parent_id_fk",
-          "tableFrom": "individuals_sources",
+        "individuals_statements_sources_parent_id_fk": {
+          "name": "individuals_statements_sources_parent_id_fk",
+          "tableFrom": "individuals_statements_sources",
+          "tableTo": "individuals_statements",
+          "columnsFrom": [
+            "_parent_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.individuals_statements": {
+      "name": "individuals_statements",
+      "schema": "",
+      "columns": {
+        "_order": {
+          "name": "_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "_parent_id": {
+          "name": "_parent_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "text": {
+          "name": "text",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "individuals_statements_order_idx": {
+          "name": "individuals_statements_order_idx",
+          "columns": [
+            {
+              "expression": "_order",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "individuals_statements_parent_id_idx": {
+          "name": "individuals_statements_parent_id_idx",
+          "columns": [
+            {
+              "expression": "_parent_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "individuals_statements_parent_id_fk": {
+          "name": "individuals_statements_parent_id_fk",
+          "tableFrom": "individuals_statements",
           "tableTo": "individuals",
           "columnsFrom": [
             "_parent_id"
@@ -6234,6 +6492,16 @@
         "failed"
       ]
     },
+    "public.enum_individuals_statements_evidence_kind": {
+      "name": "enum_individuals_statements_evidence_kind",
+      "schema": "public",
+      "values": [
+        "document",
+        "image",
+        "link",
+        "snippet"
+      ]
+    },
     "public.enum_users_role": {
       "name": "enum_users_role",
       "schema": "public",
@@ -6263,6 +6531,6 @@
     "tables": {},
     "columns": {}
   },
-  "id": "dddfcf59-25b8-45c6-ae28-447cffa79c3f",
+  "id": "1a44c58f-80e8-4fd8-80fb-911cbe0f0e27",
   "prevId": "00000000-0000-0000-0000-000000000000"
 }

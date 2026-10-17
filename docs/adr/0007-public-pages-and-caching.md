@@ -61,21 +61,32 @@ thumbnails should be served through the site.
   - photo, with its credit and licence;
   - links, and the Wikidata item.
 
-  The bio and the country roles with dates are the profile's own statements
-  about the person, so they need sources like any published statement. An
-  admin adds **sources** to the profile: references, each with the passage
-  that supports it, as topics cite them. The quoted passage from a checked
-  source is the linked evidence. The rules for showing them:
-  - The bio and roles are shown, with a "Sources for this profile" list,
-    only while the profile cites at least one source and every cited
-    reference is confirmed (`profileIsBacked` in `packages/domain`).
-  - This is checked on every read, not when the profile is saved:
-    individuals are not versioned, and editing a reference makes it "being
-    checked" again, which hides the bio until the worker confirms it.
-  - A reference that a profile cites cannot be deleted (409).
+  Anything else a profile says is held to the same standard as a topic:
+  - The public part of a profile is a list of **statements**, one fact
+    each. Every statement carries its own evidence (documents, images,
+    archived web pages, or snippets, the same evidence rows topics use) and
+    its own sources (references, each with the passage that supports it).
+  - A statement is shown only while it passes the check for publishing a
+    topic that names someone (`statementIsBacked` in `packages/domain`):
+    - at least one piece of evidence;
+    - at least one reference, every one confirmed;
+    - every snippet's video found playable.
 
-  The admin form describes these rules. A country page lists the people
-  named by its topics, not those whose profile mentions the country.
+    Each statement is judged on its own; a statement that fails is left out
+    and the others are still shown.
+  - The check runs on every read, not on save. Individuals are not
+    versioned, and editing a reference makes it "being checked" again,
+    which hides the statements that cite it until the worker confirms it.
+  - The bio and the country roles with dates are notes for staff and are
+    never shown publicly. To say a role publicly, an admin adds it as a
+    statement. The admin form says so.
+  - Evidence and references that a profile statement uses cannot be
+    deleted (409).
+  - A file used as evidence for a shown statement is public, like topic
+    evidence.
+
+  A country page lists the people named by its topics, not those whose
+  profile mentions the country.
 - **A save that does not publish never changes the live version.** Payload
   writes the live topic for any update sent without `draft`, which would
   skip the change note, the change log, and the purge. Such an update is
@@ -157,10 +168,10 @@ thumbnails should be served through the site.
 - `next build` renders the home page, so building needs the database. CI has
   one. A container image build (week 11) must provide one or render the home
   page on request.
-- One set of sources backs the whole bio and every role; there is no
-  per-sentence citation. An admin keeps the bio to what the sources say, as
-  the field's description asks.
-- Rolling back the profile-sources migration deletes the sources table and
-  its rows.
+- Rolling back the profile-statements migration deletes the statements,
+  their evidence rows, and their sources.
+- A profile with many statements loads each statement's evidence and
+  references in one batch, but still runs the evidence queries a topic page
+  runs.
 - Lists stop at 50 topics (12 on the home page) and say so. Paging arrives
   with week 8's search and filters.

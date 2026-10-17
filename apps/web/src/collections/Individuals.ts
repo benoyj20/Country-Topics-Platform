@@ -6,6 +6,7 @@ import {
   URL_MAX_LENGTH,
 } from "@countrytopics/domain";
 import {
+  type CollectionAfterChangeHook,
   type CollectionBeforeChangeHook,
   type CollectionConfig,
   type Endpoint,
@@ -19,6 +20,7 @@ import {
   verifiedStaffOnly,
 } from "@/access";
 import { auditHooks, relationId } from "@/audit";
+import { queueLinkArchives } from "@/content-jobs";
 import {
   findPossibleDuplicates,
   lockNameKeys,
@@ -27,12 +29,19 @@ import {
 import { DIFFERENT_PERSON_LABEL } from "@/individuals/labels";
 import { PUBLIC_TAGS, purgeOnChange } from "@/public-cache";
 
+import {
+  evidenceField,
+  evidenceLinkUrls,
+  rows,
+  tidyEvidenceRows,
+} from "./evidence-field";
 import { IMAGE_MIME_TYPES } from "./Media";
 import { fillSlug, slugField } from "./slug";
 import { keepWhileUsed } from "./topic-references";
 import { httpUrl } from "./url-field";
 
 const NAME_MAX_LENGTH = 200;
+const STATEMENT_MAX_LENGTH = 1000;
 const MAX_ALIASES = 20;
 const NO_STORE = { "Cache-Control": "no-store" };
 
@@ -119,6 +128,30 @@ const checkDuplicates: CollectionBeforeChangeHook = async ({
   });
 };
 
+/** Clears the fields that do not apply to each statement's evidence rows. */
+const tidyStatements: CollectionBeforeChangeHook = ({ data }) => {
+  if (Array.isArray(data.statements)) {
+    data.statements = rows(data.statements).map((statement) => ({
+      ...statement,
+      evidence: tidyEvidenceRows(statement.evidence),
+    }));
+  }
+  return data;
+};
+
+/** Asks the worker to copy the statements' evidence links to the Wayback Machine. */
+const archiveStatementLinks: CollectionAfterChangeHook = async ({
+  doc,
+  req,
+}) => {
+  await queueLinkArchives(
+    req,
+    rows(doc.statements).flatMap((statement) =>
+      evidenceLinkUrls(statement.evidence),
+    ),
+  );
+};
+
 const duplicateQuery = z.object({
   name: z.string().max(NAME_MAX_LENGTH),
   aliases: z.array(z.string().max(NAME_MAX_LENGTH)).max(MAX_ALIASES),
@@ -175,11 +208,57 @@ const possibleDuplicatesEndpoint: Endpoint = {
   },
 };
 
+const audit = auditHooks({
+  collection: "individuals",
+  action: "individual",
+  snapshot: (doc) => ({
+    name: doc.name,
+    slug: doc.slug,
+    summary: doc.summary ?? null,
+    bio: doc.bio ?? null,
+    wikidataId: doc.wikidataId ?? null,
+    photo: relationId(doc.photo),
+    aliases: aliasNames(doc.aliases),
+    countries: Array.isArray(doc.countries)
+      ? doc.countries.map((row: Record<string, unknown>) => ({
+          country: relationId(row.country),
+          role: row.role ?? null,
+          startDate: row.startDate ?? null,
+          endDate: row.endDate ?? null,
+        }))
+      : [],
+    links: Array.isArray(doc.links)
+      ? doc.links.map((row: Record<string, unknown>) => ({
+          label: row.label,
+          url: row.url,
+        }))
+      : [],
+    statements: rows(doc.statements).map((statement) => ({
+      text: statement.text ?? null,
+      evidence: rows(statement.evidence).map((row) => ({
+        kind: row.kind ?? null,
+        title: row.title ?? null,
+        file: relationId(row.file),
+        snippet: relationId(row.snippet),
+        url: row.url ?? null,
+        archiveUrl: row.archiveUrl ?? null,
+        note: row.note ?? null,
+      })),
+      sources: rows(statement.sources).map((row) => ({
+        reference: relationId(row.reference),
+        passage: row.passage ?? null,
+        locator: row.locator ?? null,
+      })),
+    })),
+  }),
+});
+
 // F2: politicians, officials, experts, and others that topics are about or
-// quote. Every published statement about a person needs evidence (AGENTS.md),
-// so a public profile shows who they are and the published topics that name
-// them, and the bio and country roles only while confirmed sources back them
-// (ADR 0007).
+// quote. Every published statement about a person needs evidence and a
+// reference (AGENTS.md), so a public profile shows who they are, the
+// published topics that name them, and only those of its statements that
+// carry their own evidence and confirmed sources; the bio and country roles
+// are staff notes (ADR 0007).
 export const Individuals: CollectionConfig = {
   slug: "individuals",
   admin: {
@@ -253,7 +332,7 @@ export const Individuals: CollectionConfig = {
       labels: { singular: "Country", plural: "Countries" },
       admin: {
         description:
-          "Countries this person is linked to, their role there, and when. Shown on the public profile only while the profile cites at least one source below and every cited reference is confirmed.",
+          "Countries this person is linked to, their role there, and when. Seen by staff only; to say a role on the public profile, add it as a statement below, with its evidence and sources.",
       },
       fields: [
         {
@@ -323,40 +402,64 @@ export const Individuals: CollectionConfig = {
       maxLength: 5000,
       admin: {
         description:
-          "Plain text. Keep to what the sources below support. Shown on the public profile only while the profile cites at least one source below and every cited reference is confirmed.",
+          "Notes for staff, never shown publicly. What the public profile says goes under Statements, each with its evidence and sources.",
       },
     },
     {
-      name: "sources",
+      name: "statements",
       type: "array",
-      labels: { singular: "Source", plural: "Sources" },
+      labels: { singular: "Statement", plural: "Statements" },
       admin: {
         description:
-          "References that support the bio and the country roles, each with the passage that does. Until every one is confirmed, the public profile shows only the name, description, photo, links, and topics.",
+          "What the public profile says about this person, one fact per statement. Each statement is shown only with its own evidence and sources, every source confirmed and every video found playable; until then it stays hidden, and the others are still shown.",
       },
       fields: [
         {
-          name: "reference",
-          type: "relationship",
-          relationTo: "references",
-          required: true,
-          index: true,
-        },
-        {
-          name: "passage",
+          name: "text",
           type: "textarea",
           required: true,
-          maxLength: 2000,
+          maxLength: STATEMENT_MAX_LENGTH,
           admin: {
             description:
-              "The words in the reference that support the profile, quoted exactly.",
+              "One fact, such as 'Minister of Finance from May 2019 to March 2022.' Say only what the evidence and sources below show.",
           },
         },
+        evidenceField(
+          "What shows the statement is true: an official document, an archived web page, a photo, or a video snippet. At least one.",
+        ),
         {
-          name: "locator",
-          label: "Page or section",
-          type: "text",
-          maxLength: 100,
+          name: "sources",
+          type: "array",
+          labels: { singular: "Source", plural: "Sources" },
+          admin: {
+            description:
+              "References that support the statement, each with the passage that does. At least one, all confirmed.",
+          },
+          fields: [
+            {
+              name: "reference",
+              type: "relationship",
+              relationTo: "references",
+              required: true,
+              index: true,
+            },
+            {
+              name: "passage",
+              type: "textarea",
+              required: true,
+              maxLength: 2000,
+              admin: {
+                description:
+                  "The words in the reference that support the statement, quoted exactly.",
+              },
+            },
+            {
+              name: "locator",
+              label: "Page or section",
+              type: "text",
+              maxLength: 100,
+            },
+          ],
         },
       ],
     },
@@ -416,40 +519,8 @@ export const Individuals: CollectionConfig = {
         { collection: "snippets", field: "speaker" },
       ]),
     ],
-    beforeChange: [checkDuplicates],
-    ...auditHooks({
-      collection: "individuals",
-      action: "individual",
-      snapshot: (doc) => ({
-        name: doc.name,
-        slug: doc.slug,
-        summary: doc.summary ?? null,
-        bio: doc.bio ?? null,
-        wikidataId: doc.wikidataId ?? null,
-        photo: relationId(doc.photo),
-        aliases: aliasNames(doc.aliases),
-        countries: Array.isArray(doc.countries)
-          ? doc.countries.map((row: Record<string, unknown>) => ({
-              country: relationId(row.country),
-              role: row.role ?? null,
-              startDate: row.startDate ?? null,
-              endDate: row.endDate ?? null,
-            }))
-          : [],
-        links: Array.isArray(doc.links)
-          ? doc.links.map((row: Record<string, unknown>) => ({
-              label: row.label,
-              url: row.url,
-            }))
-          : [],
-        sources: Array.isArray(doc.sources)
-          ? doc.sources.map((row: Record<string, unknown>) => ({
-              reference: relationId(row.reference),
-              passage: row.passage ?? null,
-              locator: row.locator ?? null,
-            }))
-          : [],
-      }),
-    }),
+    beforeChange: [checkDuplicates, tidyStatements],
+    afterChange: [archiveStatementLinks, ...audit.afterChange],
+    afterDelete: audit.afterDelete,
   }),
 };

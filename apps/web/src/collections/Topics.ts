@@ -1,7 +1,6 @@
 import {
   CLAIM_STANCES,
   changeNoteRequired,
-  EVIDENCE_KINDS,
   evidenceProblems,
   type SnippetEvidence,
   TOPIC_PERSON_ROLES,
@@ -10,7 +9,6 @@ import {
   type TopicSave,
   topicChangeKind,
   topicStateAfterSave,
-  URL_MAX_LENGTH,
 } from "@countrytopics/domain";
 import { isDeepStrictEqual } from "node:util";
 import {
@@ -29,7 +27,6 @@ import {
 } from "@/access";
 import { recordAudit, relationId } from "@/audit";
 import {
-  EVIDENCE_KIND_LABELS,
   PERSON_ROLE_LABELS,
   STANCE_LABELS,
   TOPIC_STATE_LABELS,
@@ -38,13 +35,16 @@ import { queueLinkArchives } from "@/content-jobs";
 import { richTextHasText, richTextLinkedIds, richTextLinksTo } from "@/editor";
 import { PUBLIC_TAGS, purgePublicPages } from "@/public-cache";
 
-import { DOCUMENT_MIME_TYPES, IMAGE_MIME_TYPES } from "./Media";
+import {
+  evidenceField,
+  evidenceLinkUrls,
+  rows,
+  tidyEvidenceRows,
+} from "./evidence-field";
 import { refuse } from "./refuse";
 import { fillSlug, slugField } from "./slug";
-import { httpUrl, optionalHttpUrl } from "./url-field";
 
 const CHANGE_NOTE_MAX_LENGTH = 500;
-const EVIDENCE_TITLE_MAX_LENGTH = 200;
 
 // Set only by the hooks below; never from the request.
 const systemField = {
@@ -281,16 +281,6 @@ async function latestVersion(req: PayloadRequest, topic: string | number) {
     req,
   });
   return docs[0] ?? null;
-}
-
-/** The rows of an array field, or none. */
-function rows(value: unknown): Record<string, unknown>[] {
-  return Array.isArray(value)
-    ? value.filter(
-        (row): row is Record<string, unknown> =>
-          Boolean(row) && typeof row === "object",
-      )
-    : [];
 }
 
 /**
@@ -547,15 +537,8 @@ const recordBodyLinks: CollectionBeforeChangeHook = async ({
 
 /** Clears the fields that do not apply to each evidence row's kind. */
 const tidyEvidence: CollectionBeforeChangeHook = ({ data }) => {
-  if (Array.isArray(data.evidence)) {
-    data.evidence = rows(data.evidence).map((row) => {
-      if (row.kind === "link") return { ...row, file: null, snippet: null };
-      const notLink = { ...row, url: null, archiveUrl: null };
-      return row.kind === "snippet"
-        ? { ...notLink, file: null }
-        : { ...notLink, snippet: null };
-    });
-  }
+  if (Array.isArray(data.evidence))
+    data.evidence = tidyEvidenceRows(data.evidence);
   return data;
 };
 
@@ -564,17 +547,8 @@ const archiveEvidenceLinks: CollectionAfterChangeHook = async ({
   doc,
   req,
 }) => {
-  await queueLinkArchives(
-    req,
-    rows(doc.evidence).flatMap((row) => (row.kind === "link" ? [row.url] : [])),
-  );
+  await queueLinkArchives(req, evidenceLinkUrls(doc.evidence));
 };
-
-function evidenceKind(siblingData: unknown): unknown {
-  return siblingData && typeof siblingData === "object" && "kind" in siblingData
-    ? siblingData.kind
-    : undefined;
-}
 
 // F3: an event, policy, or public claim about one or more countries. Every save
 // is kept as a version; visitors see only the published one.
@@ -685,130 +659,9 @@ export const Topics: CollectionConfig = {
         },
       ],
     },
-    {
-      name: "evidence",
-      type: "array",
-      labels: { singular: "Evidence", plural: "Evidence" },
-      admin: {
-        description:
-          "What shows it happened: documents, images, web pages (copied to the Wayback Machine), and video snippets. A topic that names individuals needs at least one.",
-      },
-      fields: [
-        {
-          type: "row",
-          fields: [
-            {
-              name: "kind",
-              type: "select",
-              required: true,
-              defaultValue: "document",
-              options: EVIDENCE_KINDS.map((value) => ({
-                value,
-                label: EVIDENCE_KIND_LABELS[value],
-              })),
-            },
-            {
-              name: "title",
-              type: "text",
-              maxLength: EVIDENCE_TITLE_MAX_LENGTH,
-              // A snippet already has a caption, shown when this is empty.
-              // This replaces Payload's text check, so it checks the length.
-              validate: (
-                value: unknown,
-                { siblingData }: { siblingData: unknown },
-              ) => {
-                if (
-                  typeof value === "string" &&
-                  value.length > EVIDENCE_TITLE_MAX_LENGTH
-                ) {
-                  return `Keep the title to ${EVIDENCE_TITLE_MAX_LENGTH} characters.`;
-                }
-                return value || evidenceKind(siblingData) === "snippet"
-                  ? true
-                  : "Give the evidence a title.";
-              },
-              admin: {
-                description:
-                  "Such as 'Ministry press release, 3 May 2024'. Optional for snippets, which show their caption.",
-              },
-            },
-          ],
-        },
-        {
-          name: "file",
-          type: "upload",
-          relationTo: "media",
-          required: true,
-          // Images for image evidence, PDFs for documents; checked on save.
-          filterOptions: ({ siblingData }) => ({
-            mimeType: {
-              in:
-                evidenceKind(siblingData) === "image"
-                  ? IMAGE_MIME_TYPES
-                  : DOCUMENT_MIME_TYPES,
-            },
-          }),
-          admin: {
-            condition: (_, siblingData) => {
-              const kind = evidenceKind(siblingData);
-              return kind !== "link" && kind !== "snippet";
-            },
-          },
-        },
-        {
-          name: "snippet",
-          type: "relationship",
-          relationTo: "snippets",
-          required: true,
-          index: true,
-          admin: {
-            condition: (_, siblingData) =>
-              evidenceKind(siblingData) === "snippet",
-            description:
-              "A clip of a YouTube video with its transcript, made under Snippets.",
-          },
-        },
-        {
-          name: "url",
-          label: "Link",
-          type: "text",
-          maxLength: URL_MAX_LENGTH,
-          validate: (value: unknown) =>
-            value ? httpUrl(value) : "Enter the page's link.",
-          admin: {
-            condition: (_, siblingData) => evidenceKind(siblingData) === "link",
-          },
-        },
-        {
-          name: "archiveStatus",
-          type: "ui",
-          admin: {
-            condition: (_, siblingData) => evidenceKind(siblingData) === "link",
-            components: {
-              Field: "/components/admin/LinkArchiveStatus#LinkArchiveStatus",
-            },
-          },
-        },
-        {
-          name: "archiveUrl",
-          label: "Copy in another archive",
-          type: "text",
-          maxLength: URL_MAX_LENGTH,
-          validate: optionalHttpUrl,
-          admin: {
-            condition: (_, siblingData) => evidenceKind(siblingData) === "link",
-            description:
-              "Optional, such as an archive.today link, when the Wayback Machine cannot copy the page.",
-          },
-        },
-        {
-          name: "note",
-          label: "What it shows",
-          type: "textarea",
-          maxLength: 1000,
-        },
-      ],
-    },
+    evidenceField(
+      "What shows it happened: documents, images, web pages (copied to the Wayback Machine), and video snippets. A topic that names individuals needs at least one.",
+    ),
     {
       name: "references",
       type: "array",

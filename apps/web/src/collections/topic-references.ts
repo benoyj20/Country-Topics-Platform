@@ -17,7 +17,14 @@ export type Usage =
         | "evidence.snippet";
     }
   | { collection: "snippets"; field: "video" | "speaker" }
-  | { collection: "individuals"; field: "photo" | "sources.reference" };
+  | {
+      collection: "individuals";
+      field:
+        | "photo"
+        | "statements.evidence.file"
+        | "statements.evidence.snippet"
+        | "statements.sources.reference";
+    };
 
 /** Collections whose every saved version is kept, and so also counts. */
 const VERSIONED: ReadonlySet<Usage["collection"]> = new Set([

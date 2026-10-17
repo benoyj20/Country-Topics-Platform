@@ -506,7 +506,12 @@ See [ADR 0007](adr/0007-public-pages-and-caching.md) for the design.
   included its Wikidata page listed it twice (React's duplicate key
   warning). Links are now listed once each, with the Wikidata item added
   only when no link goes there (unit tests, 2026-10-17).
-- [ ] The developer browses as a visitor, including on a phone.
+- [x] The developer browsed as a visitor in `make dev`: home, country,
+  topic, and individual pages, the archived topic with its snippet player,
+  a private profile's 404, phone width in the browser's device mode, profile
+  statements (a backed one shown, an unbacked one and the bio hidden), and
+  the signed-in header link; everything worked after the duplicate Wikidata
+  link fix (reported by the developer, 2026-10-17).
 - [ ] Before running two web containers (week 11): a shared Redis cache
   handler, so purges reach every instance and no cache sits on local disk.
 - [ ] Not built yet: paging past 50 topics, filters and search (week 8), a

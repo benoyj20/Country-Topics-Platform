@@ -13,6 +13,7 @@ import * as migration_20261017_035339_check_requests from './20261017_035339_che
 import * as migration_20261017_050139_linked_individuals from './20261017_050139_linked_individuals';
 import * as migration_20261017_063102_profile_statements from './20261017_063102_profile_statements';
 import * as migration_20261017_090000_search_topics from './20261017_090000_search_topics';
+import * as migration_20261017_193831_comments from './20261017_193831_comments';
 
 export const migrations = [
   {
@@ -83,11 +84,16 @@ export const migrations = [
   {
     up: migration_20261017_063102_profile_statements.up,
     down: migration_20261017_063102_profile_statements.down,
-    name: '20261017_063102_profile_statements'
+    name: '20261017_063102_profile_statements',
   },
   {
     up: migration_20261017_090000_search_topics.up,
     down: migration_20261017_090000_search_topics.down,
     name: '20261017_090000_search_topics',
+  },
+  {
+    up: migration_20261017_193831_comments.up,
+    down: migration_20261017_193831_comments.down,
+    name: '20261017_193831_comments'
   },
 ];

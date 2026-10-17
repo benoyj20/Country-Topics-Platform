@@ -1,4 +1,9 @@
-import { ROLES } from "@countrytopics/domain";
+import {
+  DISPLAY_NAME_MAX_LENGTH,
+  displayNameProblem,
+  normalizeDisplayName,
+  ROLES,
+} from "@countrytopics/domain";
 import type { CollectionConfig } from "payload";
 
 import {
@@ -14,7 +19,7 @@ import { betterAuthStrategy } from "@/auth/payload-strategy";
 // One profile per person. Sign-in itself (Google, email link, authenticator
 // apps, sessions) is handled by Better Auth; see src/auth. Profiles are created
 // on first sign-in, never through the API.
-const AUDITED_FIELDS = ["role", "name"] as const;
+const AUDITED_FIELDS = ["role", "name", "displayName"] as const;
 
 export const Users: CollectionConfig = {
   slug: "users",
@@ -48,6 +53,22 @@ export const Users: CollectionConfig = {
       admin: { readOnly: true },
     },
     { name: "name", type: "text" },
+    {
+      // Chosen by the member before their first comment (ADR 0009); the
+      // sign-in name and email are never shown publicly.
+      name: "displayName",
+      type: "text",
+      maxLength: DISPLAY_NAME_MAX_LENGTH,
+      admin: { description: "Shown publicly with the person's comments." },
+      hooks: {
+        beforeValidate: [
+          ({ value }) =>
+            typeof value === "string" ? normalizeDisplayName(value) : value,
+        ],
+      },
+      validate: (value: string | null | undefined) =>
+        value ? (displayNameProblem(value) ?? true) : true,
+    },
     {
       name: "role",
       type: "select",

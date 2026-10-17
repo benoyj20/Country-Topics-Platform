@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { CommentSection } from "@/components/comments/CommentSection";
 import { EvidenceList } from "@/components/public/EvidenceList";
 import styles from "@/components/public/public.module.css";
 import { ReferenceList } from "@/components/public/ReferenceList";
@@ -154,6 +155,8 @@ export default async function TopicPageView({ params }: Props) {
           </ol>
         </section>
       ) : null}
+
+      <CommentSection slug={topic.slug} />
     </article>
   );
 }

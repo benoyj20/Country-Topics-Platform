@@ -146,6 +146,7 @@ export async function browseTopics(
       return country ? [country] : [];
     }),
     referenceCount: hit.referenceCount,
+    commentCount: hit.commentCount,
   }));
 
   let facets: BrowseFacets | null = null;

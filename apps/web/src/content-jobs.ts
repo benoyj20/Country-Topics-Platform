@@ -4,7 +4,7 @@ import type {
   SearchSourceChange,
   VideoCheckJob,
 } from "@countrytopics/jobs";
-import { APIError, type PayloadRequest } from "payload";
+import { APIError, type Payload, type PayloadRequest } from "payload";
 
 import { linkQueue, referenceQueue, searchQueue, videoQueue } from "@/jobs";
 
@@ -88,11 +88,20 @@ export async function queueSearchIndex(
   topicIds: string[],
   after: SearchSourceChange,
 ): Promise<void> {
+  await requestSearchIndex(req.payload.logger, topicIds, after);
+}
+
+/** queueSearchIndex for saves made outside Payload (comments). */
+export async function requestSearchIndex(
+  logger: Payload["logger"],
+  topicIds: string[],
+  after: SearchSourceChange,
+): Promise<void> {
   if (topicIds.length === 0) return;
   try {
     await searchQueue().enqueue({ topicIds, after });
   } catch (error) {
-    req.payload.logger.error({
+    logger.error({
       err: error,
       msg: `Could not queue a search index update for ${topicIds.length} topic(s); the hourly rebuild will catch up`,
     });

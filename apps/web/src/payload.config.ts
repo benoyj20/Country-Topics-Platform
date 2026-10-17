@@ -6,6 +6,9 @@ import { buildConfig } from "payload";
 
 import { AuditLog } from "./collections/AuditLog";
 import { Categories } from "./collections/Categories";
+import { CommentReports } from "./collections/CommentReports";
+import { Comments } from "./collections/Comments";
+import { CommentVotes } from "./collections/CommentVotes";
 import { Countries } from "./collections/Countries";
 import { Individuals } from "./collections/Individuals";
 import { Invitations } from "./collections/Invitations";
@@ -50,6 +53,9 @@ export default buildConfig({
     Countries,
     Categories,
     Tags,
+    Comments,
+    CommentReports,
+    CommentVotes,
     Users,
     Invitations,
     AuditLog,

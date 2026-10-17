@@ -72,4 +72,6 @@ export const publicFile = cached("public-file", loadPublicFile, [
   T.topics,
   T.individuals,
   T.snippets,
+  // Whether a profile statement that uses the file is shown.
+  T.references,
 ]);

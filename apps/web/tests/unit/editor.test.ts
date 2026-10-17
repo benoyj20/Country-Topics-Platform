@@ -69,6 +69,20 @@ describe("richTextLinksTo", () => {
     ).toBe(true);
   });
 
+  it("counts a link whose document is missing: its text still names someone", () => {
+    expect(
+      richTextLinksTo(
+        doc(
+          link({
+            linkType: "internal",
+            doc: { relationTo: "individuals", value: null },
+          }),
+        ),
+        "individuals",
+      ),
+    ).toBe(true);
+  });
+
   it("ignores links elsewhere and plain text", () => {
     expect(
       richTextLinksTo(

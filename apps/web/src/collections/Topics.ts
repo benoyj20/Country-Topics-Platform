@@ -25,6 +25,7 @@ import {
   verifiedAdminsOnly,
   verifiedStaffOnly,
 } from "@/access";
+import { rows } from "@/array-rows";
 import { recordAudit, relationId } from "@/audit";
 import {
   PERSON_ROLE_LABELS,
@@ -34,11 +35,11 @@ import {
 import { queueLinkArchives } from "@/content-jobs";
 import { richTextHasText, richTextLinkedIds, richTextLinksTo } from "@/editor";
 import { PUBLIC_TAGS, purgePublicPages } from "@/public-cache";
+import { snippetEvidence } from "@/snippet-evidence";
 
 import {
   evidenceField,
   evidenceLinkUrls,
-  rows,
   tidyEvidenceRows,
 } from "./evidence-field";
 import { refuse } from "./refuse";
@@ -287,7 +288,7 @@ async function latestVersion(req: PayloadRequest, topic: string | number) {
  * The snippets a topic's evidence uses, with their videos' checks, and
  * whether any names a speaker: quoting a person names them (ADR 0007).
  */
-async function snippetEvidence(
+async function topicSnippets(
   req: PayloadRequest,
   evidence: unknown,
 ): Promise<{ snippets: SnippetEvidence[]; quotesSomeone: boolean }> {
@@ -332,18 +333,10 @@ async function snippetEvidence(
   return {
     snippets: snippetIds.map((id) => {
       const snippet = snippetsById.get(id);
-      const video = videosById.get(relationId(snippet?.video) ?? "");
-      return {
-        caption: snippet?.caption ?? "Unknown snippet",
-        end_s: snippet?.endS ?? 0,
-        video: video
-          ? {
-              checkStatus: video.checkStatus,
-              confirmed: Boolean(video.confirmedAt),
-              duration_s: video.durationS ?? null,
-            }
-          : null,
-      };
+      return snippetEvidence(
+        snippet,
+        videosById.get(relationId(snippet?.video) ?? ""),
+      );
     }),
     quotesSomeone: snippets.some((snippet) => relationId(snippet.speaker)),
   };
@@ -378,10 +371,7 @@ async function evidenceErrors(
         })
       : { docs: [] };
   const cited = new Map(docs.map((doc) => [String(doc.id), doc]));
-  const { snippets, quotesSomeone } = await snippetEvidence(
-    req,
-    topic.evidence,
-  );
+  const { snippets, quotesSomeone } = await topicSnippets(req, topic.evidence);
   return evidenceProblems({
     namesIndividuals:
       rows(topic.people).length > 0 ||

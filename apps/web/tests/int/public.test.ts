@@ -359,8 +359,12 @@ describe("lists", () => {
     expect(country?.topics.items.map((topic) => topic.slug)).toContain(
       live.slug,
     );
+    // Everyone the listed topics name: in their people, by a link in their
+    // text, or as a snippet's speaker.
     const people = country?.people.map((person) => person.slug);
-    expect(people).toContain(subject.slug);
+    expect(people).toEqual(
+      expect.arrayContaining([subject.slug, linkedOnly.slug, speakerOnly.slug]),
+    );
     expect(people).not.toContain(draftOnly.slug);
   });
 
@@ -390,17 +394,17 @@ describe("individual pages", () => {
     expect(await loadIndividualPage(unnamedWithPhoto.slug)).toBeNull();
   });
 
-  it("show who the person is, and never the bio or country roles", async () => {
+  it("show who the person is, and never the bio, country roles, or one-line description", async () => {
     const page = await loadIndividualPage(subject.slug);
     expect(page).toMatchObject({
       name: "TEST Public Subject",
-      summary: "TEST minister",
       aliases: ["TEST Alias Subject"],
       links: [{ label: "Official page", url: "https://example.org/subject" }],
       photo: null,
     });
     expect(page?.statements).toEqual([]);
     expect(JSON.stringify(page)).not.toContain("TEST bio");
+    expect(JSON.stringify(page)).not.toContain("TEST minister");
     expect((await loadIndividualPage(portrayed.slug))?.photo?.url).toBe(
       `/files/${photo.id}`,
     );
@@ -454,7 +458,12 @@ describe("files", () => {
       PNG_BYTES.subarray(0, 8),
     );
 
-    for (const id of [privateFile.id, hiddenPhoto.id, "not-a-uuid"]) {
+    for (const id of [
+      privateFile.id,
+      hiddenPhoto.id,
+      "not-a-uuid",
+      "01920000-0000-7000-8000-00000000ffff",
+    ]) {
       const refused = await get(id);
       expect(refused.status).toBe(404);
       await refused.body?.cancel();
@@ -531,6 +540,42 @@ describe("snippet speakers", () => {
     });
     // Naming no one, it needs no reference.
     expect((await publish(topic.id)).state).toBe("published");
+    expect(
+      await refusedPaths(
+        payload.update({
+          collection: "snippets",
+          id: silent.id,
+          data: { speaker: speakerOnly.id },
+          user: admin,
+          overrideAccess: false,
+        }),
+      ),
+    ).toEqual(["speaker"]);
+  });
+});
+
+describe("snippet speakers on topics with an unconfirmed reference", () => {
+  it("cannot be added either", async () => {
+    const silent = await snippetOf({ caption: "TEST second silent snippet" });
+    const reference = await confirmedReference(
+      "https://example.org/speaker-guard",
+    );
+    const topic = await createTopic({
+      title: "TEST topic with a reference edited later",
+      evidence: [{ kind: "snippet", snippet: silent.id }],
+      references: [
+        { reference: reference.id, stance: "supports", passage: "Quoted." },
+      ],
+    });
+    expect((await publish(topic.id)).state).toBe("published");
+    // Editing the reference sends it back to "being checked".
+    await payload.update({
+      collection: "references",
+      id: reference.id,
+      data: { url: "https://example.org/speaker-guard-moved" },
+      user: admin,
+      overrideAccess: false,
+    });
     expect(
       await refusedPaths(
         payload.update({
@@ -739,5 +784,48 @@ describe("profile statements", () => {
     });
     expect(await loadIndividualPage(draftOnly.slug)).toBeNull();
     expect(await loadPublicFile(hiddenFile.id)).toBeNull();
+  });
+});
+
+describe("snippets in profile statements", () => {
+  it("name their speaker only when the speaker has a page", async () => {
+    const confirmed = await confirmedReference(
+      "https://example.org/statement-speakers",
+    );
+    const byPublic = await snippetOf({
+      caption: "TEST clip of a public speaker",
+      speaker: speakerOnly.id,
+    });
+    const byPrivate = await snippetOf({
+      caption: "TEST clip of a private speaker",
+      speaker: draftOnly.id,
+    });
+    const statement = (text: string, snippet: string) => ({
+      text,
+      evidence: [{ kind: "snippet" as const, snippet }],
+      sources: [{ reference: confirmed.id, passage: "TEST quoted passage" }],
+    });
+    await payload.update({
+      collection: "individuals",
+      id: linkedOnly.id,
+      data: {
+        statements: [
+          statement("TEST statement quoting a public speaker", byPublic.id),
+          statement("TEST statement quoting a private speaker", byPrivate.id),
+        ],
+      },
+      user: admin,
+      overrideAccess: false,
+    });
+    const page = await loadIndividualPage(linkedOnly.slug);
+    const speakers = page?.statements.map((shown) => {
+      const [item] = shown.evidence;
+      return item?.kind === "snippet" ? item.snippet.speaker : undefined;
+    });
+    expect(speakers).toEqual([
+      { name: "TEST Snippet Speaker", slug: speakerOnly.slug },
+      null,
+    ]);
+    expect(JSON.stringify(page)).not.toContain("TEST Only In A Draft");
   });
 });

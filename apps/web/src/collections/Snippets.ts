@@ -21,6 +21,7 @@ import {
 } from "payload";
 
 import { verifiedAdminsOnly, verifiedStaffOnly } from "@/access";
+import { rows } from "@/array-rows";
 import { auditHooks, relationId } from "@/audit";
 import { queueVideoCheck } from "@/content-jobs";
 import { PUBLIC_TAGS, purgeOnChange } from "@/public-cache";
@@ -212,16 +213,49 @@ const prepareSnippet: CollectionBeforeChangeHook = async ({
       overrideAccess: true,
       req,
     });
-    const unreferenced = docs.filter(
-      (topic) => (topic.references ?? []).length === 0,
+    // As the publish check asks: at least one reference, every one confirmed.
+    const referenceIds = [
+      ...new Set(
+        docs.flatMap((topic) =>
+          rows(topic.references).flatMap((row) => {
+            const id = relationId(row.reference);
+            return id ? [id] : [];
+          }),
+        ),
+      ),
+    ];
+    const { docs: references } =
+      referenceIds.length > 0
+        ? await req.payload.find({
+            collection: "references",
+            where: { id: { in: referenceIds } },
+            select: { checkStatus: true },
+            depth: 0,
+            pagination: false,
+            overrideAccess: true,
+            req,
+          })
+        : { docs: [] };
+    const confirmed = new Set(
+      references
+        .filter((reference) => reference.checkStatus === "resolved")
+        .map((reference) => String(reference.id)),
     );
+    const unreferenced = docs.filter((topic) => {
+      const cited = rows(topic.references).map((row) =>
+        relationId(row.reference),
+      );
+      return (
+        cited.length === 0 || cited.some((id) => !id || !confirmed.has(id))
+      );
+    });
     if (unreferenced.length > 0) {
       refuse(
         "snippets",
         req,
         "speaker",
         "Speaker",
-        `Published topics use this snippet without a reference: ${unreferenced.map((topic) => `"${topic.title}"`).join(", ")}. Naming a speaker names them in those topics, so add a reference to each and publish it first.`,
+        `Published topics use this snippet without a confirmed reference: ${unreferenced.map((topic) => `"${topic.title}"`).join(", ")}. Naming a speaker names them in those topics, so give each a confirmed reference and publish it first.`,
       );
     }
   }

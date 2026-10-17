@@ -1,6 +1,7 @@
 import { EVIDENCE_KINDS, URL_MAX_LENGTH } from "@countrytopics/domain";
 import type { ArrayField } from "payload";
 
+import { rows } from "@/array-rows";
 import { EVIDENCE_KIND_LABELS } from "@/content-labels";
 
 import { DOCUMENT_MIME_TYPES, IMAGE_MIME_TYPES } from "./Media";
@@ -11,16 +12,6 @@ import { httpUrl, optionalHttpUrl } from "./url-field";
 // backs a published statement.
 
 export const EVIDENCE_TITLE_MAX_LENGTH = 200;
-
-/** The rows of an array field, or none. */
-export function rows(value: unknown): Record<string, unknown>[] {
-  return Array.isArray(value)
-    ? value.filter(
-        (row): row is Record<string, unknown> =>
-          Boolean(row) && typeof row === "object",
-      )
-    : [];
-}
 
 export function evidenceKind(siblingData: unknown): unknown {
   return siblingData && typeof siblingData === "object" && "kind" in siblingData

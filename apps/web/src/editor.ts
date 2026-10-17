@@ -145,10 +145,29 @@ export function richTextLinkedIds(
 
 /**
  * Whether a Lexical document links to any document of a collection, such as
- * an individual: a topic that links a person names them.
+ * an individual: a topic that links a person names them. A link whose
+ * document is missing still counts, since its text still names someone.
  */
 export function richTextLinksTo(value: unknown, collection: string): boolean {
-  return richTextLinkTargets(value).some(
-    (target) => target.relationTo === collection,
-  );
+  const root = (value as { root?: LexicalNode } | null | undefined)?.root;
+  const visit = (node: LexicalNode): boolean => {
+    const fields = node.fields;
+    if (
+      fields &&
+      typeof fields === "object" &&
+      "linkType" in fields &&
+      fields.linkType === "internal" &&
+      "doc" in fields &&
+      fields.doc &&
+      typeof fields.doc === "object" &&
+      "relationTo" in fields.doc &&
+      fields.doc.relationTo === collection
+    ) {
+      return true;
+    }
+    return Array.isArray(node.children)
+      ? node.children.some((child: LexicalNode) => visit(child))
+      : false;
+  };
+  return root ? visit(root) : false;
 }

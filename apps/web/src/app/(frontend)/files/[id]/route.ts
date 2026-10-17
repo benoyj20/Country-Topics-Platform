@@ -49,10 +49,21 @@ export async function GET(
 ): Promise<Response> {
   const { id } = await params;
   if (!UUID_PATTERN.test(id)) return notFound();
+  const payload = await loadPayload();
+  // Only ids of stored files reach the cached check, so requests for made-up
+  // ids cannot fill the cache with one entry each.
+  const exists = await payload.findByID({
+    collection: "media",
+    id,
+    select: { filename: true },
+    depth: 0,
+    disableErrors: true,
+    overrideAccess: true,
+  });
+  if (!exists) return notFound();
   const found = await publicFile(id);
   if (!found?.stored.filename) return notFound();
 
-  const payload = await loadPayload();
   const req = await createLocalReq(
     { req: { headers: request.headers, signal: request.signal } },
     payload,

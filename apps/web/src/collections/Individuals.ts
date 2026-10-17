@@ -19,6 +19,7 @@ import {
   verifiedAdminsOnly,
   verifiedStaffOnly,
 } from "@/access";
+import { rows } from "@/array-rows";
 import { auditHooks, relationId } from "@/audit";
 import { queueLinkArchives } from "@/content-jobs";
 import {
@@ -32,7 +33,6 @@ import { PUBLIC_TAGS, purgeOnChange } from "@/public-cache";
 import {
   evidenceField,
   evidenceLinkUrls,
-  rows,
   tidyEvidenceRows,
 } from "./evidence-field";
 import { IMAGE_MIME_TYPES } from "./Media";
@@ -323,7 +323,7 @@ export const Individuals: CollectionConfig = {
       maxLength: 160,
       admin: {
         description:
-          "One line that tells people with the same name apart, such as 'Economist' or 'Minister of Finance'.",
+          "One line that tells people with the same name apart in the admin panel, such as 'Economist' or 'Minister of Finance'. Seen by staff only; to say it publicly, add it as a statement below.",
       },
     },
     {

@@ -224,7 +224,7 @@ See [ADR 0003](adr/0003-countries-and-individuals.md) for the design.
 - [x] Public pages for countries and individuals came in week 7 (below);
   profiles show who a person is, the topics that name them, and only the
   profile statements that carry their own evidence and confirmed sources;
-  the bio and country roles are staff notes.
+  the one-line description, bio, and country roles are staff notes.
 
 ### Week 4: topics, workflow, versions, change log
 
@@ -448,10 +448,19 @@ See [ADR 0007](adr/0007-public-pages-and-caching.md) for the design.
   playable; a statement without evidence, without sources, with a source
   still being checked, or with an unchecked video is left out while the
   others show; editing a confirmed source hides its statement again; the
-  bio and country roles never appear; evidence and references a statement
-  uses cannot be deleted (409); a statement's file is public only while the
-  statement is shown on a public profile (integration and unit tests,
-  2026-10-17).
+  one-line description, bio, and country roles never appear; a snippet in a
+  statement names its speaker only when the speaker has a public page;
+  evidence and references a statement uses cannot be deleted (409); a
+  statement's file is public only while the statement is shown on a public
+  profile (integration and unit tests, 2026-10-17).
+- [x] A second code review of the branch, run at the developer's request
+  after the profile change, found ten issues; all were fixed, each with a
+  test where behavior changed (2026-10-17): the file check now refreshes
+  when a reference changes; profile snippets hide non-public speakers; the
+  one-line description is staff-only; made-up file ids no longer reach the
+  cache; the speaker guard also needs every reference confirmed; country
+  pages list everyone their topics name; a body link with a missing
+  document still names someone; shared helpers replace two copies.
 - [x] Topics record the individuals their text links to, on every save and,
   by the migration, for existing topics and versions; such an individual
   cannot be deleted (409). On the test database the migration's statements

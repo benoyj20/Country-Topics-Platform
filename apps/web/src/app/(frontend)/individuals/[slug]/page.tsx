@@ -31,7 +31,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const individual = await load(params);
   return {
     title: `${individual.name} - Country Topics`,
-    description: individual.summary ?? undefined,
+    description: `${individual.name}: topics on Country Topics, with their evidence and references.`,
   };
 }
 
@@ -68,9 +68,6 @@ export default async function IndividualPageView({ params }: Props) {
         ) : null}
         <div className={styles.profileText}>
           <h1>{individual.name}</h1>
-          {individual.summary ? (
-            <p className={styles.lede}>{individual.summary}</p>
-          ) : null}
           {individual.aliases.length > 0 ? (
             <p className={styles.meta}>
               Also known as {individual.aliases.join(", ")}

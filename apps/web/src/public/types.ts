@@ -130,7 +130,6 @@ export type IndividualPage = {
   name: string;
   slug: string;
   aliases: string[];
-  summary: string | null;
   photo: PublicFile | null;
   links: { label: string; url: string }[];
   wikidataId: string | null;

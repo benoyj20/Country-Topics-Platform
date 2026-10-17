@@ -324,7 +324,7 @@ export interface Individual {
     | null;
   notADuplicate?: boolean | null;
   /**
-   * One line that tells people with the same name apart, such as 'Economist' or 'Minister of Finance'.
+   * One line that tells people with the same name apart in the admin panel, such as 'Economist' or 'Minister of Finance'. Seen by staff only; to say it publicly, add it as a statement below.
    */
   summary?: string | null;
   /**

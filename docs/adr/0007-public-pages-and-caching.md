@@ -57,7 +57,7 @@ thumbnails should be served through the site.
     plain text.
 - **What a profile shows.** A public profile shows who the person is and the
   topics that name them:
-  - name, aliases, and the one-line role or description;
+  - name and aliases;
   - photo, with its credit and licence;
   - links, and the Wikidata item.
 
@@ -77,16 +77,19 @@ thumbnails should be served through the site.
   - The check runs on every read, not on save. Individuals are not
     versioned, and editing a reference makes it "being checked" again,
     which hides the statements that cite it until the worker confirms it.
-  - The bio and the country roles with dates are notes for staff and are
-    never shown publicly. To say a role publicly, an admin adds it as a
-    statement. The admin form says so.
+  - The one-line role or description, the bio, and the country roles with
+    dates are notes for staff and are never shown publicly. To say any of
+    them publicly, an admin adds it as a statement. The admin form says so.
+  - A snippet in a statement names its speaker only when the speaker has a
+    public page or is the person the profile is about; otherwise the clip is
+    shown without the speaker's name.
   - Evidence and references that a profile statement uses cannot be
     deleted (409).
   - A file used as evidence for a shown statement is public, like topic
     evidence.
 
-  A country page lists the people named by its topics, not those whose
-  profile mentions the country.
+  A country page lists the people its listed topics name, in any of the
+  three ways, not those whose profile mentions the country.
 - **A save that does not publish never changes the live version.** Payload
   writes the live topic for any update sent without `draft`, which would
   skip the change note, the change log, and the purge. Such an update is
@@ -134,7 +137,9 @@ thumbnails should be served through the site.
   - Payload's content security policy for uploads;
   - `Cache-Control: public, max-age=3600`.
 
-  Anything else answers 404, cached for a minute.
+  Anything else answers 404, cached for a minute. Only ids of stored files
+  reach the cached visibility check, so requests for made-up ids add nothing
+  to the cache.
 - **Personal data stays out of cached pages.** The header's "Sign in" or
   "Your account" link comes from the session the browser asks for after
   loading. The change log shows each change's date, kind, and note, but not

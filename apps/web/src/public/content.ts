@@ -1,10 +1,12 @@
 import { type SnippetEvidence, statementIsBacked } from "@countrytopics/domain";
 import type { Payload, Where } from "payload";
 
+import { rows } from "@/array-rows";
 import { relationId } from "@/audit";
 import type { Licence } from "@/content-labels";
 import { richTextLinkTargets } from "@/editor";
 import { loadPayload } from "@/payload-instance";
+import { snippetEvidence } from "@/snippet-evidence";
 import type {
   Individual,
   LinkArchive,
@@ -80,10 +82,6 @@ function ids(values: unknown[]): string[] {
   ];
 }
 
-function rows<T>(value: T[] | null | undefined): T[] {
-  return Array.isArray(value) ? value : [];
-}
-
 /** Documents of a collection by id, with only the given fields. */
 async function byId<T extends { id: string }>(
   payload: Payload,
@@ -147,7 +145,7 @@ async function summaries(
 ): Promise<TopicSummary[]> {
   const countries = await countryLinks(
     payload,
-    ids(topics.flatMap((topic) => rows(topic.countries))),
+    ids(topics.flatMap((topic) => topic.countries ?? [])),
   );
   return topics.map((topic) => ({
     slug: topic.slug,
@@ -156,8 +154,51 @@ async function summaries(
     state: publicState(topic.state),
     firstPublishedAt: topic.firstPublishedAt ?? null,
     lastPublishedAt: topic.lastPublishedAt ?? null,
-    countries: linksOf(countries, ids(rows(topic.countries))),
+    countries: linksOf(countries, ids(topic.countries ?? [])),
   }));
+}
+
+/** The fields that say whom a topic names. */
+type NamingFields = Pick<Topic, "people" | "linkedIndividuals" | "evidence">;
+
+/**
+ * Listed topics matching `where`, newest first, up to `limit`, with the
+ * documents themselves; `withNaming` also loads whom each topic names.
+ */
+async function listedTopics(
+  payload: Payload,
+  where: Where,
+  limit: number,
+  withNaming = false,
+) {
+  const { docs } = await payload.find({
+    collection: "topics",
+    draft: false,
+    where: { and: [LISTED, where] },
+    select: withNaming
+      ? {
+          ...SUMMARY_FIELDS,
+          people: true,
+          linkedIndividuals: true,
+          evidence: true,
+        }
+      : SUMMARY_FIELDS,
+    sort: NEWEST_FIRST,
+    // One more than shown says whether there are more.
+    limit: limit + 1,
+    pagination: false,
+    depth: 0,
+    overrideAccess: true,
+  });
+  // Payload types the result by one branch of the select; the naming fields
+  // are there exactly when withNaming asked for them.
+  const shown = docs.slice(0, limit) as (SummaryFields &
+    Partial<NamingFields>)[];
+  const list: LimitedList<TopicSummary> = {
+    items: await summaries(payload, shown),
+    more: docs.length > limit,
+  };
+  return { list, docs: shown };
 }
 
 /** Listed topics matching `where`, newest first, up to `limit`. */
@@ -166,22 +207,58 @@ async function topicList(
   where: Where,
   limit: number,
 ): Promise<LimitedList<TopicSummary>> {
+  return (await listedTopics(payload, where, limit)).list;
+}
+
+/**
+ * Which of the individuals a published topic names, in any of the three
+ * ways (namingTopics), so that their pages exist.
+ */
+async function publicIndividualIds(
+  payload: Payload,
+  candidates: string[],
+): Promise<Set<string>> {
+  const wanted = new Set(candidates);
+  if (wanted.size === 0) return new Set();
+  const { docs: spoken } = await payload.find({
+    collection: "snippets",
+    where: { speaker: { in: [...wanted] } },
+    select: { speaker: true },
+    depth: 0,
+    pagination: false,
+    overrideAccess: true,
+  });
+  const speakerOf = new Map(
+    spoken.map((snippet) => [String(snippet.id), relationId(snippet.speaker)]),
+  );
+  const naming: Where[] = [
+    { "people.individual": { in: [...wanted] } },
+    { linkedIndividuals: { in: [...wanted] } },
+  ];
+  if (speakerOf.size > 0) {
+    naming.push({ "evidence.snippet": { in: [...speakerOf.keys()] } });
+  }
   const { docs } = await payload.find({
     collection: "topics",
     draft: false,
-    where: { and: [LISTED, where] },
-    select: SUMMARY_FIELDS,
-    sort: NEWEST_FIRST,
-    // One more than shown says whether there are more.
-    limit: limit + 1,
-    pagination: false,
+    where: { and: [PUBLISHED, { or: naming }] },
+    select: { people: true, linkedIndividuals: true, evidence: true },
     depth: 0,
+    pagination: false,
     overrideAccess: true,
   });
-  return {
-    items: await summaries(payload, docs.slice(0, limit)),
-    more: docs.length > limit,
-  };
+  const named = docs.flatMap((topic) => [
+    ...rows(topic.people).map((row) => relationId(row.individual)),
+    ...(topic.linkedIndividuals ?? []).map(relationId),
+    ...rows(topic.evidence).map((row) =>
+      speakerOf.get(relationId(row.snippet) ?? ""),
+    ),
+  ]);
+  return new Set(
+    named.filter(
+      (id): id is string => typeof id === "string" && wanted.has(id),
+    ),
+  );
 }
 
 function publicFile(media: Media): PublicFile | null {
@@ -272,7 +349,11 @@ type VideoFields = Pick<
 >;
 
 /** A snippet as visitors see it, and the facts the evidence rule checks. */
-type ResolvedSnippet = { snippet: PublicSnippet; check: SnippetEvidence };
+type ResolvedSnippet = {
+  snippet: PublicSnippet;
+  check: SnippetEvidence;
+  speakerId: string | null;
+};
 
 const UNAVAILABLE_MESSAGE = "YouTube no longer plays this video here.";
 
@@ -353,17 +434,8 @@ async function snippetsById(
             ? (video?.checkMessage ?? UNAVAILABLE_MESSAGE)
             : null,
         },
-        check: {
-          caption: snippet.caption,
-          end_s: snippet.endS,
-          video: video
-            ? {
-                checkStatus: video.checkStatus,
-                confirmed: Boolean(video.confirmedAt),
-                duration_s: video.durationS ?? null,
-              }
-            : null,
-        },
+        check: snippetEvidence(snippet, video),
+        speakerId: speaker ? String(speaker.id) : null,
       };
       return [String(snippet.id), resolved];
     }),
@@ -380,7 +452,13 @@ type EvidenceRow = NonNullable<Topic["evidence"]>[number];
 async function resolveEvidence(
   payload: Payload,
   evidence: EvidenceRow[],
-): Promise<{ item: PublicEvidence | null; check: SnippetEvidence | null }[]> {
+): Promise<
+  {
+    item: PublicEvidence | null;
+    check: SnippetEvidence | null;
+    speakerId?: string | null;
+  }[]
+> {
   const urls = evidence.flatMap((row) =>
     row.kind === "link" && row.url ? [row.url] : [],
   );
@@ -417,6 +495,7 @@ async function resolveEvidence(
         ? {
             item: { ...base, kind: "snippet", snippet: found.snippet },
             check: found.check,
+            speakerId: found.speakerId,
           }
         : { item: null, check: null };
     }
@@ -623,7 +702,7 @@ export async function loadTopicPage(slug: string): Promise<TopicPage | null> {
   ] = await Promise.all([
     summaries(payload, [topic]),
     byId<Named>(payload, "categories", ids([topic.category]), named),
-    byId<Named>(payload, "tags", ids(rows(topic.tags)), named),
+    byId<Named>(payload, "tags", ids(topic.tags ?? []), named),
     byId<Named>(
       payload,
       "individuals",
@@ -640,7 +719,7 @@ export async function loadTopicPage(slug: string): Promise<TopicPage | null> {
   return {
     ...(summary as TopicSummary),
     category: category ? { name: category.name, slug: category.slug } : null,
-    tags: linksOf(tags, ids(rows(topic.tags))).map(({ name, slug }) => ({
+    tags: linksOf(tags, ids(topic.tags ?? [])).map(({ name, slug }) => ({
       name,
       slug,
     })),
@@ -669,7 +748,6 @@ type IndividualFields = Pick<
   | "name"
   | "slug"
   | "aliases"
-  | "summary"
   | "photo"
   | "links"
   | "wikidataId"
@@ -709,6 +787,18 @@ async function backedStatements(
     ),
   ]);
 
+  // A snippet's speaker is named on a profile only when they have a page
+  // of their own, or are the person the profile is about.
+  const owners = new Set(
+    individuals.map((individual) => String(individual.id)),
+  );
+  const publicSpeakers = await publicIndividualIds(
+    payload,
+    resolved.flatMap(({ speakerId }) =>
+      speakerId && !owners.has(speakerId) ? [speakerId] : [],
+    ),
+  );
+
   const result = new Map<string, ProfileStatement[]>(
     individuals.map((individual) => [String(individual.id), []]),
   );
@@ -734,7 +824,14 @@ async function backedStatements(
     if (!backed) continue;
     result.get(owner)?.push({
       text: statement.text,
-      evidence: evidence.flatMap(({ item }) => (item ? [item] : [])),
+      evidence: evidence.flatMap(({ item, speakerId }): PublicEvidence[] => {
+        if (!item) return [];
+        const named =
+          !speakerId || speakerId === owner || publicSpeakers.has(speakerId);
+        return item.kind === "snippet" && !named
+          ? [{ ...item, snippet: { ...item.snippet, speaker: null } }]
+          : [item];
+      }),
       sources: cited.flatMap(({ source, reference }) =>
         reference
           ? [
@@ -763,7 +860,6 @@ export async function loadIndividualPage(
       name: true,
       slug: true,
       aliases: true,
-      summary: true,
       photo: true,
       links: true,
       wikidataId: true,
@@ -789,7 +885,6 @@ export async function loadIndividualPage(
     name: individual.name,
     slug: individual.slug,
     aliases: rows(individual.aliases).map((alias) => alias.name),
-    summary: individual.summary ?? null,
     photo: photo ? publicFile(photo) : null,
     links: rows(individual.links).map(({ label, url }) => ({ label, url })),
     wikidataId: individual.wikidataId ?? null,
@@ -815,32 +910,39 @@ export async function loadCountryPage(
   const country = docs[0];
   if (!country) return null;
 
-  const topics = await topicList(
+  // The people the listed topics name, in any of the three ways, taken from
+  // the topics themselves rather than from the country entries on profiles,
+  // which are staff notes.
+  const { list: topics, docs: listed } = await listedTopics(
     payload,
     { countries: { equals: country.id } },
     TOPIC_LIST_LIMIT,
+    true,
   );
-  // The people the listed topics name, from the topics themselves rather
-  // than the individuals' own country entries, which cite no evidence.
-  const { docs: naming } = await payload.find({
-    collection: "topics",
-    draft: false,
-    where: { and: [LISTED, { countries: { equals: country.id } }] },
-    select: { people: true },
-    sort: NEWEST_FIRST,
-    limit: TOPIC_LIST_LIMIT,
-    pagination: false,
-    depth: 0,
-    overrideAccess: true,
-  });
+  const snippetIds = ids(
+    listed.flatMap((topic) => rows(topic.evidence).map((row) => row.snippet)),
+  );
+  const { docs: quoted } =
+    snippetIds.length > 0
+      ? await payload.find({
+          collection: "snippets",
+          where: { id: { in: snippetIds } },
+          select: { speaker: true },
+          depth: 0,
+          pagination: false,
+          overrideAccess: true,
+        })
+      : { docs: [] };
   const individuals = await byId<Named>(
     payload,
     "individuals",
-    ids(
-      naming.flatMap((topic) =>
-        rows(topic.people).map((row) => row.individual),
-      ),
-    ),
+    ids([
+      ...listed.flatMap((topic) => [
+        ...rows(topic.people).map((row) => row.individual),
+        ...(topic.linkedIndividuals ?? []),
+      ]),
+      ...quoted.map((snippet) => snippet.speaker),
+    ]),
     { name: true, slug: true },
   );
   const people: IndividualLink[] = [...individuals.values()]
@@ -860,15 +962,17 @@ export async function loadCountryPage(
 
 export async function loadHomePage(): Promise<HomePage> {
   const payload = await loadPayload();
-  const topics = await topicList(payload, {}, HOME_TOPIC_LIMIT);
-  const { values } = await payload.findDistinct({
-    collection: "topics",
-    field: "countries",
-    where: LISTED,
-    limit: COUNTRY_LIMIT,
-    depth: 0,
-    overrideAccess: true,
-  });
+  const [topics, { values }] = await Promise.all([
+    topicList(payload, {}, HOME_TOPIC_LIMIT),
+    payload.findDistinct({
+      collection: "topics",
+      field: "countries",
+      where: LISTED,
+      limit: COUNTRY_LIMIT,
+      depth: 0,
+      overrideAccess: true,
+    }),
+  ]);
   const countryIds = ids(
     values.map((value: Record<string, unknown>) => value.countries),
   );

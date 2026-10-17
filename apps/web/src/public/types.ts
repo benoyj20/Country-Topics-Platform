@@ -131,8 +131,8 @@ export type IndividualPage = {
   slug: string;
   aliases: string[];
   photo: PublicFile | null;
+  /** The admin's links, each address once, ending with the Wikidata item. */
   links: { label: string; url: string }[];
-  wikidataId: string | null;
   /** The profile's statements that are backed; the others are left out. */
   statements: ProfileStatement[];
   topics: LimitedList<TopicSummary>;

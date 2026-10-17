@@ -7,6 +7,8 @@ import type { Licence } from "@/content-labels";
 import { richTextLinkTargets } from "@/editor";
 import { loadPayload } from "@/payload-instance";
 import { snippetEvidence } from "@/snippet-evidence";
+
+import { profileLinks } from "./profile-links";
 import type {
   Individual,
   LinkArchive,
@@ -886,8 +888,10 @@ export async function loadIndividualPage(
     slug: individual.slug,
     aliases: rows(individual.aliases).map((alias) => alias.name),
     photo: photo ? publicFile(photo) : null,
-    links: rows(individual.links).map(({ label, url }) => ({ label, url })),
-    wikidataId: individual.wikidataId ?? null,
+    links: profileLinks(
+      rows(individual.links).map(({ label, url }) => ({ label, url })),
+      individual.wikidataId ?? null,
+    ),
     statements: statements.get(String(individual.id)) ?? [],
     topics,
   };

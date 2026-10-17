@@ -502,6 +502,10 @@ See [ADR 0007](adr/0007-public-pages-and-caching.md) for the design.
   signed in and "Sign in" after clearing cookies; at 390 px the topic, home,
   country, and individual pages had no horizontal scroll; no browser errors
   (2026-10-17).
+- [x] Found in the developer's manual test: a profile whose links already
+  included its Wikidata page listed it twice (React's duplicate key
+  warning). Links are now listed once each, with the Wikidata item added
+  only when no link goes there (unit tests, 2026-10-17).
 - [ ] The developer browses as a visitor, including on a phone.
 - [ ] Before running two web containers (week 11): a shared Redis cache
   handler, so purges reach every instance and no cache sits on local disk.

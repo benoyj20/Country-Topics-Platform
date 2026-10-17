@@ -37,17 +37,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function IndividualPageView({ params }: Props) {
   const individual = await load(params);
-  const links = [
-    ...individual.links,
-    ...(individual.wikidataId
-      ? [
-          {
-            label: "Wikidata",
-            url: `https://www.wikidata.org/wiki/${individual.wikidataId}`,
-          },
-        ]
-      : []),
-  ];
 
   return (
     <div className="stack">
@@ -108,11 +97,11 @@ export default async function IndividualPageView({ params }: Props) {
         />
       </section>
 
-      {links.length > 0 ? (
+      {individual.links.length > 0 ? (
         <section className={styles.section} aria-labelledby="links">
           <h2 id="links">Links</h2>
           <ul className={styles.names}>
-            {links.map((link) => (
+            {individual.links.map((link) => (
               <li key={link.url}>
                 <a href={link.url} target="_blank" rel="noopener noreferrer">
                   {link.label}

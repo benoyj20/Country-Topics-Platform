@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 
 import styles from "@/components/public/public.module.css";
 import { TopicList } from "@/components/public/TopicList";
+import { browseHref } from "@/public/browse-query";
 import { countryPage } from "@/public/cached";
 import type { CountryPage } from "@/public/types";
 
@@ -49,6 +50,7 @@ export default async function CountryPageView({ params }: Props) {
         <TopicList
           topics={country.topics}
           empty={`No topics about ${country.name} yet.`}
+          moreHref={browseHref({ country: [country.slug] })}
         />
       </section>
 

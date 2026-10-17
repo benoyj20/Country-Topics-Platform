@@ -3,12 +3,23 @@ import type { CollectionConfig } from "payload";
 import { verifiedAdminsOnly, verifiedStaffOnly } from "@/access";
 import { auditHooks } from "@/audit";
 import { PUBLIC_TAGS, purgeOnChange } from "@/public-cache";
+import { reindexTopicsOnChange } from "@/search-index";
 
 import { fillSlug, slugField } from "./slug";
 import { keepWhileUsedByTopics } from "./topic-references";
 
 // Broad subject areas for topics (week 4), such as health or elections. Tags
 // are the finer labels.
+const audit = auditHooks({
+  collection: "categories",
+  action: "category",
+  snapshot: (doc) => ({
+    name: doc.name,
+    slug: doc.slug,
+    description: doc.description ?? null,
+  }),
+});
+
 export const Categories: CollectionConfig = {
   slug: "categories",
   admin: {
@@ -31,14 +42,13 @@ export const Categories: CollectionConfig = {
   hooks: purgeOnChange(PUBLIC_TAGS.categories, {
     beforeValidate: [fillSlug("categories")],
     beforeDelete: [keepWhileUsedByTopics("category", "category")],
-    ...auditHooks({
-      collection: "categories",
-      action: "category",
-      snapshot: (doc) => ({
-        name: doc.name,
-        slug: doc.slug,
-        description: doc.description ?? null,
+    afterChange: [
+      ...audit.afterChange,
+      reindexTopicsOnChange("categories", {
+        searched: (doc) => doc.name,
+        topicsShowing: async (_req, id) => ({ category: { equals: id } }),
       }),
-    }),
+    ],
+    afterDelete: audit.afterDelete,
   }),
 };

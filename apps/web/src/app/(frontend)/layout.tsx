@@ -23,7 +23,10 @@ export default function FrontendLayout({ children }: { children: ReactNode }) {
             <Link href="/" className="site-name">
               Country Topics
             </Link>
-            <AccountLink />
+            <div className="site-links">
+              <Link href="/topics">Topics</Link>
+              <AccountLink />
+            </div>
           </nav>
         </header>
         <main>{children}</main>

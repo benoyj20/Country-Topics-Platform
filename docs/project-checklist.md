@@ -18,8 +18,8 @@ The site itself (`apps/web`) so far has sign-in (Google and email links,
 invite-only), roles, staff authenticator checks, the admin panel with countries,
 categories, tags, individuals, versioned topics with a change log, evidence and
 references, video snippets, public pages for visitors (home, countries,
-topics, individuals, and the files they show), and a health check; see Weeks
-1 to 7 below.
+topics, individuals, and the files they show), browsing and search of every
+topic at `/topics`, and a health check; see Weeks 1 to 8 below.
 
 The snippet flow began as a standalone prototype in `prototypes/youtube-snippet`
 (plain JavaScript, no database); its typed version is in the site since MVP week 6.
@@ -514,6 +514,97 @@ See [ADR 0007](adr/0007-public-pages-and-caching.md) for the design.
   link fix (reported by the developer, 2026-10-17).
 - [ ] Before running two web containers (week 11): a shared Redis cache
   handler, so purges reach every instance and no cache sits on local disk.
-- [ ] Not built yet: paging past 50 topics, filters and search (week 8), a
-  public JSON API, and serving video thumbnails through the site (decided
-  with the consent banner after the pilot).
+- [x] Paging past 50 topics, filters, and search came in week 8 (below):
+  lists that stop short link to `/topics` with their filter.
+- [ ] Not built yet: serving video thumbnails through the site (decided with
+  the consent banner after the pilot).
+
+### Week 8: browsing, filters, search, shareable links
+
+See [ADR 0008](adr/0008-browsing-and-search.md) for the design.
+
+- [x] Search index: publishing a topic queues it for the worker, and a
+  draft save queues nothing; the worker's document of a topic has its
+  countries, category, tags, everyone it names (people, links in its text,
+  and snippet speakers), its evidence kinds, its snippets' languages, and
+  its reference count; each person's filter finds exactly the topics their
+  public page lists; an older read never replaces or removes a newer
+  document; a job waits until the save that queued it is visible; a rebuild
+  indexes every listed topic and drops documents of topics no longer listed
+  (integration tests, 2026-10-17).
+- [x] Keeping it current: renaming a person and changing a snippet's
+  language re-index the topics that show them; archiving a topic takes it
+  out of search (integration tests, 2026-10-17).
+- [x] Search and filters: words in a topic's title, body, summary, its
+  people's names, and what its snippets' speakers say find it; drafts and
+  people named only in drafts are never found; any value within a facet and
+  every facet together; a slug no record has matches nothing; facet counts
+  ignore the facet's own choice; sorting by references; cursor paging
+  returns every topic once for each sort (integration tests, 2026-10-17).
+- [x] `GET /api/v1/topics`: answers with
+  `public, max-age=0, s-maxage=60, stale-while-revalidate=300` and no ids;
+  refuses values that are not valid and cursors it did not issue (400);
+  a person slug without a public page matches nothing and their name never
+  appears (integration tests, 2026-10-17). The URL parameters have one
+  canonical form and read back to the same request (unit tests).
+- [x] The guard tests failed when the queueing on publish, the snippet
+  speakers in documents, the index's version check, the public-person check
+  on typed slugs, the re-index on rename, and the facets' own-choice rule
+  were removed (2026-10-17).
+- [x] The code review before the first push found ten issues; all were
+  fixed, each with a test that failed without the fix (2026-10-17): a job
+  that read a topic before it was archived could add it back (removals are
+  now remembered, and writes for a topic take turns); a rename did not make
+  a newer version (a version now covers everything a document shows); the
+  API answered any extra parameter, so requests could skip the cache
+  (unknown parameters are refused, and other spellings of a request are
+  redirected to its one address); a "from" date after "to" silently
+  cleared both (a link has them swapped, with a notice; choosing one
+  clears the other); titles of evidence the page hides were searchable;
+  each rebuild rewrote every document and held up publishes (unchanged
+  documents are skipped, and two jobs run at a time); language codes
+  differed by case; a file's changes did not re-index its topics; a
+  comment about the schedule was wrong; two helpers were copies.
+- [x] Real browser and HTTP (headless Edge and `fetch`, production build on
+  the test database, the worker on its own queue prefix): 23 topics
+  published through the API were searchable about half a second later, a
+  topic published while browsing was found after about half a second, and
+  archiving it removed it as quickly; `/topics` answered
+  `s-maxage=3600, stale-while-revalidate=…` and the API
+  `public, max-age=0, s-maxage=60, …`; the API redirected another spelling
+  of a request (308) to its one address and refused an unknown sort (400); "Show more topics" loaded the rest
+  with no repeats; a search found the one topic with its word; choosing
+  Iceland and "Recently updated" changed the address to
+  `?country=iceland&sort=updated` and showed only Iceland's topics; "Copy
+  link" copied that address, and opening it signed out in a fresh tab
+  showed the same topics in the same order with the filter and sort
+  chosen; a mistyped link kept its valid parts, said which parts it left
+  out, and corrected the address; six quick clicks on one filter in a row
+  ended where they should; at 390 px the filters started folded and no
+  page scrolled sideways; the home page's search box led to the results;
+  no browser errors (2026-10-17).
+- [x] Found in the browser test and fixed: changing filters through the
+  router asked the server for the page again on every change; the address
+  now changes through the history API with no request. Quick clicks in a
+  row each started from the same old filters; each change now starts from
+  the current address.
+- [x] Found when restarting `make dev` on the migrated development
+  database: the hourly rebuild's first run waited for the next hour, so the
+  new index stayed empty; the worker now also rebuilds when it starts
+  (integration test, which failed without it; the development index then
+  held its one listed topic, 2026-10-17).
+- [x] Found in the developer's manual test: in development, where the
+  browser component is also rendered on the server, `/topics` logged a
+  hydration error. The filters' open state was read from the screen width
+  during the first render, which the server cannot know. It now hydrates
+  folded and opens once the width is known; no errors at 1280 and 390 px on
+  three addresses in the development server (2026-10-17).
+- [x] Noted, not a defect: a form submitted in the first few milliseconds
+  of a page load, before its script runs, is a plain page load, which ends
+  that page's link prefetches; React logs "Connection closed" on the page
+  being left. No person can submit that fast; at a person's pace the
+  search box navigated with no errors in every run.
+- [ ] The developer filters, copies the link, and opens it elsewhere.
+- [ ] Not built yet: sorting by "most discussed" and "trending" (they need
+  comments, week 9), search-as-you-type, highlighted matches, and stemming
+  for languages other than English.

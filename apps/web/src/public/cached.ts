@@ -8,6 +8,7 @@ import {
 } from "@/public-cache";
 
 import {
+  loadBrowseTerms,
   loadCountryPage,
   loadHomePage,
   loadIndividualPage,
@@ -74,4 +75,10 @@ export const publicFile = cached("public-file", loadPublicFile, [
   T.snippets,
   // Whether a profile statement that uses the file is shown.
   T.references,
+]);
+
+export const browseTerms = cached("browse-terms", loadBrowseTerms, [
+  T.countries,
+  T.categories,
+  T.tags,
 ]);

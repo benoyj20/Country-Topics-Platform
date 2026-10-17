@@ -32,7 +32,7 @@ import {
   STANCE_LABELS,
   TOPIC_STATE_LABELS,
 } from "@/content-labels";
-import { queueLinkArchives } from "@/content-jobs";
+import { queueLinkArchives, queueSearchIndex } from "@/content-jobs";
 import { richTextHasText, richTextLinkedIds, richTextLinksTo } from "@/editor";
 import { PUBLIC_TAGS, purgePublicPages } from "@/public-cache";
 import { snippetEvidence } from "@/snippet-evidence";
@@ -448,8 +448,13 @@ const recordChange: CollectionAfterChangeHook = async ({
 
   if (pending) {
     // Every publish has a change log entry, so this is where the live
-    // version changes; draft saves leave visitors' pages alone.
+    // version changes; draft saves leave visitors' pages and search alone.
     purgePublicPages([PUBLIC_TAGS.topics]);
+    await queueSearchIndex(req, [String(doc.id)], {
+      table: "topics",
+      id: String(doc.id),
+      updatedAt: doc.updatedAt,
+    });
     await req.payload.create({
       collection: "topic-changes",
       data: {

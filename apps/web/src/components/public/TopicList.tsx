@@ -5,14 +5,23 @@ import type { LimitedList, TopicSummary } from "@/public/types";
 
 import styles from "./public.module.css";
 
-/** Published topics, newest first, each with its countries and summary. */
+/** "1 reference", "3 references". */
+function referenceCount(count: number): string {
+  return `${count} ${count === 1 ? "reference" : "references"}`;
+}
+
+/** Published topics, each with its countries and summary. */
 export function TopicList({
   topics,
   empty,
+  moreHref,
 }: {
-  topics: LimitedList<TopicSummary>;
+  /** Browse results also say how many references each topic cites. */
+  topics: LimitedList<TopicSummary & { referenceCount?: number }>;
   /** Shown when there are none, such as "No topics about Kenya yet." */
   empty: string;
+  /** Where to browse them all, when the list stops short. */
+  moreHref?: string;
 }) {
   if (topics.items.length === 0) return <p className="muted">{empty}</p>;
   return (
@@ -36,14 +45,17 @@ export function TopicList({
               {topic.firstPublishedAt
                 ? `${topic.countries.length > 0 ? " · " : ""}${formatDate(topic.firstPublishedAt)}`
                 : null}
+              {topic.referenceCount !== undefined
+                ? ` · ${referenceCount(topic.referenceCount)}`
+                : null}
             </p>
           </li>
         ))}
       </ul>
       {topics.more ? (
         <p className="muted">
-          Showing the {topics.items.length} newest topics. Browsing older ones
-          comes with search and filters.
+          Showing the {topics.items.length} newest topics.{" "}
+          {moreHref ? <Link href={moreHref}>Browse all of them</Link> : null}
         </p>
       ) : null}
     </>

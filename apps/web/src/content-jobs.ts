@@ -1,8 +1,12 @@
 import { isHttpUrl } from "@countrytopics/domain";
-import type { ReferenceCheckJob, VideoCheckJob } from "@countrytopics/jobs";
+import type {
+  ReferenceCheckJob,
+  SearchSourceChange,
+  VideoCheckJob,
+} from "@countrytopics/jobs";
 import { APIError, type PayloadRequest } from "payload";
 
-import { linkQueue, referenceQueue, videoQueue } from "@/jobs";
+import { linkQueue, referenceQueue, searchQueue, videoQueue } from "@/jobs";
 
 /**
  * Runs inside the save's transaction: if the job cannot be queued, the save
@@ -71,4 +75,26 @@ export async function queueLinkArchives(
   await enqueueOrFail(req, "link archive", () =>
     linkQueue().enqueueMany(waiting.map((url) => ({ url }))),
   );
+}
+
+/**
+ * Asks the worker to re-index topics once the save that changed them (or
+ * something they show) commits. Unlike checks, a lost request is caught by
+ * the worker's hourly rebuild (ADR 0008), so a queue outage does not stop
+ * the save: it is logged, and search catches up within the hour.
+ */
+export async function queueSearchIndex(
+  req: PayloadRequest,
+  topicIds: string[],
+  after: SearchSourceChange,
+): Promise<void> {
+  if (topicIds.length === 0) return;
+  try {
+    await searchQueue().enqueue({ topicIds, after });
+  } catch (error) {
+    req.payload.logger.error({
+      err: error,
+      msg: `Could not queue a search index update for ${topicIds.length} topic(s); the hourly rebuild will catch up`,
+    });
+  }
 }

@@ -3,11 +3,13 @@ import {
   createLinkQueue,
   createRedisConnection,
   createReferenceQueue,
+  createSearchQueue,
   createVideoQueue,
   type EmailQueue,
   type LinkQueue,
   type QueueSettings,
   type ReferenceQueue,
+  type SearchQueue,
   type VideoQueue,
 } from "@countrytopics/jobs";
 
@@ -18,6 +20,7 @@ type Queues = {
   references: ReferenceQueue;
   links: LinkQueue;
   videos: VideoQueue;
+  search: SearchQueue;
 };
 
 declare global {
@@ -37,6 +40,7 @@ function queues(): Queues {
       references: createReferenceQueue(settings),
       links: createLinkQueue(settings),
       videos: createVideoQueue(settings),
+      search: createSearchQueue(settings),
     };
   }
   return globalThis.countryTopicsQueues;
@@ -53,3 +57,6 @@ export const linkQueue = (): LinkQueue => queues().links;
 
 /** Asks the worker whether a YouTube video exists and may be embedded. */
 export const videoQueue = (): VideoQueue => queues().videos;
+
+/** Asks the worker to bring topics' search documents up to date. */
+export const searchQueue = (): SearchQueue => queues().search;

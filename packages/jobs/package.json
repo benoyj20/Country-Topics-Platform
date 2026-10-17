@@ -14,6 +14,7 @@
   "dependencies": {
     "@countrytopics/domain": "workspace:*",
     "@countrytopics/email": "workspace:*",
+    "@countrytopics/search": "workspace:*",
     "@countrytopics/sources": "workspace:*",
     "bullmq": "6.3.10",
     "ioredis": "5.11.1",

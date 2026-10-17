@@ -8,6 +8,7 @@ import { richTextLinkTargets } from "@/editor";
 import { loadPayload } from "@/payload-instance";
 import { snippetEvidence } from "@/snippet-evidence";
 
+import { namingTopics } from "./naming";
 import { profileLinks } from "./profile-links";
 import type {
   Individual,
@@ -20,6 +21,7 @@ import type {
 } from "@/payload-types";
 
 import type {
+  BrowseTerms,
   CitedReference,
   CountryLink,
   CountryPage,
@@ -290,32 +292,6 @@ const FILE_FIELDS = {
   credit: true,
   sourceUrl: true,
 } as const;
-
-/** The condition for topics that name any of the individuals. */
-async function namingTopics(
-  payload: Payload,
-  individualIds: string[],
-): Promise<Where> {
-  // Snippets are not versioned with topics: a published topic quotes the
-  // speaker its snippet names now, as its page shows.
-  const { docs: spoken } = await payload.find({
-    collection: "snippets",
-    where: { speaker: { in: individualIds } },
-    // Only the ids are needed; Payload always returns them.
-    select: { youtubeId: true },
-    depth: 0,
-    pagination: false,
-    overrideAccess: true,
-  });
-  const naming: Where[] = [
-    { "people.individual": { in: individualIds } },
-    { linkedIndividuals: { in: individualIds } },
-  ];
-  if (spoken.length > 0) {
-    naming.push({ "evidence.snippet": { in: spoken.map((doc) => doc.id) } });
-  }
-  return { or: naming };
-}
 
 /** Whether a published topic names any of the individuals. */
 async function anyNamed(payload: Payload, naming: Where): Promise<boolean> {
@@ -1071,4 +1047,88 @@ export async function loadPublicFile(
       _objectKey: media._objectKey,
     },
   };
+}
+
+/**
+ * Every country, category, and tag, for browsing: their slugs in URLs
+ * become ids for the search index, and the index's ids become names.
+ */
+export async function loadBrowseTerms(): Promise<BrowseTerms> {
+  const payload = await loadPayload();
+  const all = { depth: 0, pagination: false, overrideAccess: true } as const;
+  const [countries, categories, tags] = await Promise.all([
+    payload.find({
+      collection: "countries",
+      select: { name: true, slug: true, region: true },
+      sort: "name",
+      ...all,
+    }),
+    payload.find({
+      collection: "categories",
+      select: { name: true, slug: true },
+      sort: "name",
+      ...all,
+    }),
+    payload.find({
+      collection: "tags",
+      select: { name: true, slug: true },
+      sort: "name",
+      ...all,
+    }),
+  ]);
+  const term = (doc: { id: string; name: string; slug: string }) => ({
+    id: String(doc.id),
+    name: doc.name,
+    slug: doc.slug,
+  });
+  return {
+    countries: countries.docs.map((doc) => ({
+      ...term(doc),
+      region: doc.region ?? null,
+    })),
+    categories: categories.docs.map(term),
+    tags: tags.docs.map(term),
+  };
+}
+
+/**
+ * Individuals by id, with their names and slugs. Only for ids from the
+ * search index, which names only people that listed topics name.
+ */
+export async function loadIndividualLinks(ids: string[]): Promise<Named[]> {
+  const found = await byId<Named>(await loadPayload(), "individuals", ids, {
+    name: true,
+    slug: true,
+  });
+  return [...found.values()].map(({ id, name, slug }) => ({
+    id: String(id),
+    name,
+    slug,
+  }));
+}
+
+/**
+ * The public individuals among these slugs: a slug typed into a URL must
+ * not reveal the name of someone who has no page.
+ */
+export async function loadPublicIndividualLinks(
+  slugs: string[],
+): Promise<Named[]> {
+  if (slugs.length === 0) return [];
+  const payload = await loadPayload();
+  const { docs } = await payload.find({
+    collection: "individuals",
+    where: { slug: { in: slugs } },
+    select: { name: true, slug: true },
+    depth: 0,
+    pagination: false,
+    overrideAccess: true,
+  });
+  const visible = await publicIndividualIds(
+    payload,
+    docs.map((doc) => String(doc.id)),
+  );
+  return docs
+    .filter((doc) => visible.has(String(doc.id)))
+    .map((doc) => ({ id: String(doc.id), name: doc.name, slug: doc.slug }));
 }

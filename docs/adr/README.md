@@ -15,3 +15,4 @@ record that supersedes it and update the old record's status line to point to it
 | [0005](0005-evidence-and-references.md) | Evidence, references, file storage, and link archiving | Accepted |
 | [0006](0006-snippets-and-transcripts.md) | Video snippets, videos, and transcripts | Accepted |
 | [0007](0007-public-pages-and-caching.md) | Public pages, what they show, and how they are cached | Accepted |
+| [0008](0008-browsing-and-search.md) | Browsing, filters, and search | Accepted |

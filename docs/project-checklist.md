@@ -1,6 +1,6 @@
 # Project and testing checklist
 
-Status snapshot: 16 October 2026. This is the current implementation and
+Status snapshot: 17 October 2026. This is the current implementation and
 verification checklist; [the MVP plan](mvp-plan.md) describes what comes next.
 
 A checked item means the stated work or verification was completed, with the
@@ -412,10 +412,14 @@ See [ADR 0006](adr/0006-snippets-and-transcripts.md) for the design.
   one earlier headless run the first click loaded the player without starting
   playback (a second click on a line played it); worth watching for in a real
   browser.
-- [ ] The developer adds a clip with a synced transcript in the admin panel and
-  watches the preview play in sync in a real browser (the week's manual test).
-- [ ] Each player edge case in a real browser: the first click starts playback,
-  stop at the end time, snap back when dragged before the start, Replay, and
-  the "watch full video" link.
+- [x] The developer added a clip with a synced transcript in the admin panel,
+  watched the preview play in sync in a real browser, saw the worker confirm
+  the video, and went through the rest of the test steps, including the
+  player's edge cases: the first click starts playback, stop at the end time,
+  snap back when dragged before the start, Replay, and the "watch full video"
+  link (reported by the developer, 2026-10-17). The first save showed "YouTube
+  check pending" for good because a `make dev` started before the day's
+  changes still ran the old queue code; after restarting it, saving again
+  queued the check.
 - [ ] Not built yet: public topic pages showing snippets (week 7), periodic
   re-checks of videos, and transcript excerpts without a video.

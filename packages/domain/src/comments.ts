@@ -27,10 +27,6 @@ export function isCommentSort(value: unknown): value is CommentSort {
 export const COMMENT_VOTE_VALUES = [-1, 0, 1] as const;
 export type CommentVoteValue = (typeof COMMENT_VOTE_VALUES)[number];
 
-export function isCommentVoteValue(value: unknown): value is CommentVoteValue {
-  return (COMMENT_VOTE_VALUES as readonly unknown[]).includes(value);
-}
-
 export const COMMENT_REPORT_REASONS = [
   "spam",
   "abuse",
@@ -40,15 +36,6 @@ export const COMMENT_REPORT_REASONS = [
 ] as const;
 export type CommentReportReason = (typeof COMMENT_REPORT_REASONS)[number];
 export const COMMENT_REPORT_NOTE_MAX_LENGTH = 500;
-
-export function isCommentReportReason(
-  value: unknown,
-): value is CommentReportReason {
-  return (
-    typeof value === "string" &&
-    (COMMENT_REPORT_REASONS as readonly string[]).includes(value)
-  );
-}
 
 /**
  * Control characters other than tab and line feed, which nothing typed
@@ -110,8 +97,40 @@ export const DISPLAY_NAME_MAX_LENGTH = 40;
 
 // Letters, marks, and digits in any script, with spaces and the punctuation
 // names use, starting with a letter or digit. No symbols, emoji, or
-// controls, so a name cannot hide text or pose as a label.
+// controls, so a name cannot hide text.
 const DISPLAY_NAME_PATTERN = /^[\p{L}\p{N}][\p{L}\p{M}\p{N} .'’_-]*$/u;
+
+// Words that would make a member look like staff or the site, and whole
+// names the page itself shows in place of a name, compared as lowercase
+// words without punctuation.
+const RESERVED_NAME_WORDS = new Set([
+  "admin",
+  "administrator",
+  "moderator",
+  "mod",
+  "staff",
+  "official",
+]);
+const RESERVED_NAMES = new Set([
+  "you",
+  "former member",
+  "deleted account",
+  "anonymous",
+]);
+const SITE_NAME = "country topics";
+
+function isReservedName(name: string): boolean {
+  const words = name
+    .toLowerCase()
+    .split(/[^\p{L}\p{M}\p{N}]+/u)
+    .filter(Boolean);
+  const joined = words.join(" ");
+  return (
+    words.some((word) => RESERVED_NAME_WORDS.has(word)) ||
+    RESERVED_NAMES.has(joined) ||
+    joined.includes(SITE_NAME)
+  );
+}
 
 /** A display name with its spaces tidied; check it with displayNameProblem. */
 export function normalizeDisplayName(value: string): string {
@@ -129,6 +148,9 @@ export function displayNameProblem(name: string): string | null {
   }
   if (!DISPLAY_NAME_PATTERN.test(name)) {
     return "Use letters, numbers, spaces, and . ' _ - only, starting with a letter or number.";
+  }
+  if (isReservedName(name)) {
+    return "That name could be mistaken for the site or its staff. Choose another.";
   }
   return null;
 }

@@ -15,6 +15,7 @@ import type {
   CommentViewer,
   PublicComment,
 } from "@/comments/types";
+import { counted } from "@/public/format";
 
 import {
   fetchReplies,
@@ -70,9 +71,9 @@ function withoutRepeats<T extends { id: string }>(list: T[]): T[] {
   return list.filter((item) => !seen.has(item.id) && seen.add(item.id));
 }
 
-/** "1 comment", "12 comments". */
-function commentCount(total: number): string {
-  return `${total} ${total === 1 ? "comment" : "comments"}`;
+/** Oldest first, as the server orders replies (ISO dates sort as text). */
+function byAge(a: PublicComment, b: PublicComment): number {
+  return a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id);
 }
 
 export function CommentSection({ slug }: { slug: string }) {
@@ -85,26 +86,39 @@ export function CommentSection({ slug }: { slug: string }) {
   }>();
   const [more, setMore] = useState<"idle" | "loading" | "failed">("idle");
   const [viewer, setViewer] = useState<CommentViewer>(NOBODY);
+  // Whether the first answer about the reader came; later ones only add
+  // votes and reports on more comments.
   const [viewerState, setViewerState] = useState<
     "loading" | "loaded" | "failed"
   >("loading");
+  const [viewerGap, setViewerGap] = useState(false);
+  // A name saved on this page wins over answers sent before it was saved.
+  const [chosenName, setChosenName] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyLoads, setReplyLoads] = useState<
     Record<string, "loading" | "failed">
   >({});
 
   /** Learns the reader's part in more comments; visitors learn nothing. */
-  const learnViewer = useCallback((ids: string[], signal?: AbortSignal) => {
-    fetchViewer(ids, signal).then(
-      (answer) => {
-        setViewer((known) => merge(known, answer));
-        setViewerState("loaded");
-      },
-      () => {
-        if (!signal?.aborted) setViewerState("failed");
-      },
-    );
-  }, []);
+  const learnViewer = useCallback(
+    (
+      ids: string[],
+      { first, signal }: { first: boolean; signal?: AbortSignal },
+    ) => {
+      fetchViewer(ids, signal).then(
+        (answer) => {
+          setViewer((known) => merge(known, answer));
+          if (first) setViewerState("loaded");
+        },
+        () => {
+          if (signal?.aborted) return;
+          if (first) setViewerState("failed");
+          else setViewerGap(true);
+        },
+      );
+    },
+    [],
+  );
 
   useEffect(() => {
     const controller = new AbortController();
@@ -113,7 +127,10 @@ export function CommentSection({ slug }: { slug: string }) {
         setPage({ ...loaded, sort });
         setMore("idle");
         setReplyLoads({});
-        learnViewer(idsOf(loaded.threads), controller.signal);
+        learnViewer(idsOf(loaded.threads), {
+          first: true,
+          signal: controller.signal,
+        });
       },
       (error: unknown) => {
         if (controller.signal.aborted) return;
@@ -132,7 +149,7 @@ export function CommentSection({ slug }: { slug: string }) {
   const current = page?.sort === sort ? page : undefined;
   const failed = failure?.sort === sort && !current ? failure : undefined;
   const signedIn = viewer.account !== null;
-  const needsName = signedIn && !viewer.account?.displayName;
+  const needsName = signedIn && !(chosenName ?? viewer.account?.displayName);
 
   function standing(comment: PublicComment): CommentStanding {
     return {
@@ -176,19 +193,21 @@ export function CommentSection({ slug }: { slug: string }) {
     });
   }
 
+  /**
+   * Shown at once, and put back if the vote does not count. CommentItem
+   * sends one vote at a time per comment, so putting back the values from
+   * before cannot undo a later vote.
+   */
   async function vote(comment: PublicComment, value: CommentVoteValue) {
     const previous = viewer.votes[comment.id] ?? 0;
-    // Shown at once; put back if the vote does not count.
     setVote(comment.id, value);
-    update(comment.id, (shown) => ({ score: shown.score + value - previous }));
+    update(comment.id, () => ({ score: comment.score + value - previous }));
     try {
-      const counted = await sendVote(comment.id, value);
-      update(comment.id, () => ({ score: counted.score }));
+      const result = await sendVote(comment.id, value);
+      update(comment.id, () => ({ score: result.score }));
     } catch (error) {
       setVote(comment.id, previous);
-      update(comment.id, (shown) => ({
-        score: shown.score - value + previous,
-      }));
+      update(comment.id, () => ({ score: comment.score }));
       throw error;
     }
   }
@@ -245,19 +264,22 @@ export function CommentSection({ slug }: { slug: string }) {
 
   async function loadMore() {
     if (!current?.nextCursor) return;
+    const requested = sort;
     setMore("loading");
     try {
-      const next = await fetchThreads(slug, sort, current.nextCursor);
-      setPage(
-        (loaded) =>
-          loaded && {
-            ...loaded,
-            threads: withoutRepeats([...loaded.threads, ...next.threads]),
-            nextCursor: next.nextCursor,
-          },
+      const next = await fetchThreads(slug, requested, current.nextCursor);
+      // Dropped if the reader chose another order meanwhile.
+      setPage((loaded) =>
+        loaded?.sort === requested
+          ? {
+              ...loaded,
+              threads: withoutRepeats([...loaded.threads, ...next.threads]),
+              nextCursor: next.nextCursor,
+            }
+          : loaded,
       );
       setMore("idle");
-      learnViewer(idsOf(next.threads));
+      learnViewer(idsOf(next.threads), { first: false });
     } catch {
       setMore("failed");
     }
@@ -276,10 +298,12 @@ export function CommentSection({ slug }: { slug: string }) {
               shown.id === thread.id
                 ? {
                     ...shown,
+                    // A reply the reader just posted is already shown;
+                    // the older ones go before it.
                     replies: withoutRepeats([
                       ...shown.replies,
                       ...next.replies,
-                    ]),
+                    ]).sort(byAge),
                     moreReplies: next.nextCursor,
                   }
                 : shown,
@@ -291,7 +315,10 @@ export function CommentSection({ slug }: { slug: string }) {
           Object.entries(loads).filter(([id]) => id !== thread.id),
         ),
       );
-      learnViewer(next.replies.map((reply) => reply.id));
+      learnViewer(
+        next.replies.map((reply) => reply.id),
+        { first: false },
+      );
     } catch {
       setReplyLoads((loads) => ({ ...loads, [thread.id]: "failed" }));
     }
@@ -308,9 +335,7 @@ export function CommentSection({ slug }: { slug: string }) {
         label={`Reply to ${thread.author ?? "this thread"}`}
         submitLabel="Post reply"
         needsName={needsName}
-        onNameSaved={(displayName) =>
-          setViewer((known) => ({ ...known, account: { displayName } }))
-        }
+        onNameSaved={(displayName) => setChosenName(displayName)}
         onSubmit={(body) => postReply(thread.id, body)}
         onCancel={() => setReplyingTo(null)}
         autoFocus
@@ -326,7 +351,10 @@ export function CommentSection({ slug }: { slug: string }) {
       <h2 id="comments">
         Discussion
         {current ? (
-          <span className={styles.total}> · {commentCount(current.total)}</span>
+          <span className={styles.total}>
+            {" "}
+            · {counted(current.total, "comment")}
+          </span>
         ) : null}
       </h2>
       <noscript>
@@ -352,7 +380,7 @@ export function CommentSection({ slug }: { slug: string }) {
             className={styles.tool}
             onClick={() => {
               setViewerState("loading");
-              learnViewer(idsOf(current.threads));
+              learnViewer(idsOf(current.threads), { first: true });
             }}
           >
             Try again
@@ -364,9 +392,7 @@ export function CommentSection({ slug }: { slug: string }) {
           label="Add a comment"
           submitLabel="Post comment"
           needsName={needsName}
-          onNameSaved={(displayName) =>
-            setViewer((known) => ({ ...known, account: { displayName } }))
-          }
+          onNameSaved={(displayName) => setChosenName(displayName)}
           onSubmit={postThread}
         />
       ) : null}
@@ -491,6 +517,12 @@ export function CommentSection({ slug }: { slug: string }) {
             </span>
           ) : null}
         </div>
+      ) : null}
+      {viewerGap ? (
+        <p className="muted" role="status">
+          Your votes and reports on some of these comments could not be loaded.
+          Reload the page to see them.
+        </p>
       ) : null}
     </section>
   );

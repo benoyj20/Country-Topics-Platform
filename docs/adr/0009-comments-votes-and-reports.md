@@ -46,6 +46,9 @@ and purges them on publish. [ADR 0008](0008-browsing-and-search.md) left
   - Any signed-in account can comment, reply, vote, and report. Staff have
     no extra powers here yet.
   - Members cannot vote on or report their own comments.
+  - Staff cannot hide or remove a comment yet; that is week 10's
+    moderation. Nothing is deployed and no tester is invited before the
+    pilot (week 12), so no one can post until then except the developer.
   - An archived topic's discussion is closed: no new comments or votes
     (409). Its comments can still be reported.
   - Topics that were never published have no discussion (404).
@@ -54,7 +57,11 @@ and purges them on publish. [ADR 0008](0008-browsing-and-search.md) left
     only thing about the author a comment shows.
   - Their email, sign-in name, and account id never appear in an answer.
   - Names are 2 to 40 letters, digits, spaces, and `. ' _ -`, in any
-    script, so a name cannot hide text or pose as a label.
+    script, so a name cannot hide text.
+  - Names that could pass for staff or the site are refused: any with the
+    word admin, administrator, moderator, mod, staff, or official, or with
+    "Country Topics". So are the page's own stand-ins for a name ("You",
+    "Former member", "Deleted account", "Anonymous").
   - Changing it changes it on past comments. The change is in the audit
     log, with the member as the actor.
   - Names are not unique. Impersonation is a moderation matter (week 10).
@@ -124,6 +131,10 @@ and purges them on publish. [ADR 0008](0008-browsing-and-search.md) left
     and `/topics` sorts by it ("Most discussed").
   - A new comment queues the topic for the search index.
   - A document's version includes its comments' latest `updatedAt`.
+  - Comments, votes, and reports take their timestamps from the web
+    process, as Payload does for every other table, not from the
+    database's `now()`. A version compares timestamps across tables, and
+    two clocks would let an older document win.
   - The migration adds the column and its index to `search_topics`.
 - **Reads and writes.**
   - Public lists read through one small pool on the read connection, which
@@ -134,7 +145,8 @@ and purges them on publish. [ADR 0008](0008-browsing-and-search.md) left
 ## Consequences
 
 - **No rate limits yet.** A signed-in member can post or vote as fast as
-  they like until week 10. The pilot is invite-only.
+  they like until week 10. Each comment also queues one search job. The
+  pilot is invite-only, and week 10's limits must come before it starts.
 - **Caching.**
   - A shared cache in front of the site (Cloudflare, week 12) may show a
     list up to 15 seconds old, and up to a minute stale while it

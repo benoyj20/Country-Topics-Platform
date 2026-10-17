@@ -10,5 +10,12 @@ import { loadPayload } from "@/payload-instance";
  */
 export async function writePool(): Promise<Pool> {
   const payload = await loadPayload();
-  return (payload.db as unknown as PostgresAdapter).pool;
+  // Payload types its database as the generic adapter; payload.config.ts
+  // always configures the PostgreSQL one, whose pool this is. Checked, so
+  // a different adapter fails here with a clear message, not on first use.
+  const { pool } = payload.db as unknown as Partial<PostgresAdapter>;
+  if (!pool) {
+    throw new Error("The database adapter has no PostgreSQL pool.");
+  }
+  return pool;
 }

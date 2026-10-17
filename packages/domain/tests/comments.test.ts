@@ -7,9 +7,7 @@ import {
   commentReportProblem,
   COMMENT_REPORT_NOTE_MAX_LENGTH,
   displayNameProblem,
-  isCommentReportReason,
   isCommentSort,
-  isCommentVoteValue,
   normalizeCommentBody,
   normalizeDisplayName,
 } from "../src/comments.ts";
@@ -102,6 +100,24 @@ describe("display names", () => {
     }
   });
 
+  it("refuses names that pose as staff, the site, or the page's own labels", () => {
+    for (const name of [
+      "Admin",
+      "Site Moderator",
+      "the-staff",
+      "Country Topics",
+      "Country Topics Team",
+      "Former member",
+      "former  MEMBER",
+      "You",
+    ]) {
+      assert.match(displayNameProblem(name) ?? "", /mistaken/, name);
+    }
+    for (const name of ["Badminton Fan", "Modesto", "Youssef", "Staffan"]) {
+      assert.equal(displayNameProblem(name), null, name);
+    }
+  });
+
   it("counts characters, not UTF-16 units", () => {
     assert.equal(displayNameProblem("测".repeat(40)), null);
   });
@@ -111,9 +127,5 @@ describe("value checks", () => {
   it("knows the sorts, votes, and report reasons", () => {
     assert.ok(isCommentSort("top") && isCommentSort("old"));
     assert.ok(!isCommentSort("best"));
-    assert.ok(isCommentVoteValue(1) && isCommentVoteValue(0));
-    assert.ok(!isCommentVoteValue(2) && !isCommentVoteValue("1"));
-    assert.ok(isCommentReportReason("off-topic"));
-    assert.ok(!isCommentReportReason("dislike"));
   });
 });

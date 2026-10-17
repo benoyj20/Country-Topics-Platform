@@ -2,6 +2,7 @@ import {
   COMMENT_BODY_MAX_LENGTH,
   COMMENT_REPORT_NOTE_MAX_LENGTH,
   COMMENT_REPORT_REASONS,
+  COMMENT_VOTE_VALUES,
   type CommentSort,
   DEFAULT_COMMENT_SORT,
   DISPLAY_NAME_MAX_LENGTH,
@@ -32,7 +33,7 @@ export const newCommentSchema = z
   .strict();
 
 export const voteSchema = z
-  .object({ value: z.union([z.literal(-1), z.literal(0), z.literal(1)]) })
+  .object({ value: z.literal(COMMENT_VOTE_VALUES) })
   .strict();
 
 export const reportSchema = z

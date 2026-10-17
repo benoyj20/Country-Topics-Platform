@@ -1,14 +1,9 @@
 import Link from "next/link";
 
-import { formatDate } from "@/public/format";
+import { counted, formatDate } from "@/public/format";
 import type { LimitedList, TopicSummary } from "@/public/types";
 
 import styles from "./public.module.css";
-
-/** "1 reference", "3 comments". */
-function counted(count: number, noun: string): string {
-  return `${count} ${count === 1 ? noun : `${noun}s`}`;
-}
 
 /** Published topics, each with its countries and summary. */
 export function TopicList({

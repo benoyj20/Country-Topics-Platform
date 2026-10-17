@@ -1,7 +1,8 @@
-import type {
-  CommentReportReason,
-  CommentSort,
-  CommentVoteValue,
+import {
+  type CommentReportReason,
+  type CommentSort,
+  type CommentVoteValue,
+  DEFAULT_COMMENT_SORT,
 } from "@countrytopics/domain";
 
 import type {
@@ -72,7 +73,7 @@ export function fetchThreads(
   signal?: AbortSignal,
 ): Promise<CommentPage> {
   const params = new URLSearchParams();
-  if (sort !== "top") params.set("sort", sort);
+  if (sort !== DEFAULT_COMMENT_SORT) params.set("sort", sort);
   if (cursor) params.set("cursor", cursor);
   const search = params.toString();
   return call(

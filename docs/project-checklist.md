@@ -617,7 +617,9 @@ See [ADR 0009](adr/0009-comments-votes-and-reports.md) for the design.
 
 - [x] Posting: a member must choose a public name before their first
   comment (409 with `display-name-required`); names are checked, tidied,
-  and audited with the member as the actor; comments are stored as tidied
+  and audited with the member as the actor, and names that could pass for
+  staff, the site, or the page's own labels are refused (unit tests);
+  comments are dated by the web process's clock, as Payload dates topics; comments are stored as tidied
   plain text under the public name, and no answer holds an email address
   or account id; visitors (401), other sites (403), bodies that are not
   JSON (415), and empty, overlong, or unknown fields (400) are refused
@@ -667,8 +669,30 @@ See [ADR 0009](adr/0009-comments-votes-and-reports.md) for the design.
 - [x] Found in the browser test and fixed: after Bob chose his name in the
   reply form, the main comment form still asked for it. Each form now
   follows the page's one record of the reader's name.
+- [x] The code review before the first push found ten issues. Eight were
+  fixed (2026-10-17):
+  - comments were dated by the database's clock while topics use the web
+    process's, so an older search document could win (a test sets the
+    process clock an hour back and failed before the fix);
+  - names such as "Admin" or "Former member" were allowed;
+  - quick vote clicks could be sent out of order (one vote at a time per
+    comment now; in the browser, two quick clicks ended with the page and
+    the server agreeing);
+  - "Show more comments" could add one order's comments to another's;
+  - a posted reply could sit before older replies loaded later;
+  - an older answer about the reader could undo a name just chosen, and a
+    later failure turned commenting off while the form still worked;
+  - the cast to Payload's database pool was unchecked;
+  - repeated values and three copies of one helper.
+
+  Two were left for week 10, before any tester is invited: staff cannot
+  yet hide or remove a comment, and each comment queues one search job
+  with no rate limit. Nothing is deployed, so no one but the developer can
+  post until then.
 - [ ] The developer comments from two accounts.
-- [ ] Not built yet: moderation (hiding, locking, acting on reports), rate
-  limits, Turnstile, link limits, and reply notifications (week 10);
+- [ ] Not built yet: moderation (hiding, locking, acting on reports, and
+  removing a comment when the law requires it), rate limits (including
+  the search job each comment queues), Turnstile, link limits, and reply
+  notifications (week 10);
   editing or deleting one's own comment, @mentions, per-country and
   site-wide threads, and "trending".

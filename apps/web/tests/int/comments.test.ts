@@ -13,7 +13,7 @@ import {
   type Payload,
   type RequiredDataFromCollectionSlug,
 } from "payload";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { PUT as putDisplayName } from "@/app/(frontend)/api/v1/account/display-name/route";
 import { GET as getViewer } from "@/app/(frontend)/api/v1/account/comments/route";
@@ -343,6 +343,28 @@ describe("posting", () => {
     expect(text).not.toContain(aliceProfile.id);
   });
 
+  it("dates comments by this process's clock, as Payload dates topics", async () => {
+    // A topic's search version compares comments' updatedAt with the
+    // topic's, which Payload sets from Node's clock; the database's clock
+    // can differ (ADR 0009). An hour off makes the difference certain.
+    const topic = await findCommentTopic(worker.pool, harbour.slug);
+    if (!topic) throw new Error("The harbour topic is not public");
+    const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    vi.useFakeTimers({ now: hourAgo, toFake: ["Date"] });
+    try {
+      const { comment, updatedAt } = await createComment(worker.pool, {
+        topic,
+        authorId: aliceProfile.id,
+        parentId: null,
+        body: "TEST dated comment.",
+      });
+      expect(comment.createdAt).toBe(hourAgo.toISOString());
+      expect(updatedAt).toBe(hourAgo.toISOString());
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("keeps replies two levels deep, within one topic", async () => {
     const thread = await posted(harbour, alice, "TEST thread to reply to.");
     const reply = await posted(harbour, bob, "TEST a reply.", thread.id);
@@ -360,7 +382,7 @@ describe("posting", () => {
     const shown = listed.threads.find((item) => item.id === thread.id);
     expect(shown).toMatchObject({ replyCount: 1, moreReplies: null });
     expect(shown?.replies.map((item) => item.id)).toEqual([reply.id]);
-    expect(listed.total).toBe(3);
+    expect(listed.total).toBe(4);
   });
 
   it("is only possible on published topics that are not archived", async () => {

@@ -4,15 +4,11 @@ import type { CommentVoteValue } from "@countrytopics/domain";
 import { type ReactNode, useState } from "react";
 
 import type { PublicComment } from "@/comments/types";
+import { counted } from "@/public/format";
 
 import { formatCommentTime } from "./comments-api";
 import styles from "./comments.module.css";
 import { ReportForm } from "./ReportForm";
-
-/** "1 point", "-3 points". */
-function points(score: number): string {
-  return `${score} ${Math.abs(score) === 1 ? "point" : "points"}`;
-}
 
 /** What the reader may do with a comment, and has done. */
 export type CommentStanding = {
@@ -45,10 +41,13 @@ export function CommentItem({
 }) {
   const [reporting, setReporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // One vote at a time: a second click waits for the first to count.
+  const [voting, setVoting] = useState(false);
   const canVote = standing.signedIn && !standing.mine && standing.open;
 
   async function vote(value: Exclude<CommentVoteValue, 0>) {
     setError(null);
+    setVoting(true);
     try {
       // Choosing the same vote again takes it back.
       await onVote(standing.vote === value ? 0 : value);
@@ -56,6 +55,8 @@ export function CommentItem({
       setError(
         failure instanceof Error ? failure.message : "The vote did not count.",
       );
+    } finally {
+      setVoting(false);
     }
   }
 
@@ -80,23 +81,29 @@ export function CommentItem({
               className={styles.vote}
               aria-label="Up vote"
               aria-pressed={standing.vote === 1}
+              disabled={voting}
               onClick={() => void vote(1)}
             >
               ▲
             </button>
-            <span className={styles.score}>{points(comment.score)}</span>
+            <span className={styles.score}>
+              {counted(comment.score, "point")}
+            </span>
             <button
               type="button"
               className={styles.vote}
               aria-label="Down vote"
               aria-pressed={standing.vote === -1}
+              disabled={voting}
               onClick={() => void vote(-1)}
             >
               ▼
             </button>
           </span>
         ) : (
-          <span className={styles.score}>{points(comment.score)}</span>
+          <span className={styles.score}>
+            {counted(comment.score, "point")}
+          </span>
         )}
         {onReply ? (
           <button type="button" className={styles.tool} onClick={onReply}>

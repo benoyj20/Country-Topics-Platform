@@ -23,6 +23,14 @@ import type {
 // Comments, CommentVotes, and CommentReports collections. Lists use keyset
 // paging on the collections' compound indexes. Every query is
 // parameterised; sort expressions come from fixed lists.
+//
+// Timestamps come from this process, as Payload's do, never from the
+// database's now(): a search document's version is the latest updatedAt of
+// the topic and the rows it shows, comments included, and comparing values
+// from two clocks would let an older document win (the database's clock
+// can run ahead of the host's).
+
+const timestamp = () => new Date().toISOString();
 
 /** Threads in one page. */
 export const COMMENT_THREADS_PAGE_SIZE = 20;
@@ -322,10 +330,11 @@ export async function createComment(
   const { rows } = await db.query<
     Omit<CommentRow, "author"> & { updated_at: Date }
   >(
-    `INSERT INTO comments (id, topic_id, parent_id, author_id, body)
-     VALUES ($1, $2, $3, $4, $5)
+    `INSERT INTO comments
+       (id, topic_id, parent_id, author_id, body, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $6)
      RETURNING id::text AS id, body, score::int AS score, created_at, updated_at`,
-    [uuidv7(), topic.id, parentId, authorId, body],
+    [uuidv7(), topic.id, parentId, authorId, body, timestamp()],
   );
   const saved = rows[0];
   if (!saved) throw new Error("The comment was not saved.");
@@ -395,15 +404,16 @@ export async function voteOnComment(
       );
     } else if (previous === 0) {
       await client.query(
-        `INSERT INTO comment_votes (id, comment_id, voter_id, value)
-         VALUES ($1, $2, $3, $4)`,
-        [uuidv7(), commentId, voterId, value],
+        `INSERT INTO comment_votes
+           (id, comment_id, voter_id, value, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $5)`,
+        [uuidv7(), commentId, voterId, value, timestamp()],
       );
     } else if (previous !== value) {
       await client.query(
-        `UPDATE comment_votes SET value = $3, updated_at = now()
+        `UPDATE comment_votes SET value = $3, updated_at = $4
           WHERE comment_id = $1 AND voter_id = $2`,
-        [commentId, voterId, value],
+        [commentId, voterId, value, timestamp()],
       );
     }
     const { rows } = await client.query<{ score: number }>(
@@ -446,10 +456,11 @@ export async function reportComment(
     throw new CommentRefusal(403, "You cannot report your own comment.");
   }
   const { rowCount } = await db.query(
-    `INSERT INTO comment_reports (id, comment_id, reporter_id, reason, note)
-     VALUES ($1, $2, $3, $4, $5)
+    `INSERT INTO comment_reports
+       (id, comment_id, reporter_id, reason, note, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $6)
      ON CONFLICT (comment_id, reporter_id) DO NOTHING`,
-    [uuidv7(), commentId, reporterId, reason, note || null],
+    [uuidv7(), commentId, reporterId, reason, note || null, timestamp()],
   );
   return rowCount === 1;
 }

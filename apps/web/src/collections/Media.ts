@@ -5,6 +5,7 @@ import { verifiedAdminsOnly, verifiedStaffOnly } from "@/access";
 import { auditHooks } from "@/audit";
 import { LICENCE_LABELS } from "@/content-labels";
 import { PUBLIC_TAGS, purgeOnChange } from "@/public-cache";
+import { reindexTopicsOnChange } from "@/search-index";
 
 import { keepWhileUsed } from "./topic-references";
 import { optionalHttpUrl } from "./url-field";
@@ -19,6 +20,20 @@ export const UPLOAD_MAX_BYTES = 20 * 1024 * 1024;
 // stored in S3-compatible storage (ADR 0005), never on the web server's disk.
 // Payload serves files to staff only; visitors get the files that public
 // pages show through /files/[id] (ADR 0007).
+const audit = auditHooks({
+  collection: "media",
+  action: "media",
+  snapshot: (doc) => ({
+    filename: doc.filename,
+    mimeType: doc.mimeType,
+    filesize: doc.filesize,
+    alt: doc.alt,
+    licence: doc.licence,
+    credit: doc.credit ?? null,
+    sourceUrl: doc.sourceUrl ?? null,
+  }),
+});
+
 export const Media: CollectionConfig = {
   slug: "media",
   labels: { singular: "File", plural: "Files" },
@@ -102,18 +117,16 @@ export const Media: CollectionConfig = {
         { collection: "individuals", field: "statements.evidence.file" },
       ]),
     ],
-    ...auditHooks({
-      collection: "media",
-      action: "media",
-      snapshot: (doc) => ({
-        filename: doc.filename,
-        mimeType: doc.mimeType,
-        filesize: doc.filesize,
-        alt: doc.alt,
-        licence: doc.licence,
-        credit: doc.credit ?? null,
-        sourceUrl: doc.sourceUrl ?? null,
+    afterChange: [
+      ...audit.afterChange,
+      // Whether a file can be shown decides its topics' evidence kinds.
+      reindexTopicsOnChange("media", {
+        searched: (doc) => [doc.filename, doc.mimeType],
+        topicsShowing: async (_req, id) => ({
+          "evidence.file": { equals: id },
+        }),
       }),
-    }),
+    ],
+    afterDelete: audit.afterDelete,
   }),
 };

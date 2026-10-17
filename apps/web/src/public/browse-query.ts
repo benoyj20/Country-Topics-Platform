@@ -107,14 +107,27 @@ export function effectiveSort(query: BrowseQuery): TopicSort {
   return query.sort ?? defaultSort(query);
 }
 
+/** The parameters a browse request may have. */
+export const BROWSE_PARAMS = [
+  "q",
+  ...LIST_KEYS,
+  "references",
+  "from",
+  "to",
+  "sort",
+] as const;
+
 /**
  * Reads a browse request. Values that are not valid are left out and each
  * is described in `problems`, so a page can still show the rest of a
- * mistyped link and the API can refuse it. Unknown parameters are ignored.
+ * mistyped link and the API can refuse it. Parameters that are not browse
+ * parameters are listed in `unknown`: the page ignores them (a link may
+ * carry a campaign tag), and the API refuses them.
  */
 export function parseBrowseQuery(params: URLSearchParams): {
   query: BrowseQuery;
   problems: string[];
+  unknown: string[];
 } {
   const problems: string[] = [];
   const single = (key: string): string | null => {
@@ -134,7 +147,14 @@ export function parseBrowseQuery(params: URLSearchParams): {
   }
 
   for (const key of LIST_KEYS) {
-    const values = [...new Set(params.getAll(key))];
+    // Language codes are compared in lower case, as the index stores them.
+    const values = [
+      ...new Set(
+        params
+          .getAll(key)
+          .map((value) => (key === "language" ? value.toLowerCase() : value)),
+      ),
+    ];
     const valid = values.filter((value) => LIST_CHECKS[key](value));
     if (valid.length < values.length) {
       problems.push(
@@ -162,9 +182,8 @@ export function parseBrowseQuery(params: URLSearchParams): {
     else problems.push(`"${key}" must be a date such as 2026-10-17.`);
   }
   if (query.from && query.to && query.from > query.to) {
-    problems.push('"from" is after "to".');
-    query.from = null;
-    query.to = null;
+    problems.push('"from" was after "to", so the two dates were swapped.');
+    [query.from, query.to] = [query.to, query.from];
   }
 
   const sort = single("sort");
@@ -177,7 +196,9 @@ export function parseBrowseQuery(params: URLSearchParams): {
           : sort;
     } else problems.push(`"${sort}" is not a way to sort.`);
   }
-  return { query, problems };
+  const known = new Set<string>(BROWSE_PARAMS);
+  const unknown = [...new Set(params.keys())].filter((key) => !known.has(key));
+  return { query, problems, unknown };
 }
 
 /** The canonical URL parameters of a browse request. */

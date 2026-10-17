@@ -55,9 +55,10 @@ export type TopicSearchDocument = {
     evidence: string;
   };
   /**
-   * The topic's last change (its updatedAt). An index keeps the newest
-   * document it was given, so a job that read the topic earlier but
-   * finished later cannot bring back an older copy.
+   * When the topic, or anything it shows (its countries, category, tags,
+   * people, snippets, and files), last changed. An index keeps the newest
+   * document it was given and remembers removals, so a job that read the
+   * topic earlier but finished later cannot bring back an older copy.
    */
   version: string;
 };
@@ -146,12 +147,14 @@ export type TopicSearchIndex = {
    */
   upsert(document: TopicSearchDocument): Promise<boolean>;
   /**
-   * Removes a topic that is no longer listed. With a version (the topic's
-   * updatedAt when it was read), a document newer than that is kept: it was
-   * indexed from a later save.
+   * Removes a topic that is no longer listed, and remembers it: a document
+   * of the same or an older version is not indexed again. With a version
+   * (the topic's when it was read), a newer document is kept: it was
+   * indexed from a later save. Without one (a deleted topic), it is gone
+   * for good.
    */
   remove(topicId: string, version: string | null): Promise<void>;
-  /** Every indexed topic id, for rebuilds. */
-  indexedIds(): Promise<string[]>;
+  /** Every indexed topic with its document's version, for rebuilds. */
+  indexedVersions(): Promise<Map<string, string>>;
   search(request: TopicSearchRequest): Promise<TopicSearchResult>;
 };

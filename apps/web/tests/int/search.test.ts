@@ -348,6 +348,33 @@ describe("indexing", () => {
     ).rejects.toThrow(/not saved yet/);
   });
 
+  it("leaves out evidence the topic page does not show", async () => {
+    const { rows } = await worker.pool.query<{ file_id: string }>(
+      "SELECT file_id FROM topics_evidence WHERE _parent_id = $1 AND kind = 'image'",
+      [glacier.id],
+    );
+    const fileId = rows[0]?.file_id;
+    const { rows: before } = await worker.pool.query<{ filename: string }>(
+      "SELECT filename FROM media WHERE id = $1",
+      [fileId],
+    );
+    await worker.pool.query("UPDATE media SET filename = NULL WHERE id = $1", [
+      fileId,
+    ]);
+    try {
+      const document = (await source.topicStates([glacier.id])).get(
+        glacier.id,
+      )?.document;
+      expect(document?.evidenceKinds).toEqual([]);
+      expect(document?.text.evidence).toBe("");
+    } finally {
+      await worker.pool.query("UPDATE media SET filename = $2 WHERE id = $1", [
+        fileId,
+        before[0]?.filename,
+      ]);
+    }
+  });
+
   it("rebuilds every listed topic and drops documents of topics no longer listed", async () => {
     const state = (await source.topicStates([volcano.id])).get(volcano.id);
     if (!state?.document) throw new Error("The topic is not listed");
@@ -360,11 +387,32 @@ describe("indexing", () => {
         isFinal: false,
       },
     );
-    const indexed = await index.indexedIds();
+    const indexed = [...(await index.indexedVersions()).keys()];
     expect(indexed).not.toContain(ghost);
     expect(indexed).toEqual(
       expect.arrayContaining([glacier.id, fjord.id, volcano.id]),
     );
+    // Nothing changed since: the next rebuild rewrites nothing.
+    const again = await processSearchJob(
+      { rebuild: true },
+      { source, index },
+      { isFinal: false },
+    );
+    expect(again).toMatchObject({ indexed: 0, kept: 0, removed: 0 });
+    expect(again.unchanged).toBe(indexed.length);
+  });
+  it("does not add back a removed topic from a read made before the removal", async () => {
+    const state = (await source.topicStates([glacier.id])).get(glacier.id);
+    if (!state?.document) throw new Error("The topic is not listed");
+    await index.remove(glacier.id, state.version);
+    expect(await index.upsert(state.document)).toBe(false);
+    expect(await found({ q: "quokkaglacier" })).toEqual([]);
+    // A read made after a later change brings it back.
+    const later = new Date(Date.parse(state.version) + 1).toISOString();
+    expect(await index.upsert({ ...state.document, version: later })).toBe(
+      true,
+    );
+    expect(await found({ q: "quokkaglacier" })).toEqual([glacier.slug]);
   });
 });
 
@@ -474,13 +522,17 @@ describe("search", () => {
 
 describe("keeping the index current", () => {
   it("re-indexes the topics that name a person when they are renamed", async () => {
-    await payload.update({
+    const renamed = await payload.update({
       collection: "individuals",
       id: subject.id,
       data: { name: "TEST Renamed Marbleheron" },
       user: admin,
       overrideAccess: false,
     });
+    // The rename makes a newer version of the topic's document.
+    expect(
+      (await source.topicStates([glacier.id])).get(glacier.id)?.version,
+    ).toBe(renamed.updatedAt);
     expect(await runSearchJobs()).toBe(1);
     expect(await found({ q: "Marbleheron" })).toEqual([glacier.slug]);
     expect(await found({ q: "Quillonbard" })).toEqual([]);
@@ -575,6 +627,19 @@ describe("GET /api/v1/topics", () => {
       ],
     });
     expect((await get("cursor=forged")).status).toBe(400);
+    expect(await (await get("utm_source=mail")).json()).toMatchObject({
+      problems: ['"utm_source" is not a parameter.'],
+    });
+  });
+
+  it("sends the same request written another way to its one address", async () => {
+    const response = await get(
+      `tag=${tag.slug}&language=IS&country=${iceland.slug}&sort=newest`,
+    );
+    expect(response.status).toBe(308);
+    expect(response.headers.get("Location")).toBe(
+      `${SITE_URL}/api/v1/topics?country=${iceland.slug}&tag=${tag.slug}&language=is`,
+    );
   });
 
   it("does not name someone without a public page when their slug is typed", async () => {

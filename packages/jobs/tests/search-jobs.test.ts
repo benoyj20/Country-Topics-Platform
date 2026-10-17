@@ -43,12 +43,13 @@ function document(topicId: string): TopicSearchDocument {
 
 function fakes({
   topics,
-  indexed = [],
+  indexed = new Map(),
   visible = true,
   newer = [],
 }: {
   topics: Map<string, TopicSearchState>;
-  indexed?: string[];
+  /** Indexed topics, with their documents' versions. */
+  indexed?: Map<string, string>;
   visible?: boolean;
   /** Topics the index already holds in a newer version. */
   newer?: string[];
@@ -76,7 +77,7 @@ function fakes({
     remove: async (topicId, version) => {
       removed.push([topicId, version]);
     },
-    indexedIds: async () => indexed,
+    indexedVersions: async () => indexed,
     search: async () => {
       throw new Error("not used");
     },
@@ -97,7 +98,12 @@ describe("processSearchJob", () => {
       run,
       { isFinal: false },
     );
-    assert.deepEqual(outcome, { indexed: 1, kept: 0, removed: 2 });
+    assert.deepEqual(outcome, {
+      indexed: 1,
+      kept: 0,
+      unchanged: 0,
+      removed: 2,
+    });
     assert.deepEqual(run.upserted, [id(1)]);
     // An archived topic keeps a newer copy; a deleted one goes regardless.
     assert.deepEqual(run.removed, [
@@ -113,7 +119,7 @@ describe("processSearchJob", () => {
     });
     assert.deepEqual(
       await processSearchJob({ topicIds: [id(1)] }, run, { isFinal: false }),
-      { indexed: 0, kept: 1, removed: 0 },
+      { indexed: 0, kept: 1, unchanged: 0, removed: 0 },
     );
   });
 
@@ -140,16 +146,50 @@ describe("processSearchJob", () => {
         [id(1), { document: document(id(1)), version: AT }],
         [id(2), { document: null, version: AT }],
       ]),
-      indexed: [id(2), id(9)],
+      indexed: new Map([
+        [id(2), AT],
+        [id(9), AT],
+      ]),
     });
     const outcome = await processSearchJob({ rebuild: true }, run, {
       isFinal: false,
     });
-    assert.deepEqual(outcome, { indexed: 1, kept: 0, removed: 2 });
+    assert.deepEqual(outcome, {
+      indexed: 1,
+      kept: 0,
+      unchanged: 0,
+      removed: 2,
+    });
     assert.deepEqual(run.removed, [
       [id(2), AT],
       [id(9), null],
     ]);
+  });
+
+  it("leaves documents a rebuild finds up to date alone", async () => {
+    const run = fakes({
+      topics: new Map([
+        [id(1), { document: document(id(1)), version: AT }],
+        [
+          id(2),
+          { document: { ...document(id(2)), version: LATER }, version: LATER },
+        ],
+      ]),
+      indexed: new Map([
+        [id(1), AT],
+        [id(2), AT],
+      ]),
+    });
+    const outcome = await processSearchJob({ rebuild: true }, run, {
+      isFinal: false,
+    });
+    assert.deepEqual(outcome, {
+      indexed: 1,
+      kept: 0,
+      unchanged: 1,
+      removed: 0,
+    });
+    assert.deepEqual(run.upserted, [id(2)]);
   });
 });
 
@@ -204,7 +244,8 @@ describe("topicDocument", () => {
     state: "updated",
     first_published_at: new Date(AT),
     last_published_at: null,
-    updated_at: new Date(LATER),
+    updated_at: new Date(AT),
+    version: new Date(LATER),
     category_id: id(2),
     category_name: "Test category",
     country_ids: [id(3)],

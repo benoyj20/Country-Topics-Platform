@@ -551,13 +551,28 @@ See [ADR 0008](adr/0008-browsing-and-search.md) for the design.
   speakers in documents, the index's version check, the public-person check
   on typed slugs, the re-index on rename, and the facets' own-choice rule
   were removed (2026-10-17).
+- [x] The code review before the first push found ten issues; all were
+  fixed, each with a test that failed without the fix (2026-10-17): a job
+  that read a topic before it was archived could add it back (removals are
+  now remembered, and writes for a topic take turns); a rename did not make
+  a newer version (a version now covers everything a document shows); the
+  API answered any extra parameter, so requests could skip the cache
+  (unknown parameters are refused, and other spellings of a request are
+  redirected to its one address); a "from" date after "to" silently
+  cleared both (a link has them swapped, with a notice; choosing one
+  clears the other); titles of evidence the page hides were searchable;
+  each rebuild rewrote every document and held up publishes (unchanged
+  documents are skipped, and two jobs run at a time); language codes
+  differed by case; a file's changes did not re-index its topics; a
+  comment about the schedule was wrong; two helpers were copies.
 - [x] Real browser and HTTP (headless Edge and `fetch`, production build on
   the test database, the worker on its own queue prefix): 23 topics
-  published through the API were searchable about 2 seconds later, a topic
-  published while browsing was found after about 2 seconds, and archiving
-  it removed it after about 2 seconds; `/topics` answered
+  published through the API were searchable about half a second later, a
+  topic published while browsing was found after about half a second, and
+  archiving it removed it as quickly; `/topics` answered
   `s-maxage=3600, stale-while-revalidate=…` and the API
-  `public, max-age=0, s-maxage=60, …`; "Show more topics" loaded the rest
+  `public, max-age=0, s-maxage=60, …`; the API redirected another spelling
+  of a request (308) to its one address and refused an unknown sort (400); "Show more topics" loaded the rest
   with no repeats; a search found the one topic with its word; choosing
   Iceland and "Recently updated" changed the address to
   `?country=iceland&sort=updated` and showed only Iceland's topics; "Copy

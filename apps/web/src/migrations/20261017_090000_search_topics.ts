@@ -1,7 +1,9 @@
 import { type MigrateDownArgs, type MigrateUpArgs, sql } from "@payloadcms/db-postgres";
 
 // The search index of the PostgreSQL search adapter (packages/search,
-// ADR 0008): one row per listed topic, kept by the worker. It is a copy,
+// ADR 0008): one row per listed topic, kept by the worker, and the version
+// at which each removed topic left it (so an older read cannot add it
+// back). It is a copy,
 // rebuilt from the topics by the worker's hourly rebuild (and on its start,
 // which fills it after this migration), so it has no foreign keys and
 // Payload's schema does not describe it. Facets are arrays with GIN indexes;
@@ -37,12 +39,17 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
     CREATE INDEX "search_topics_newest_idx" ON "search_topics" USING btree ("first_published_at" DESC, "topic_id" DESC);
     CREATE INDEX "search_topics_updated_idx" ON "search_topics" USING btree ("last_published_at" DESC, "topic_id" DESC);
     CREATE INDEX "search_topics_referenced_idx" ON "search_topics" USING btree ("reference_count" DESC, "first_published_at" DESC, "topic_id" DESC);
+    CREATE TABLE "search_topic_removals" (
+      "topic_id" uuid PRIMARY KEY NOT NULL,
+      "version" timestamp(3) with time zone NOT NULL
+    );
   `);
 }
 
 // The index holds nothing that is not in the topics; dropping it loses no data.
 export async function down({ db }: MigrateDownArgs): Promise<void> {
   await db.execute(sql`
+    DROP TABLE IF EXISTS "search_topic_removals";
     DROP TABLE IF EXISTS "search_topics";
   `);
 }

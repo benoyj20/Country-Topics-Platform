@@ -1091,36 +1091,20 @@ export async function loadBrowseTerms(): Promise<BrowseTerms> {
   };
 }
 
-type IndividualLinkWithId = IndividualLink & { id: string };
-
-async function individualLinks(
-  payload: Payload,
-  where: Where,
-): Promise<IndividualLinkWithId[]> {
-  const { docs } = await payload.find({
-    collection: "individuals",
-    where,
-    select: { name: true, slug: true },
-    depth: 0,
-    pagination: false,
-    overrideAccess: true,
-  });
-  return docs.map((doc) => ({
-    id: String(doc.id),
-    name: doc.name,
-    slug: doc.slug,
-  }));
-}
-
 /**
  * Individuals by id, with their names and slugs. Only for ids from the
  * search index, which names only people that listed topics name.
  */
-export async function loadIndividualLinks(
-  ids: string[],
-): Promise<IndividualLinkWithId[]> {
-  if (ids.length === 0) return [];
-  return individualLinks(await loadPayload(), { id: { in: ids } });
+export async function loadIndividualLinks(ids: string[]): Promise<Named[]> {
+  const found = await byId<Named>(await loadPayload(), "individuals", ids, {
+    name: true,
+    slug: true,
+  });
+  return [...found.values()].map(({ id, name, slug }) => ({
+    id: String(id),
+    name,
+    slug,
+  }));
 }
 
 /**
@@ -1129,13 +1113,22 @@ export async function loadIndividualLinks(
  */
 export async function loadPublicIndividualLinks(
   slugs: string[],
-): Promise<IndividualLinkWithId[]> {
+): Promise<Named[]> {
   if (slugs.length === 0) return [];
   const payload = await loadPayload();
-  const found = await individualLinks(payload, { slug: { in: slugs } });
+  const { docs } = await payload.find({
+    collection: "individuals",
+    where: { slug: { in: slugs } },
+    select: { name: true, slug: true },
+    depth: 0,
+    pagination: false,
+    overrideAccess: true,
+  });
   const visible = await publicIndividualIds(
     payload,
-    found.map((individual) => individual.id),
+    docs.map((doc) => String(doc.id)),
   );
-  return found.filter((individual) => visible.has(individual.id));
+  return docs
+    .filter((doc) => visible.has(String(doc.id)))
+    .map((doc) => ({ id: String(doc.id), name: doc.name, slug: doc.slug }));
 }

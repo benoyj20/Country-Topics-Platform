@@ -27,7 +27,7 @@ describe("parseBrowseQuery", () => {
       tag: ["rivers"],
       person: ["test-person"],
       evidence: ["snippet"],
-      language: ["pt-BR"],
+      language: ["pt-br"],
       references: true,
       from: "2026-01-01",
       to: "2026-10-17",
@@ -53,9 +53,10 @@ describe("parseBrowseQuery", () => {
   });
 
   it("refuses dates in the wrong order, long search words, and too many values", () => {
-    expect(parse("from=2026-10-17&to=2026-01-01").problems).toEqual([
-      '"from" is after "to".',
-    ]);
+    expect(parse("from=2026-10-17&to=2026-01-01")).toMatchObject({
+      query: { from: "2026-01-01", to: "2026-10-17" },
+      problems: ['"from" was after "to", so the two dates were swapped.'],
+    });
     expect(parse(`q=${"a".repeat(201)}`).problems).toHaveLength(1);
     const many = Array.from(
       { length: BROWSE_VALUES_MAX + 1 },
@@ -66,11 +67,18 @@ describe("parseBrowseQuery", () => {
     expect(query.tag).toHaveLength(BROWSE_VALUES_MAX);
   });
 
-  it("ignores parameters it does not know", () => {
-    expect(parse("utm_source=mail&cursor=abc")).toEqual({
+  it("lists parameters it does not know, without reading them", () => {
+    expect(parse("utm_source=mail&cursor=abc&utm_source=x")).toEqual({
       query: EMPTY_BROWSE_QUERY,
       problems: [],
+      unknown: ["utm_source", "cursor"],
     });
+  });
+
+  it("reads language codes in lower case", () => {
+    expect(parse("language=PT-br&language=pt-BR").query.language).toEqual([
+      "pt-br",
+    ]);
   });
 
   it("drops a sort that is already the default, or relevance without words", () => {

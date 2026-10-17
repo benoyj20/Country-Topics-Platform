@@ -526,7 +526,7 @@ export const Individuals: CollectionConfig = {
       archiveStatementLinks,
       ...audit.afterChange,
       reindexTopicsOnChange("individuals", {
-        searched: (doc) => [doc.name, rows(doc.aliases).map((a) => a.name)],
+        searched: (doc) => namesOf({ name: doc.name, aliases: doc.aliases }),
         topicsShowing: (req, id) => namingTopics(req.payload, [id]),
       }),
     ],

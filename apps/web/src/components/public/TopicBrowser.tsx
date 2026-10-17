@@ -290,10 +290,16 @@ export function TopicBrowser() {
                   value={query.from ?? ""}
                   max={query.to ?? undefined}
                   onChange={(event) =>
-                    change((previous) => ({
-                      ...previous,
-                      from: event.target.value || null,
-                    }))
+                    change((previous) => {
+                      // The date just chosen wins over one it contradicts.
+                      const from = event.target.value || null;
+                      const clash = from && previous.to && from > previous.to;
+                      return {
+                        ...previous,
+                        from,
+                        to: clash ? null : previous.to,
+                      };
+                    })
                   }
                 />
               </label>
@@ -304,10 +310,15 @@ export function TopicBrowser() {
                   value={query.to ?? ""}
                   min={query.from ?? undefined}
                   onChange={(event) =>
-                    change((previous) => ({
-                      ...previous,
-                      to: event.target.value || null,
-                    }))
+                    change((previous) => {
+                      const to = event.target.value || null;
+                      const clash = to && previous.from && previous.from > to;
+                      return {
+                        ...previous,
+                        to,
+                        from: clash ? null : previous.from,
+                      };
+                    })
                   }
                 />
               </label>

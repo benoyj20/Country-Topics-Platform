@@ -42,9 +42,10 @@ export const searchJobSchema = z.union([
 export type SearchJob = z.infer<typeof searchJobSchema>;
 
 export const SEARCH_JOB_OPTIONS: JobsOptions = {
-  // About half a minute for the queuing save to commit.
-  attempts: 5,
-  backoff: { type: "exponential", delay: 2_000 },
+  // The job usually arrives before the save that queued it commits, so the
+  // first retry comes soon; about half a minute in all for it to commit.
+  attempts: 7,
+  backoff: { type: "exponential", delay: 500 },
   removeOnComplete: true,
   removeOnFail: true,
 };
@@ -53,7 +54,7 @@ export const SEARCH_JOB_OPTIONS: JobsOptions = {
 export type TopicSearchState = {
   /** Null while the topic is not listed (a draft, or archived). */
   document: TopicSearchDocument | null;
-  /** The topic's updatedAt when it was read. */
+  /** When the topic or anything it shows last changed, as read. */
   version: string;
 };
 
@@ -104,8 +105,10 @@ export function createSearchQueue({
       );
     },
     async scheduleRebuilds() {
-      // A schedule's first run waits a whole interval, so the rebuild on
-      // start is a job of its own.
+      // BullMQ lines `every` runs up with the clock, so a new schedule's
+      // first run may come at once or up to an hour later; the rebuild on
+      // start does not wait for it. Two rebuilds in a row cost little:
+      // unchanged documents are skipped.
       await queue.add("rebuild", rebuild, SEARCH_JOB_OPTIONS);
       await queue.upsertJobScheduler(
         "search-rebuild",
@@ -119,8 +122,10 @@ export function createSearchQueue({
 
 export type SearchIndexOutcome = {
   indexed: number;
-  /** Not replaced: the index already held a newer version. */
+  /** Not replaced: the index already held a newer version, or removed it later. */
   kept: number;
+  /** A rebuild found the indexed document up to date. */
+  unchanged: number;
   removed: number;
 };
 
@@ -136,12 +141,13 @@ export async function processSearchJob(
   { isFinal }: JobAttempt,
 ): Promise<SearchIndexOutcome> {
   let topicIds: string[];
+  // On a rebuild, the version of each indexed document: one that matches
+  // what the topic shows now is left alone.
+  let indexed = new Map<string, string>();
   if ("rebuild" in job) {
-    const [listed, indexed] = await Promise.all([
-      source.listedTopicIds(),
-      index.indexedIds(),
-    ]);
-    topicIds = [...new Set([...listed, ...indexed])];
+    const listed = await source.listedTopicIds();
+    indexed = await index.indexedVersions();
+    topicIds = [...new Set([...listed, ...indexed.keys()])];
   } else {
     if (job.after && !isFinal && !(await source.changeVisible(job.after))) {
       throw new Error("The change is not saved yet; trying again.");
@@ -149,12 +155,19 @@ export async function processSearchJob(
     topicIds = job.topicIds;
   }
 
-  const outcome: SearchIndexOutcome = { indexed: 0, kept: 0, removed: 0 };
+  const outcome: SearchIndexOutcome = {
+    indexed: 0,
+    kept: 0,
+    unchanged: 0,
+    removed: 0,
+  };
   for (const batch of chunks(topicIds, SEARCH_BATCH_SIZE)) {
     const states = await source.topicStates(batch);
     for (const topicId of batch) {
       const state = states.get(topicId);
-      if (state?.document) {
+      if (state?.document && indexed.get(topicId) === state.version) {
+        outcome.unchanged += 1;
+      } else if (state?.document) {
         if (await index.upsert(state.document)) outcome.indexed += 1;
         else outcome.kept += 1;
       } else {
@@ -193,8 +206,8 @@ export function createSearchWorker({
         { isFinal: job.attemptsMade + 1 >= attempts },
       );
     },
-    // One job at a time: jobs are short, and the index's version check
-    // already keeps an older read from replacing a newer one.
-    { connection, prefix, concurrency: 1 },
+    // Two at a time, so a publish is not held up by a rebuild; the index's
+    // versions and per-topic locks keep jobs from undoing each other.
+    { connection, prefix, concurrency: 2 },
   );
 }

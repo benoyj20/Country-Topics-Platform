@@ -15,6 +15,12 @@ import type { SearchSourceChange, TopicSearchSource } from "./search-jobs.ts";
 // - an evidence row counts only while its file, snippet, or address is
 //   there, and only a clip's own transcript lines are public.
 // The web app's integration tests compare the two.
+//
+// A document's version is the latest updated_at of the topic and every row
+// it reads here. Each table below has a hook in the web app that re-indexes
+// the topics showing a row when a field read here changes
+// (apps/web/src/search-index.ts); a field added here needs its hook to
+// watch it too. The hourly rebuild catches anything missed.
 
 const LISTED = `t._status = 'published' AND t.state IN ('published', 'updated')`;
 
@@ -26,6 +32,7 @@ export const SEARCH_SOURCE_TABLES = [
   "categories",
   "tags",
   "snippets",
+  "media",
 ] as const;
 
 type TopicRow = {
@@ -39,6 +46,7 @@ type TopicRow = {
   first_published_at: Date | null;
   last_published_at: Date | null;
   updated_at: Date;
+  version: Date;
   category_id: string | null;
   category_name: string | null;
   country_ids: string[];
@@ -57,6 +65,9 @@ const TOPIC_ROWS = `
 SELECT t.id::text AS id, t.slug, t.title, t.summary, t.body,
        (${LISTED}) AS listed, t.state::text AS state,
        t.first_published_at, t.last_published_at, t.updated_at,
+       GREATEST(t.updated_at, category.updated_at, countries.updated_at,
+                tags.updated_at, named.updated_at, evidence.updated_at)
+         AS version,
        t.category_id::text AS category_id, category.name AS category_name,
        COALESCE(countries.ids, '{}') AS country_ids,
        COALESCE(countries.names, '{}') AS country_names,
@@ -74,19 +85,22 @@ SELECT t.id::text AS id, t.slug, t.title, t.summary, t.body,
   LEFT JOIN categories category ON category.id = t.category_id
   LEFT JOIN LATERAL (
     SELECT array_agg(c.id::text ORDER BY r."order") AS ids,
-           array_agg(c.name ORDER BY r."order") AS names
+           array_agg(c.name ORDER BY r."order") AS names,
+           max(c.updated_at) AS updated_at
       FROM topics_rels r JOIN countries c ON c.id = r.countries_id
      WHERE r.parent_id = t.id AND r.path = 'countries'
   ) countries ON TRUE
   LEFT JOIN LATERAL (
     SELECT array_agg(g.id::text ORDER BY r."order") AS ids,
-           array_agg(g.name ORDER BY r."order") AS names
+           array_agg(g.name ORDER BY r."order") AS names,
+           max(g.updated_at) AS updated_at
       FROM topics_rels r JOIN tags g ON g.id = r.tags_id
      WHERE r.parent_id = t.id AND r.path = 'tags'
   ) tags ON TRUE
   LEFT JOIN LATERAL (
     SELECT array_agg(i.id::text ORDER BY i.id) AS ids,
-           array_agg(concat_ws(' ', i.name, aliases.names) ORDER BY i.id) AS names
+           array_agg(concat_ws(' ', i.name, aliases.names) ORDER BY i.id) AS names,
+           max(i.updated_at) AS updated_at
       FROM individuals i
       LEFT JOIN LATERAL (
         SELECT string_agg(a.name, ' ' ORDER BY a._order) AS names
@@ -103,24 +117,31 @@ SELECT t.id::text AS id, t.slug, t.title, t.summary, t.body,
         WHERE e._parent_id = t.id AND e.kind = 'snippet')
   ) named ON TRUE
   LEFT JOIN LATERAL (
-    SELECT array_agg(DISTINCT e.kind::text) FILTER (WHERE
-             (e.kind = 'snippet' AND s.id IS NOT NULL)
-             OR (e.kind = 'link' AND COALESCE(e.url, '') <> '')
-             OR (e.kind IN ('image', 'document') AND EXISTS (
-               SELECT 1 FROM media m WHERE m.id = e.file_id
-                  AND m.filename IS NOT NULL AND m.mime_type IS NOT NULL)))
-             AS kinds,
-           array_agg(DISTINCT s.language) FILTER (WHERE s.id IS NOT NULL)
-             AS languages,
-           string_agg(concat_ws(' ', e.title, s.caption, lines.text), E'\\n'
-             ORDER BY e._order) AS text
-      FROM topics_evidence e
-      LEFT JOIN snippets s ON s.id = e.snippet_id AND e.kind = 'snippet'
-      LEFT JOIN LATERAL (
-        SELECT string_agg(x.text, ' ' ORDER BY x._order) AS text
-          FROM snippets_transcript x WHERE x._parent_id = s.id
-      ) lines ON TRUE
-     WHERE e._parent_id = t.id
+    SELECT array_agg(DISTINCT ev.kind) FILTER (WHERE ev.shown) AS kinds,
+           array_agg(DISTINCT lower(ev.language))
+             FILTER (WHERE ev.shown AND ev.language IS NOT NULL) AS languages,
+           string_agg(ev.text, E'\\n' ORDER BY ev._order)
+             FILTER (WHERE ev.shown) AS text,
+           max(ev.updated_at) AS updated_at
+      FROM (
+        SELECT e._order, e.kind::text AS kind, s.language,
+               concat_ws(' ', e.title, s.caption, lines.text) AS text,
+               GREATEST(s.updated_at, m.updated_at) AS updated_at,
+               (e.kind = 'snippet' AND s.id IS NOT NULL)
+                 OR (e.kind = 'link' AND COALESCE(e.url, '') <> '')
+                 OR (e.kind IN ('image', 'document')
+                     AND m.filename IS NOT NULL AND m.mime_type IS NOT NULL)
+                 AS shown
+          FROM topics_evidence e
+          LEFT JOIN snippets s ON s.id = e.snippet_id AND e.kind = 'snippet'
+          LEFT JOIN media m
+            ON m.id = e.file_id AND e.kind IN ('image', 'document')
+          LEFT JOIN LATERAL (
+            SELECT string_agg(x.text, ' ' ORDER BY x._order) AS text
+              FROM snippets_transcript x WHERE x._parent_id = s.id
+          ) lines ON TRUE
+         WHERE e._parent_id = t.id
+      ) ev
   ) evidence ON TRUE
  WHERE t.id = ANY($1::uuid[])`;
 
@@ -157,7 +178,7 @@ export function topicDocument(row: TopicRow): TopicSearchDocument | null {
       body: richTextPlainText(row.body),
       evidence: row.evidence_text,
     },
-    version: row.updated_at.toISOString(),
+    version: row.version.toISOString(),
   };
 }
 
@@ -177,7 +198,7 @@ export function createTopicSearchSource(pool: Pool): TopicSearchSource {
           row.id,
           {
             document: topicDocument(row),
-            version: row.updated_at.toISOString(),
+            version: row.version.toISOString(),
           },
         ]),
       );

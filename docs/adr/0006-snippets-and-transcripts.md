@@ -36,10 +36,18 @@ check results are never accepted from a request (as for references in
   cleared.
 - **When a video is checked again**: saving a snippet queues a check when the
   video is new, not playable, or last checked over a day ago. One job id per
-  video keeps repeated saves from queueing duplicates. The job is queued inside
-  the save's transaction and carries the time it was requested: until a check
-  has finished after that time, a worker that still sees the previous check
-  retries rather than dropping the job. There are no periodic checks yet.
+  video keeps repeated saves from queueing duplicates. There are no periodic
+  checks yet.
+- **Telling an uncommitted save from an earlier check.** Jobs are queued inside
+  the save's transaction, so a fast worker can still see the record as it was
+  before. The save stores the request's time with the "being checked" status
+  (`checkRequestedAt`) and the job carries the same value. The worker compares
+  the two copies, never two clocks: an older stored value means the save has
+  not committed (retry), a newer one means a later save queued its own job,
+  and an equal one is the record the job was queued for. Reference checks
+  ([ADR 0005](0005-evidence-and-references.md)) had the same gap when a
+  reference was saved again (unchanged after "not found" or "could not
+  finish", or with new identifiers), and now use the same rule.
 - **Snippets are their own collection**, versioned and audited like
   references, so one snippet can back several topics: a caption, the YouTube
   id (a pasted link is stored as its id), start and end in seconds (stored in

@@ -21,6 +21,35 @@ const SAME_IDENTIFIERS = `doi IS NOT DISTINCT FROM $2
   AND isbn IS NOT DISTINCT FROM $3
   AND url IS NOT DISTINCT FROM $4`;
 
+/**
+ * How the check request a row records compares with a job's (`param` holds
+ * the job's requestedAt). The web app stores the request time with the
+ * "being checked" status and puts the same value in the job, so this compares
+ * two copies of one value, never two clocks:
+ * - "older": the save that queued the job has not committed yet;
+ * - "newer": a later save asked again, and its own job covers it;
+ * - "same": the row is the one the job was queued for.
+ */
+function requestOrder(param: string): string {
+  return `CASE
+      WHEN check_requested_at IS NULL OR check_requested_at < ${param}::timestamptz
+        THEN 'older'
+      WHEN check_requested_at > ${param}::timestamptz THEN 'newer'
+      ELSE 'same'
+    END`;
+}
+
+type RequestOrder = "older" | "newer" | "same";
+
+function stateFor(
+  order: RequestOrder,
+  waiting: boolean,
+): "pending" | "superseded" | "missing" {
+  if (order === "older") return "missing";
+  if (order === "newer") return "superseded";
+  return waiting ? "pending" : "superseded";
+}
+
 export function createContentStore(
   pool: Pool,
 ): ReferenceStore & LinkArchiveStore & VideoStore {
@@ -33,22 +62,26 @@ export function createContentStore(
 
   return {
     async referenceState(job): Promise<ReferenceState> {
-      const { rows } = await pool.query<{ waiting: boolean }>(
-        `SELECT (check_status = 'pending' AND ${SAME_IDENTIFIERS}) AS waiting
+      const { rows } = await pool.query<{
+        waiting: boolean;
+        request: RequestOrder;
+      }>(
+        `SELECT (check_status = 'pending' AND ${SAME_IDENTIFIERS}) AS waiting,
+                ${requestOrder("$5")} AS request
            FROM "references" WHERE id = $1`,
-        identifiers(job),
+        [...identifiers(job), job.requestedAt],
       );
       const [row] = rows;
-      if (!row) return "missing";
-      return row.waiting ? "pending" : "superseded";
+      return row ? stateFor(row.request, row.waiting) : "missing";
     },
 
     async saveReferenceCheck(job, result) {
       const { rowCount } = await pool.query(
         `UPDATE "references"
-            SET check_status = $5, check_message = $6, checked_at = now()
-          WHERE id = $1 AND check_status = 'pending' AND ${SAME_IDENTIFIERS}`,
-        [...identifiers(job), result.status, result.message],
+            SET check_status = $6, check_message = $7, checked_at = now()
+          WHERE id = $1 AND check_status = 'pending' AND ${SAME_IDENTIFIERS}
+            AND check_requested_at = $5::timestamptz`,
+        [...identifiers(job), job.requestedAt, result.status, result.message],
       );
       return rowCount === 1;
     },
@@ -88,23 +121,17 @@ export function createContentStore(
     },
 
     async videoState(job): Promise<VideoState> {
-      // requestedAt comes from the web server's clock and checked_at from the
-      // database's. A small skew only makes a finished check look older, and
-      // that job is retried until its last attempt, then dropped.
       const { rows } = await pool.query<{
         waiting: boolean;
-        checkedSince: boolean;
+        request: RequestOrder;
       }>(
         `SELECT (check_status = 'pending' AND youtube_id = $2) AS waiting,
-                (checked_at IS NOT NULL AND checked_at >= $3::timestamptz)
-                  AS "checkedSince"
+                ${requestOrder("$3")} AS request
            FROM videos WHERE id = $1`,
         [job.videoId, job.youtubeId, job.requestedAt],
       );
       const [row] = rows;
-      if (!row) return "missing";
-      if (row.waiting) return "pending";
-      return row.checkedSince ? "superseded" : "missing";
+      return row ? stateFor(row.request, row.waiting) : "missing";
     },
 
     async saveVideoCheck(job, result) {
@@ -123,7 +150,8 @@ export function createContentStore(
                                     THEN COALESCE(confirmed_at, now())
                                     ELSE confirmed_at END,
                 updated_at = now()
-          WHERE id = $1 AND youtube_id = $2 AND check_status = 'pending'`,
+          WHERE id = $1 AND youtube_id = $2 AND check_status = 'pending'
+            AND check_requested_at = $9::timestamptz`,
         [
           job.videoId,
           job.youtubeId,
@@ -133,6 +161,7 @@ export function createContentStore(
           result.duration_s,
           result.message,
           result.status === "playable",
+          job.requestedAt,
         ],
       );
       return rowCount === 1;

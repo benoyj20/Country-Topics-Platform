@@ -101,6 +101,14 @@ export const Videos: CollectionConfig = {
       admin: { readOnly: true, position: "sidebar" },
     },
     {
+      // When the current check was asked for; the queued job carries the
+      // same time, so the worker can tell a save that has not committed yet
+      // from the video's previous check (content-store.ts).
+      name: "checkRequestedAt",
+      type: "date",
+      admin: { hidden: true },
+    },
+    {
       name: "confirmedAt",
       label: "First found playable",
       type: "date",

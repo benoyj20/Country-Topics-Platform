@@ -251,12 +251,20 @@ describe("references", () => {
       checkStatus: "pending",
     });
     const jobs = await worker.queues.references.getJobs(["waiting", "delayed"]);
-    expect(jobs.map((job) => job.data)).toContainEqual({
+    const queued = {
       referenceId: reference.id,
+      requestedAt: reference.checkRequestedAt,
       doi: "10.5555/fictional-1",
       isbn: "9780306406157",
       url: null,
-    });
+    };
+    expect(jobs.map((job) => job.data)).toContainEqual(queued);
+    // The worker recognises the queued job as the one the reference waits for.
+    expect(
+      await worker.store.referenceState(
+        jobs.find((job) => job.data.referenceId === reference.id)?.data,
+      ),
+    ).toBe("pending");
 
     await expect(createReference({})).rejects.toMatchObject({ status: 400 });
     await expect(
@@ -304,6 +312,7 @@ describe("references", () => {
     expect(retitled.checkStatus).toBe("resolved");
     const oldJob = {
       referenceId: reference.id,
+      requestedAt: retitled.checkRequestedAt ?? "",
       doi: "10.5555/fictional-2",
       isbn: null,
       url: null,
@@ -341,6 +350,32 @@ describe("references", () => {
         })
       ).checkStatus,
     ).toBe("not_found");
+
+    // Saving it again queues a check inside that save's transaction, with a
+    // later request time. A worker that runs before the commit still sees
+    // the earlier request (with "not found", or the identifiers from before)
+    // and must wait rather than drop the job, which would leave the
+    // reference "being checked" for ever.
+    const stored = await payload.findByID({
+      collection: "references",
+      id: reference.id,
+      overrideAccess: true,
+    });
+    const storedRequest = Date.parse(stored.checkRequestedAt ?? "");
+    const job = (offsetMs: number, doi = "10.5555/fictional-3") => ({
+      referenceId: reference.id,
+      requestedAt: new Date(storedRequest + offsetMs).toISOString(),
+      doi,
+      isbn: null,
+      url: null,
+    });
+    expect(await worker.store.referenceState(job(1))).toBe("missing");
+    expect(
+      await worker.store.referenceState(job(1, "10.5555/fictional-5")),
+    ).toBe("missing");
+    // The job for the stored request is done; an older one is superseded.
+    expect(await worker.store.referenceState(job(0))).toBe("superseded");
+    expect(await worker.store.referenceState(job(-1))).toBe("superseded");
   });
 
   it("can be looked up by DOI or ISBN, by admins only", async () => {

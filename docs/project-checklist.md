@@ -164,8 +164,10 @@ See [ADR 0002](adr/0002-sign-in-and-roles.md) for the design.
   redirects stay on the site (`//` and `/\` tricks rejected).
 - [x] CI runs these tests with Valkey and Mailpit services: all passed on PR #6,
   applying the five migrations to the CI database (2026-10-14).
-- [ ] The developer signs in with Google and with an email link, sets up an
-  authenticator, and opens the admin panel.
+- [x] The developer signs in with Google and with an email link, sets up an
+  authenticator, and opens the admin panel (Google sign-in with an
+  authenticator reported done by the developer, 2026-10-16, the part still
+  open after week 2).
 - [ ] Not built yet: Apple sign-in, backup codes for staff, members editing their
   name, account deletion (week 11), and a real email provider (before the pilot).
   Better Auth's rate limits are on outside tests but not yet verified (week 10).
@@ -285,6 +287,12 @@ See [ADR 0005](adr/0005-evidence-and-references.md) for the design.
   identifiers it checked, so a late job for an old DOI cannot confirm a new one;
   "not found" and "could not finish" stay distinct (integration and unit tests,
   2026-10-14).
+- [x] Fixed in week 6: a check queued by saving a reference again (one "not
+  found" or "could not finish", or with changed identifiers) could be dropped
+  when the worker ran before the save committed, leaving the reference "being
+  checked". The save now stores the request's time and the job carries the
+  same value, so the worker waits until the save is visible without comparing
+  clocks (integration test that fails without the fix, 2026-10-16).
 - [x] "Look up" fills a reference from its DOI or ISBN; only verified admins can
   call it, responses are not cached, and a service that does not answer gives a
   clear 503 (integration tests with a fake service, 2026-10-14).
@@ -379,10 +387,10 @@ See [ADR 0006](adr/0006-snippets-and-transcripts.md) for the design.
   with the developer's key: the prototype's demo video was found playable,
   19 seconds long, titled "Me at the zoo" by "jawed"; an invented id was found
   removed or private, with and without the key (2026-10-16).
-- [x] The migration rolls back with `payload migrate:down` on an empty test
-  database and applies again; with snippet evidence present, its rollback
-  refuses with a message instead of deleting evidence (test database,
-  2026-10-16).
+- [x] The migrations roll back with `payload migrate:down` on an empty test
+  database and apply again; with snippet evidence present, the snippet
+  migration's rollback refuses with a message instead of deleting evidence
+  (test database, 2026-10-16).
 - [x] Real browser (headless Edge, production build on the test database, the
   worker running against it with the YouTube key): no YouTube script or player
   before a click; "Load video" opened the privacy-enhanced player, which

@@ -28,6 +28,7 @@ import {
 // is a reserved documentation domain.
 const job: ReferenceCheckJob = {
   referenceId: "01920000-0000-7000-8000-000000000001",
+  requestedAt: "2026-10-16T12:00:00.000Z",
   doi: "10.5555/synthetic-1",
   isbn: null,
   url: "https://example.org/report",
@@ -79,6 +80,7 @@ describe("referenceCheckJobSchema", () => {
     assert.equal(referenceCheckJobSchema.safeParse(job).success, true);
     for (const bad of [
       { ...job, referenceId: "1" },
+      { ...job, requestedAt: "yesterday" },
       { ...job, isbn: "0-306-40615-2" },
       { ...job, url: "javascript:alert(1)" },
     ]) {

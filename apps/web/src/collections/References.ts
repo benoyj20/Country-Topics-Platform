@@ -95,18 +95,23 @@ const markForCheck: CollectionBeforeChangeHook = ({
     data.checkStatus = stored.checkStatus;
     data.checkMessage = stored.checkMessage ?? null;
     data.checkedAt = stored.checkedAt ?? null;
+    data.checkRequestedAt = stored.checkRequestedAt ?? null;
     return data;
   }
   data.checkStatus = "pending";
   data.checkMessage = null;
   data.checkedAt = null;
+  // The queued job carries the same time, so the worker can tell this save
+  // from the reference as it was before it committed (content-store.ts).
+  data.checkRequestedAt = new Date().toISOString();
   return data;
 };
 
 const queueChecks: CollectionAfterChangeHook = async ({ doc, req }) => {
-  if (doc.checkStatus === "pending") {
+  if (doc.checkStatus === "pending" && doc.checkRequestedAt) {
     await queueReferenceCheck(req, {
       referenceId: String(doc.id),
+      requestedAt: doc.checkRequestedAt,
       ...identifiersOf(doc),
     });
   }
@@ -334,6 +339,13 @@ export const References: CollectionConfig = {
       ...systemField,
     },
     { name: "checkedAt", label: "Checked", type: "date", ...systemField },
+    {
+      // When the current check was asked for; set with checkStatus.
+      name: "checkRequestedAt",
+      type: "date",
+      ...systemField,
+      admin: { ...systemField.admin, hidden: true },
+    },
   ],
   hooks: {
     beforeDelete: [keepWhileUsedByTopics("references.reference", "reference")],

@@ -74,7 +74,11 @@ async function videoFor(req: PayloadRequest, youtubeId: string) {
   if (!existing) {
     return req.payload.create({
       collection: "videos",
-      data: { youtubeId, checkStatus: "pending" },
+      data: {
+        youtubeId,
+        checkStatus: "pending",
+        checkRequestedAt: new Date().toISOString(),
+      },
       overrideAccess: true,
       req,
     });
@@ -86,7 +90,10 @@ async function videoFor(req: PayloadRequest, youtubeId: string) {
     return req.payload.update({
       collection: "videos",
       id: existing.id,
-      data: { checkStatus: "pending" },
+      data: {
+        checkStatus: "pending",
+        checkRequestedAt: new Date().toISOString(),
+      },
       overrideAccess: true,
       req,
     });
@@ -191,12 +198,18 @@ const checkVideo: CollectionAfterChangeHook = async ({ doc, req }) => {
     collection: "videos",
     id: videoId,
     depth: 0,
-    select: { youtubeId: true, checkStatus: true },
+    select: { youtubeId: true, checkStatus: true, checkRequestedAt: true },
     overrideAccess: true,
     req,
   });
-  if (video.checkStatus === "pending") {
-    await queueVideoCheck(req, { videoId, youtubeId: video.youtubeId });
+  // Queueing again for a video already waiting reuses its request time; one
+  // job id per video keeps it to one job.
+  if (video.checkStatus === "pending" && video.checkRequestedAt) {
+    await queueVideoCheck(req, {
+      videoId,
+      youtubeId: video.youtubeId,
+      requestedAt: video.checkRequestedAt,
+    });
   }
 };
 

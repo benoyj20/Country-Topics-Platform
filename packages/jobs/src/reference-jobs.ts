@@ -19,9 +19,12 @@ export const REFERENCE_QUEUE_NAME = "references";
 
 /**
  * Checks a reference's identifiers as they were when it was saved. The result
- * is stored only if the reference still has exactly these identifiers.
+ * is stored only if the reference still has exactly these identifiers. The job
+ * is queued inside that save, so until it commits the worker may still see
+ * the reference as it was before; requestedAt tells the two apart.
  */
 export const referenceCheckJobSchema = z.object({
+  requestedAt: z.iso.datetime(),
   referenceId: z.uuid(),
   doi: z.string().max(DOI_MAX_LENGTH).nullable(),
   isbn: z
@@ -57,9 +60,12 @@ export type ReferenceCheckResult = {
 export type ReferenceState =
   /** Still has the job's identifiers and waits for this check. */
   | "pending"
-  /** Changed or deleted since, or already checked; a newer job covers it. */
+  /** Checked or saved again since the job was requested; a newer job covers it. */
   | "superseded"
-  /** Not visible yet: the save that queued the job has not committed. */
+  /**
+   * Not visible yet: the save that queued the job has not committed, so the
+   * reference is absent or still as it was before the request.
+   */
   | "missing";
 
 export type ReferenceStore = {

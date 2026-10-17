@@ -163,6 +163,8 @@ export async function runReferenceCheck(
   return processReferenceCheck(
     {
       referenceId,
+      // The job carries the request time the save stored.
+      requestedAt: reference.checkRequestedAt ?? "",
       doi: reference.doi ?? null,
       isbn: reference.isbn ?? null,
       url: reference.url ?? null,
@@ -203,7 +205,7 @@ export async function runVideoCheck(
     {
       videoId,
       youtubeId: video.youtubeId,
-      requestedAt: new Date().toISOString(),
+      requestedAt: video.checkRequestedAt ?? "",
     },
     { youtube, store },
     { isFinal: true },

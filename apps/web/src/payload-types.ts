@@ -466,6 +466,7 @@ export interface Video {
   checkStatus: 'pending' | 'playable' | 'not_embeddable' | 'unavailable' | 'failed';
   checkMessage?: string | null;
   checkedAt?: string | null;
+  checkRequestedAt?: string | null;
   /**
    * Snippets back published topics only once their video was found playable.
    */
@@ -500,6 +501,7 @@ export interface Reference {
   checkStatus: 'pending' | 'resolved' | 'not_found' | 'failed';
   checkMessage?: string | null;
   checkedAt?: string | null;
+  checkRequestedAt?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -795,6 +797,7 @@ export interface ReferencesSelect<T extends boolean = true> {
   checkStatus?: T;
   checkMessage?: T;
   checkedAt?: T;
+  checkRequestedAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -835,6 +838,7 @@ export interface VideosSelect<T extends boolean = true> {
   checkStatus?: T;
   checkMessage?: T;
   checkedAt?: T;
+  checkRequestedAt?: T;
   confirmedAt?: T;
   updatedAt?: T;
   createdAt?: T;

@@ -180,9 +180,11 @@ describe("snippets", () => {
       {
         videoId: video.id,
         youtubeId: "TESTsnip001",
-        requestedAt: expect.any(String),
+        requestedAt: video.checkRequestedAt,
       },
     ]);
+    // The worker recognises the queued job as the one the video waits for.
+    expect(await worker.store.videoState(jobs[0]?.data)).toBe("pending");
     expect(await auditActions(first.id)).toEqual(["snippet.created"]);
     expect(await auditActions(video.id)).toEqual(["video.created"]);
   });
@@ -345,16 +347,18 @@ describe("videos", () => {
 
     // A late or repeated job changes nothing once the video is checked.
     expect(await runVideoCheck(payload, worker.store, id)).toBe("superseded");
-    // A job requested after that check, by a save that has not committed yet,
-    // waits for it instead of being dropped; one requested before is done.
-    const checkedAt = Date.parse(checked.checkedAt ?? "");
+    // A job for a later request, queued by a save that has not committed
+    // yet, waits for it instead of being dropped; the stored request's job
+    // and older ones are done.
+    const storedRequest = Date.parse(checked.checkRequestedAt ?? "");
     const job = (offsetMs: number) => ({
       videoId: id,
       youtubeId: "TESTsnip006",
-      requestedAt: new Date(checkedAt + offsetMs).toISOString(),
+      requestedAt: new Date(storedRequest + offsetMs).toISOString(),
     });
-    expect(await worker.store.videoState(job(60_000))).toBe("missing");
-    expect(await worker.store.videoState(job(-60_000))).toBe("superseded");
+    expect(await worker.store.videoState(job(1))).toBe("missing");
+    expect(await worker.store.videoState(job(0))).toBe("superseded");
+    expect(await worker.store.videoState(job(-1))).toBe("superseded");
     // Saving a snippet of a recently confirmed video queues no new check.
     await worker.queues.videos.obliterate({ force: true });
     await updateSnippet(snippet.id, { caption: "TEST snippet, renamed" });

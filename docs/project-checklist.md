@@ -385,19 +385,22 @@ See [ADR 0006](adr/0006-snippets-and-transcripts.md) for the design.
   2026-10-16).
 - [x] Real browser (headless Edge, production build on the test database, the
   worker running against it with the YouTube key): no YouTube script or player
-  before a click; "Load video" opened the privacy-enhanced player, which gave
-  the length (19 s) and a default end; a typed end committed with Enter; the
+  before a click; "Load video" opened the privacy-enhanced player, which
+  (when it reported the length, 19 s) proposed a default end; typed times
+  commit with Enter; an end of 0:25 showed "End is past the end of the video
+  (0:19)", and a cleared end showed an error instead of a default; the
   transcript summary said "3 lines in the clip · 1 line outside it left out ·
   1 line before the first timestamp ignored"; the preview listed the three
-  lines; saving showed "YouTube check pending", and after the worker's check
-  "Playable on this site. Me at the zoo · jawed · 0:19"; in the preview,
-  clicking a transcript line played from 0:12 with that line highlighted, and
-  playback stopped at the clip's end (0:17) with "Snippet ended", Replay, and
-  "Watch the full video on YouTube"; a topic naming an individual published
-  with the snippet as evidence and a confirmed reference; no browser errors
-  (2026-10-16). In headless Edge the first click on the thumbnail loaded the
-  player but YouTube did not start playing; that is still to confirm in a
-  real browser.
+  lines; clicking the thumbnail played the clip with the highlight moving from
+  0:01 to 0:05, clicking the last line jumped to 0:12, and playback stopped at
+  the clip's end (0:17) with "Snippet ended", Replay, and "Watch the full
+  video on YouTube" (`watch?v=…&t=1s`); saving showed "YouTube check pending",
+  and after the worker's check "Playable on this site. Me at the zoo · jawed ·
+  0:19"; a topic naming an individual published with the snippet as evidence
+  and a confirmed reference; no browser errors (2026-10-16, final code). In
+  one earlier headless run the first click loaded the player without starting
+  playback (a second click on a line played it); worth watching for in a real
+  browser.
 - [ ] The developer adds a clip with a synced transcript in the admin panel and
   watches the preview play in sync in a real browser (the week's manual test).
 - [ ] Each player edge case in a real browser: the first click starts playback,

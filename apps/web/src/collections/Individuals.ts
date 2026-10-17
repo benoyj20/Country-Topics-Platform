@@ -177,8 +177,9 @@ const possibleDuplicatesEndpoint: Endpoint = {
 
 // F2: politicians, officials, experts, and others that topics are about or
 // quote. Every published statement about a person needs evidence (AGENTS.md),
-// so a public profile shows only who they are and the published topics that
-// name them; the bio and country roles stay staff-only (ADR 0007).
+// so a public profile shows who they are and the published topics that name
+// them, and the bio and country roles only while confirmed sources back them
+// (ADR 0007).
 export const Individuals: CollectionConfig = {
   slug: "individuals",
   admin: {
@@ -252,7 +253,7 @@ export const Individuals: CollectionConfig = {
       labels: { singular: "Country", plural: "Countries" },
       admin: {
         description:
-          "Countries this person is linked to, their role there, and when. Seen by staff only: public profiles do not show it yet.",
+          "Countries this person is linked to, their role there, and when. Shown on the public profile only while the profile cites at least one source below and every cited reference is confirmed.",
       },
       fields: [
         {
@@ -322,8 +323,42 @@ export const Individuals: CollectionConfig = {
       maxLength: 5000,
       admin: {
         description:
-          "Plain text. Keep to what the linked evidence and references support. Seen by staff only: public profiles do not show it yet.",
+          "Plain text. Keep to what the sources below support. Shown on the public profile only while the profile cites at least one source below and every cited reference is confirmed.",
       },
+    },
+    {
+      name: "sources",
+      type: "array",
+      labels: { singular: "Source", plural: "Sources" },
+      admin: {
+        description:
+          "References that support the bio and the country roles, each with the passage that does. Until every one is confirmed, the public profile shows only the name, description, photo, links, and topics.",
+      },
+      fields: [
+        {
+          name: "reference",
+          type: "relationship",
+          relationTo: "references",
+          required: true,
+          index: true,
+        },
+        {
+          name: "passage",
+          type: "textarea",
+          required: true,
+          maxLength: 2000,
+          admin: {
+            description:
+              "The words in the reference that support the profile, quoted exactly.",
+          },
+        },
+        {
+          name: "locator",
+          label: "Page or section",
+          type: "text",
+          maxLength: 100,
+        },
+      ],
     },
     {
       name: "links",
@@ -405,6 +440,13 @@ export const Individuals: CollectionConfig = {
           ? doc.links.map((row: Record<string, unknown>) => ({
               label: row.label,
               url: row.url,
+            }))
+          : [],
+        sources: Array.isArray(doc.sources)
+          ? doc.sources.map((row: Record<string, unknown>) => ({
+              reference: relationId(row.reference),
+              passage: row.passage ?? null,
+              locator: row.locator ?? null,
             }))
           : [],
       }),

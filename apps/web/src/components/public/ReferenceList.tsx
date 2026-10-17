@@ -1,6 +1,10 @@
 import { REFERENCE_KIND_LABELS, STANCE_LABELS } from "@/content-labels";
 import { formatPartialDate } from "@/public/format";
-import type { CitedReference, PublicReference } from "@/public/types";
+import type {
+  CitedReference,
+  ProfileSource,
+  PublicReference,
+} from "@/public/types";
 
 import styles from "./public.module.css";
 
@@ -89,6 +93,25 @@ export function ReferenceList({
           </blockquote>
           {cited.locator ? (
             <p className={styles.meta}>{cited.locator}</p>
+          ) : null}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/** The references a profile cites for the bio and roles, with their passages. */
+export function SourceList({ sources }: { sources: ProfileSource[] }) {
+  return (
+    <ol className={styles.list}>
+      {sources.map((source, index) => (
+        <li key={index} className={styles.item}>
+          <Citation reference={source.reference} />
+          <blockquote className={styles.passage}>
+            <p>{source.passage}</p>
+          </blockquote>
+          {source.locator ? (
+            <p className={styles.meta}>{source.locator}</p>
           ) : null}
         </li>
       ))}

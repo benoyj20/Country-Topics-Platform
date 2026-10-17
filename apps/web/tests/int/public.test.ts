@@ -390,7 +390,7 @@ describe("individual pages", () => {
     expect(await loadIndividualPage(unnamedWithPhoto.slug)).toBeNull();
   });
 
-  it("show who the person is, but not the bio or country roles", async () => {
+  it("show who the person is, but not the bio or country roles without sources", async () => {
     const page = await loadIndividualPage(subject.slug);
     expect(page).toMatchObject({
       name: "TEST Public Subject",
@@ -399,6 +399,7 @@ describe("individual pages", () => {
       links: [{ label: "Official page", url: "https://example.org/subject" }],
       photo: null,
     });
+    expect(page?.backed).toBeNull();
     expect(JSON.stringify(page)).not.toContain("TEST bio");
     expect((await loadIndividualPage(portrayed.slug))?.photo?.url).toBe(
       `/files/${photo.id}`,
@@ -568,5 +569,78 @@ describe("saves that do not publish", () => {
       overrideAccess: true,
     });
     expect(latest.title).toBe("TEST changed without publishing");
+  });
+});
+
+describe("profile sources", () => {
+  it("show the bio and country roles only while every cited source is confirmed", async () => {
+    const source = await payload.create({
+      collection: "references",
+      data: {
+        title: "TEST profile source",
+        kind: "web_page",
+        url: "https://example.org/profile-source",
+        checkStatus: "pending",
+      },
+      user: admin,
+      overrideAccess: false,
+    });
+    await payload.update({
+      collection: "individuals",
+      id: subject.id,
+      data: {
+        countries: [{ country: kenya, role: "TEST role", startDate: "2019" }],
+        sources: [
+          {
+            reference: source.id,
+            passage: "TEST quoted passage",
+            locator: "p. 1",
+          },
+        ],
+      },
+      user: admin,
+      overrideAccess: false,
+    });
+    // Cited but still being checked: nothing more is shown.
+    expect((await loadIndividualPage(subject.slug))?.backed).toBeNull();
+
+    await runReferenceCheck(payload, worker.store, source.id);
+    expect((await loadIndividualPage(subject.slug))?.backed).toEqual({
+      bio: "TEST bio that cites no evidence",
+      countries: [
+        {
+          country: { name: "Kenya", slug: kenyaSlug },
+          role: "TEST role",
+          startDate: "2019",
+          endDate: null,
+        },
+      ],
+      sources: [
+        expect.objectContaining({
+          passage: "TEST quoted passage",
+          locator: "p. 1",
+          reference: expect.objectContaining({ title: "TEST profile source" }),
+        }),
+      ],
+    });
+
+    // A cited reference stays; editing it withdraws the profile until it is
+    // confirmed again.
+    await expect(
+      payload.delete({
+        collection: "references",
+        id: source.id,
+        user: admin,
+        overrideAccess: false,
+      }),
+    ).rejects.toMatchObject({ status: 409 });
+    await payload.update({
+      collection: "references",
+      id: source.id,
+      data: { url: "https://example.org/profile-source-moved" },
+      user: admin,
+      overrideAccess: false,
+    });
+    expect((await loadIndividualPage(subject.slug))?.backed).toBeNull();
   });
 });

@@ -1,11 +1,14 @@
 import { isSlug } from "@countrytopics/domain";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { FileCredit } from "@/components/public/FileCredit";
+import { SourceList } from "@/components/public/ReferenceList";
 import styles from "@/components/public/public.module.css";
 import { TopicList } from "@/components/public/TopicList";
 import { individualPage } from "@/public/cached";
+import { formatPeriod } from "@/public/format";
 import type { IndividualPage } from "@/public/types";
 
 // Rendered on a page's first visit, then cached for everyone and purged when
@@ -77,10 +80,48 @@ export default async function IndividualPageView({ params }: Props) {
         </div>
       </header>
 
-      <p className="muted">
-        What this site says about {individual.name} is in the topics below, each
-        with its evidence and references.
-      </p>
+      {individual.backed ? (
+        <>
+          {individual.backed.bio ? (
+            <section className={styles.section} aria-label="Biography">
+              <p className={styles.bio}>{individual.backed.bio}</p>
+            </section>
+          ) : null}
+          {individual.backed.countries.length > 0 ? (
+            <section className={styles.section} aria-labelledby="roles">
+              <h2 id="roles">Roles</h2>
+              <ul className={styles.roles}>
+                {individual.backed.countries.map((role, index) => (
+                  <li key={index}>
+                    {[
+                      role.role,
+                      <Link
+                        key="country"
+                        href={`/countries/${role.country.slug}`}
+                      >
+                        {role.country.name}
+                      </Link>,
+                      formatPeriod(role.startDate, role.endDate),
+                    ]
+                      .filter(Boolean)
+                      .map((part, partIndex) => (
+                        <span key={partIndex}>
+                          {partIndex > 0 ? ", " : null}
+                          {part}
+                        </span>
+                      ))}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+        </>
+      ) : (
+        <p className="muted">
+          What this site says about {individual.name} is in the topics below,
+          each with its evidence and references.
+        </p>
+      )}
 
       <section className={styles.section} aria-labelledby="topics">
         <h2 id="topics">Topics</h2>
@@ -89,6 +130,13 @@ export default async function IndividualPageView({ params }: Props) {
           empty="No current topics name this person; archived topics may still link here."
         />
       </section>
+
+      {individual.backed ? (
+        <section className={styles.section} aria-labelledby="sources">
+          <h2 id="sources">Sources for this profile</h2>
+          <SourceList sources={individual.backed.sources} />
+        </section>
+      ) : null}
 
       {links.length > 0 ? (
         <section className={styles.section} aria-labelledby="links">

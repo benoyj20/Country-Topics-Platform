@@ -1,3 +1,4 @@
+import { profileIsBacked } from "@countrytopics/domain";
 import type { Payload, Where } from "payload";
 
 import { relationId } from "@/audit";
@@ -40,8 +41,9 @@ import type {
 //   later draft. Archived topics keep their page but leave every list.
 // - An individual is public while a published topic names them: in its list
 //   of people, by a link in its text, or as the speaker of a snippet it uses
-//   as evidence. Their page shows who they are and those topics; the bio and
-//   country roles stay staff-only until they can cite evidence (ADR 0007).
+//   as evidence. Their page shows who they are and those topics, and the bio
+//   and country roles only while the profile cites sources that are all
+//   confirmed (profileIsBacked, ADR 0007).
 // - A file is public while a published topic uses it as evidence, or it is
 //   the photo of a public individual.
 
@@ -422,34 +424,41 @@ function publicReference(reference: Reference): PublicReference {
   };
 }
 
+/** References by id, with what citations show and their check status. */
+async function referencesById(
+  payload: Payload,
+  referenceIds: string[],
+): Promise<Map<string, Reference>> {
+  if (referenceIds.length === 0) return new Map();
+  const { docs } = await payload.find({
+    collection: "references",
+    where: { id: { in: referenceIds } },
+    select: {
+      kind: true,
+      title: true,
+      authors: true,
+      containerTitle: true,
+      publisher: true,
+      publishedDate: true,
+      doi: true,
+      isbn: true,
+      url: true,
+      checkStatus: true,
+    },
+    depth: 0,
+    pagination: false,
+    overrideAccess: true,
+  });
+  return new Map((docs as Reference[]).map((doc) => [String(doc.id), doc]));
+}
+
 async function referencesOf(
   payload: Payload,
   cited: NonNullable<Topic["references"]>,
 ): Promise<CitedReference[]> {
-  const referenceIds = ids(cited.map((row) => row.reference));
-  const { docs } =
-    referenceIds.length > 0
-      ? await payload.find({
-          collection: "references",
-          where: { id: { in: referenceIds } },
-          select: {
-            kind: true,
-            title: true,
-            authors: true,
-            containerTitle: true,
-            publisher: true,
-            publishedDate: true,
-            doi: true,
-            isbn: true,
-            url: true,
-          },
-          depth: 0,
-          pagination: false,
-          overrideAccess: true,
-        })
-      : { docs: [] };
-  const references = new Map(
-    (docs as Reference[]).map((doc) => [String(doc.id), doc]),
+  const references = await referencesById(
+    payload,
+    ids(cited.map((row) => row.reference)),
   );
   return cited.flatMap((row) => {
     const reference = references.get(relationId(row.reference) ?? "");
@@ -614,6 +623,9 @@ type IndividualFields = Pick<
   | "photo"
   | "links"
   | "wikidataId"
+  | "bio"
+  | "countries"
+  | "sources"
 >;
 
 /** A public individual's page, or null when no public individual has the slug. */
@@ -632,6 +644,9 @@ export async function loadIndividualPage(
       photo: true,
       links: true,
       wikidataId: true,
+      bio: true,
+      countries: true,
+      sources: true,
     },
     limit: 1,
     pagination: false,
@@ -643,11 +658,24 @@ export async function loadIndividualPage(
   const naming = await namingTopics(payload, [String(individual.id)]);
   if (!(await anyNamed(payload, naming))) return null;
 
-  const [photos, topics] = await Promise.all([
+  const sources = rows(individual.sources);
+  const roles = rows(individual.countries);
+  const [photos, topics, references, countries] = await Promise.all([
     byId<Media>(payload, "media", ids([individual.photo]), FILE_FIELDS),
     topicList(payload, naming, TOPIC_LIST_LIMIT),
+    referencesById(payload, ids(sources.map((row) => row.reference))),
+    countryLinks(payload, ids(roles.map((row) => row.country))),
   ]);
   const photo = photos.get(relationId(individual.photo) ?? "");
+  const cited = sources.map((row) => ({
+    row,
+    reference: references.get(relationId(row.reference) ?? ""),
+  }));
+  const backed = profileIsBacked(
+    cited.map(({ reference }) => ({
+      checkStatus: reference?.checkStatus ?? null,
+    })),
+  );
   return {
     name: individual.name,
     slug: individual.slug,
@@ -656,6 +684,35 @@ export async function loadIndividualPage(
     photo: photo ? publicFile(photo) : null,
     links: rows(individual.links).map(({ label, url }) => ({ label, url })),
     wikidataId: individual.wikidataId ?? null,
+    backed: backed
+      ? {
+          bio: individual.bio || null,
+          countries: roles.flatMap((row) => {
+            const country = countries.get(relationId(row.country) ?? "");
+            return country
+              ? [
+                  {
+                    country,
+                    role: row.role || null,
+                    startDate: row.startDate || null,
+                    endDate: row.endDate || null,
+                  },
+                ]
+              : [];
+          }),
+          sources: cited.flatMap(({ row, reference }) =>
+            reference
+              ? [
+                  {
+                    passage: row.passage,
+                    locator: row.locator || null,
+                    reference: publicReference(reference),
+                  },
+                ]
+              : [],
+          ),
+        }
+      : null,
     topics,
   };
 }

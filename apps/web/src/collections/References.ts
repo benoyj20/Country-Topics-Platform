@@ -26,7 +26,7 @@ import { REFERENCE_KIND_LABELS } from "@/content-labels";
 import { PUBLIC_TAGS, purgeOnChange } from "@/public-cache";
 import { bibliography } from "@/sources";
 
-import { keepWhileUsedByTopics } from "./topic-references";
+import { keepWhileUsed } from "./topic-references";
 import { httpUrl } from "./url-field";
 
 const NO_STORE = { "Cache-Control": "no-store" };
@@ -339,7 +339,12 @@ export const References: CollectionConfig = {
     },
   ],
   hooks: purgeOnChange(PUBLIC_TAGS.references, {
-    beforeDelete: [keepWhileUsedByTopics("references.reference", "reference")],
+    beforeDelete: [
+      keepWhileUsed("reference", [
+        { collection: "topics", field: "references.reference" },
+        { collection: "individuals", field: "sources.reference" },
+      ]),
+    ],
     beforeChange: [markForCheck],
     afterChange: [queueChecks, ...audit.afterChange],
     afterDelete: audit.afterDelete,

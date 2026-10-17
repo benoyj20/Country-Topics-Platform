@@ -328,7 +328,7 @@ export interface Individual {
    */
   summary?: string | null;
   /**
-   * Countries this person is linked to, their role there, and when. Seen by staff only: public profiles do not show it yet.
+   * Countries this person is linked to, their role there, and when. Shown on the public profile only while the profile cites at least one source below and every cited reference is confirmed.
    */
   countries?:
     | {
@@ -347,9 +347,23 @@ export interface Individual {
    */
   photo?: (string | null) | Media;
   /**
-   * Plain text. Keep to what the linked evidence and references support. Seen by staff only: public profiles do not show it yet.
+   * Plain text. Keep to what the sources below support. Shown on the public profile only while the profile cites at least one source below and every cited reference is confirmed.
    */
   bio?: string | null;
+  /**
+   * References that support the bio and the country roles, each with the passage that does. Until every one is confirmed, the public profile shows only the name, description, photo, links, and topics.
+   */
+  sources?:
+    | {
+        reference: string | Reference;
+        /**
+         * The words in the reference that support the profile, quoted exactly.
+         */
+        passage: string;
+        locator?: string | null;
+        id?: string | null;
+      }[]
+    | null;
   /**
    * Official pages and other profiles.
    */
@@ -408,6 +422,37 @@ export interface Media {
   height?: number | null;
   focalX?: number | null;
   focalY?: number | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "references".
+ */
+export interface Reference {
+  id: string;
+  doi?: string | null;
+  isbn?: string | null;
+  /**
+   * Where to read it: the publisher's page or the report itself. Needed when there is no DOI or ISBN.
+   */
+  url?: string | null;
+  kind: 'article' | 'book' | 'chapter' | 'report' | 'web_page' | 'dataset' | 'other';
+  publishedDate?: string | null;
+  title: string;
+  /**
+   * One per line, as printed.
+   */
+  authors?: string | null;
+  containerTitle?: string | null;
+  publisher?: string | null;
+  /**
+   * Whether the DOI, ISBN, and link exist. Topics cite only confirmed references when published. Save again to retry a check.
+   */
+  checkStatus: 'pending' | 'resolved' | 'not_found' | 'failed';
+  checkMessage?: string | null;
+  checkedAt?: string | null;
+  checkRequestedAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * Clips of YouTube videos with what is said in them. Topics use them as evidence.
@@ -472,37 +517,6 @@ export interface Video {
    * Snippets back published topics only once their video was found playable.
    */
   confirmedAt?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "references".
- */
-export interface Reference {
-  id: string;
-  doi?: string | null;
-  isbn?: string | null;
-  /**
-   * Where to read it: the publisher's page or the report itself. Needed when there is no DOI or ISBN.
-   */
-  url?: string | null;
-  kind: 'article' | 'book' | 'chapter' | 'report' | 'web_page' | 'dataset' | 'other';
-  publishedDate?: string | null;
-  title: string;
-  /**
-   * One per line, as printed.
-   */
-  authors?: string | null;
-  containerTitle?: string | null;
-  publisher?: string | null;
-  /**
-   * Whether the DOI, ISBN, and link exist. Topics cite only confirmed references when published. Save again to retry a check.
-   */
-  checkStatus: 'pending' | 'resolved' | 'not_found' | 'failed';
-  checkMessage?: string | null;
-  checkedAt?: string | null;
-  checkRequestedAt?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -907,6 +921,14 @@ export interface IndividualsSelect<T extends boolean = true> {
       };
   photo?: T;
   bio?: T;
+  sources?:
+    | T
+    | {
+        reference?: T;
+        passage?: T;
+        locator?: T;
+        id?: T;
+      };
   links?:
     | T
     | {

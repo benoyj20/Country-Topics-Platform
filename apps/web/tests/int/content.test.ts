@@ -342,6 +342,7 @@ describe("individuals", () => {
         },
       ],
       links: [{ label: "Example profile", url: "https://example.org/alpha" }],
+      sources: [],
     });
 
     await payload.update({

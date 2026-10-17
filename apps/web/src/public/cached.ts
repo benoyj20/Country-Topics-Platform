@@ -53,6 +53,7 @@ export const individualPage = cached("individual-page", loadIndividualPage, [
   T.countries,
   T.snippets,
   T.media,
+  T.references,
 ]);
 
 export const countryPage = cached("country-page", loadCountryPage, [

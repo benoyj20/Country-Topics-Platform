@@ -94,6 +94,21 @@ export type CitedReference = {
   reference: PublicReference;
 };
 
+/** A reference a profile cites for its own statements about the person. */
+export type ProfileSource = {
+  passage: string;
+  locator: string | null;
+  reference: PublicReference;
+};
+
+export type CountryRole = {
+  country: CountryLink;
+  role: string | null;
+  /** Partial dates: YYYY, YYYY-MM, or YYYY-MM-DD. */
+  startDate: string | null;
+  endDate: string | null;
+};
+
 export type TopicChangeEntry = {
   kind: "published" | "updated" | "archived" | "restored";
   note: string;
@@ -120,6 +135,15 @@ export type IndividualPage = {
   photo: PublicFile | null;
   links: { label: string; url: string }[];
   wikidataId: string | null;
+  /**
+   * The profile's own statements and the sources behind them: present only
+   * while every cited source is confirmed (profileIsBacked), else null.
+   */
+  backed: {
+    bio: string | null;
+    countries: CountryRole[];
+    sources: ProfileSource[];
+  } | null;
   topics: LimitedList<TopicSummary>;
 };
 

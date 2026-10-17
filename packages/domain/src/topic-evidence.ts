@@ -214,3 +214,18 @@ export function evidenceProblems(topic: TopicEvidence): EvidenceProblem[] {
   }
   return problems;
 }
+
+/**
+ * Whether a profile's own statements about a person (the bio and country
+ * roles) may be shown publicly: it cites at least one source, and every cited
+ * reference is confirmed now. Checked on every read, since editing a
+ * reference makes it "being checked" again.
+ */
+export function profileIsBacked(
+  sources: { checkStatus: ReferenceCheckStatus | null }[],
+): boolean {
+  return (
+    sources.length > 0 &&
+    sources.every((source) => source.checkStatus === "resolved")
+  );
+}

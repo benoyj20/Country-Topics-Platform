@@ -61,10 +61,21 @@ thumbnails should be served through the site.
   - photo, with its credit and licence;
   - links, and the Wikidata item.
 
-  The bio and the country roles with dates are statements about the person
-  that cite no evidence, so they stay staff-only until profiles can cite
-  references. The admin form says so. A country page lists the people named
-  by its topics, not those whose profile mentions the country.
+  The bio and the country roles with dates are the profile's own statements
+  about the person, so they need sources like any published statement. An
+  admin adds **sources** to the profile: references, each with the passage
+  that supports it, as topics cite them. The quoted passage from a checked
+  source is the linked evidence. The rules for showing them:
+  - The bio and roles are shown, with a "Sources for this profile" list,
+    only while the profile cites at least one source and every cited
+    reference is confirmed (`profileIsBacked` in `packages/domain`).
+  - This is checked on every read, not when the profile is saved:
+    individuals are not versioned, and editing a reference makes it "being
+    checked" again, which hides the bio until the worker confirms it.
+  - A reference that a profile cites cannot be deleted (409).
+
+  The admin form describes these rules. A country page lists the people
+  named by its topics, not those whose profile mentions the country.
 - **A save that does not publish never changes the live version.** Payload
   writes the live topic for any update sent without `draft`, which would
   skip the change note, the change log, and the purge. Such an update is
@@ -146,5 +157,10 @@ thumbnails should be served through the site.
 - `next build` renders the home page, so building needs the database. CI has
   one. A container image build (week 11) must provide one or render the home
   page on request.
+- One set of sources backs the whole bio and every role; there is no
+  per-sentence citation. An admin keeps the bio to what the sources say, as
+  the field's description asks.
+- Rolling back the profile-sources migration deletes the sources table and
+  its rows.
 - Lists stop at 50 topics (12 on the home page) and say so. Paging arrives
   with week 8's search and filters.

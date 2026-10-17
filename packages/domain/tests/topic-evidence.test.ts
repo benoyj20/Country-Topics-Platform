@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import {
   evidenceProblems,
+  profileIsBacked,
   referenceCheckResult,
   type SnippetEvidence,
   type TopicEvidence,
@@ -151,5 +152,33 @@ describe("referenceCheckResult", () => {
 
   it("treats a reference with nothing to check as not found", () => {
     assert.equal(referenceCheckResult([]).status, "not_found");
+  });
+});
+
+describe("profileIsBacked", () => {
+  it("needs at least one source, every one confirmed", () => {
+    assert.equal(profileIsBacked([]), false);
+    assert.equal(profileIsBacked([{ checkStatus: "resolved" }]), true);
+    assert.equal(
+      profileIsBacked([
+        { checkStatus: "resolved" },
+        { checkStatus: "resolved" },
+      ]),
+      true,
+    );
+  });
+
+  it("is withdrawn while any source is unconfirmed", () => {
+    for (const checkStatus of [
+      "pending",
+      "not_found",
+      "failed",
+      null,
+    ] as const) {
+      assert.equal(
+        profileIsBacked([{ checkStatus: "resolved" }, { checkStatus }]),
+        false,
+      );
+    }
   });
 });

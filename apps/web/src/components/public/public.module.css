@@ -189,6 +189,16 @@ a.chip {
   overflow-wrap: anywhere;
 }
 
+.bio {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.roles {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
 .changes {
   margin: 0;
   padding-left: 1.2rem;

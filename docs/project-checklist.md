@@ -328,7 +328,10 @@ See [ADR 0005](adr/0005-evidence-and-references.md) for the design.
 - [x] CI ran these tests and the migration drift check: all passed on PR #9,
   applying the ten migrations to the CI database and storing uploads in its
   SeaweedFS service (2026-10-15).
-- [ ] The developer adds three references to a topic.
+- [x] The developer uploaded a file, added three references (DOI, ISBN, and
+  link, each confirmed by the worker), and published and then archived a TEST
+  topic with evidence; this found that the change note could not be typed
+  in, which is fixed with a regression test (2026-10-16).
 - [ ] Not built yet: video snippets and transcript excerpts as evidence (week 6).
 - [ ] Optional, after the pilot (v2): fresh Wayback Machine copies of evidence
   links. The code is in place and off; it turns on with a free Internet Archive

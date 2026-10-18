@@ -24,7 +24,8 @@ export function withDatabase(databaseUrl: string, name: string): string {
 
 /**
  * The libpq environment for a connection URL, so the password reaches the
- * tools without appearing in their command line.
+ * tools without appearing in their command line. A URL without a password
+ * leaves PGPASSWORD as the process has it, as the pg client does.
  */
 export function libpqEnv(databaseUrl: string): Record<string, string> {
   const url = new URL(databaseUrl);
@@ -32,10 +33,10 @@ export function libpqEnv(databaseUrl: string): Record<string, string> {
     PGHOST: url.hostname,
     PGPORT: url.port || "5432",
     PGUSER: decodeURIComponent(url.username),
-    PGPASSWORD: decodeURIComponent(url.password),
     PGDATABASE: databaseName(databaseUrl),
     PGCONNECT_TIMEOUT: String(CONNECT_TIMEOUT_MS / 1_000),
   };
+  if (url.password) env.PGPASSWORD = decodeURIComponent(url.password);
   const sslmode = url.searchParams.get("sslmode");
   if (sslmode) env.PGSSLMODE = sslmode;
   return env;

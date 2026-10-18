@@ -84,7 +84,9 @@ services:
     environment:
       # The database and uploads as containers reach them: the Compose
       # services unless CONTAINER_* names others (such as managed ones).
-      DATABASE_URL: ${CONTAINER_DATABASE_URL:-postgres://${POSTGRES_USER:-countrytopics}:${POSTGRES_PASSWORD:-countrytopics_dev}@postgres:5432/${POSTGRES_DB:-countrytopics}?sslmode=disable}
+      # The Compose database's password comes in PGPASSWORD, outside the URL.
+      DATABASE_URL: ${CONTAINER_DATABASE_URL:-postgres://${POSTGRES_USER:-countrytopics}@postgres:5432/${POSTGRES_DB:-countrytopics}?sslmode=disable}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-countrytopics_dev}
       S3_ENDPOINT: ${CONTAINER_S3_ENDPOINT:-http://storage:8333}
       S3_REGION: ${S3_REGION:-us-east-1}
       S3_BUCKET: ${S3_BUCKET:-countrytopics}
@@ -100,7 +102,7 @@ services:
       SENTRY_DSN: ${SENTRY_DSN:-}
       SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-}
       # For make test-backup only: the server its tests make databases on.
-      TEST_DATABASE_URL: postgres://${POSTGRES_USER:-countrytopics}:${POSTGRES_PASSWORD:-countrytopics_dev}@postgres:5432/postgres?sslmode=disable
+      TEST_DATABASE_URL: postgres://${POSTGRES_USER:-countrytopics}@postgres:5432/postgres?sslmode=disable
     depends_on:
       postgres:
         condition: service_healthy

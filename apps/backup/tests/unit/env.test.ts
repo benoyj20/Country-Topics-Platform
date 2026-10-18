@@ -4,9 +4,16 @@ import { describe, it } from "node:test";
 import { readBackupEnv } from "../../src/env.ts";
 import { libpqEnv, withDatabase } from "../../src/postgres.ts";
 
+// A made-up server; the URL is built from parts so the password's
+// encoding is tested.
+const databaseUrl = new URL(
+  "postgres://db.example:5433/countrytopics?sslmode=disable",
+);
+databaseUrl.username = "user";
+databaseUrl.password = "TEST@pass";
+
 const valid = {
-  DATABASE_URL:
-    "postgres://user:p%40ss@db.example:5433/countrytopics?sslmode=disable",
+  DATABASE_URL: databaseUrl.toString(),
   S3_ENDPOINT: "http://storage:8333",
   S3_BUCKET: "countrytopics",
   S3_ACCESS_KEY_ID: "access",
@@ -62,17 +69,22 @@ describe("connection settings for the PostgreSQL tools", () => {
       PGHOST: "db.example",
       PGPORT: "5433",
       PGUSER: "user",
-      PGPASSWORD: "p@ss",
+      PGPASSWORD: "TEST@pass",
       PGDATABASE: "countrytopics",
       PGCONNECT_TIMEOUT: "5",
       PGSSLMODE: "disable",
     });
+    // Without one in the URL, PGPASSWORD is left as the process has it.
+    assert.equal(
+      "PGPASSWORD" in libpqEnv("postgres://user@db.example/countrytopics"),
+      false,
+    );
   });
 
   it("point at another database on the same server", () => {
-    assert.equal(
-      withDatabase(valid.DATABASE_URL, "restored"),
-      "postgres://user:p%40ss@db.example:5433/restored?sslmode=disable",
-    );
+    const restored = new URL(withDatabase(valid.DATABASE_URL, "restored"));
+    assert.equal(restored.pathname, "/restored");
+    assert.equal(decodeURIComponent(restored.password), "TEST@pass");
+    assert.equal(restored.searchParams.get("sslmode"), "disable");
   });
 });

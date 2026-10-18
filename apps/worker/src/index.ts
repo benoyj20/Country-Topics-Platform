@@ -26,10 +26,12 @@ import {
 import pg from "pg";
 
 import { readWorkerEnv } from "./env.ts";
+import { startErrorReporting, stopErrorReporting } from "./error-reporting.ts";
 
 const DATABASE_CONNECT_TIMEOUT_MS = 5_000;
 
 const env = readWorkerEnv();
+startErrorReporting(env.errorReporting);
 const connection = createRedisConnection(env.redisUrl, "worker");
 const pool = new pg.Pool({
   connectionString: env.databaseUrl,
@@ -86,11 +88,13 @@ const workers: Record<string, ReturnType<typeof createEmailWorker>> = {
   }),
 };
 
-// Log the job id and error only: email jobs contain sign-in links.
+// Log the job id and error only: email jobs contain sign-in links. Only
+// the last attempt is an error, which error reporting sends on.
 for (const [name, worker] of Object.entries(workers)) {
   worker.on("failed", (job, error) => {
-    console.error(
-      `${name} job ${job?.id ?? "unknown"} failed (attempt ${job?.attemptsMade ?? "?"}):`,
+    const final = !job || job.attemptsMade >= (job.opts.attempts ?? 1);
+    (final ? console.error : console.warn)(
+      `${name} job ${job?.id ?? "unknown"} failed (attempt ${job?.attemptsMade ?? "?"}${final ? ", the last" : ""}):`,
       error.message,
     );
   });
@@ -153,6 +157,7 @@ async function shutDown(signal: string): Promise<void> {
     searchQueue.close(),
   ]);
   await Promise.all([connection.quit(), producer.quit(), pool.end()]);
+  await stopErrorReporting();
   process.exit(0);
 }
 

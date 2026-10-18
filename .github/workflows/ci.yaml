@@ -83,6 +83,16 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm test:int
+      # The backup tests run pg_dump and pg_restore, which must match the
+      # PostgreSQL 17 server; the runner's own client is older.
+      - name: Install the PostgreSQL 17 client tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+      - run: pnpm --filter @countrytopics/backup test:backup
       - run: pnpm build
       - name: Generated Payload files and migrations match the config
         run: |
@@ -100,3 +110,5 @@ jobs:
       - uses: actions/checkout@v4
       - run: cp .env.example .env
       - run: docker compose --env-file .env -f deploy/compose/compose.yaml config --quiet
+      - name: The backup image builds
+        run: docker compose --env-file .env -f deploy/compose/compose.yaml build backup

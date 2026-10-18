@@ -1,4 +1,8 @@
 import { normalizeEmail } from "@countrytopics/domain";
+import {
+  type ErrorReportingConfig,
+  readErrorReporting,
+} from "@countrytopics/observability";
 
 import { isTurnstileTestSecret } from "@/auth/turnstile-shared";
 
@@ -40,6 +44,8 @@ export type ServerEnv = {
    * count per address. Unset: a single-address `x-forwarded-for`.
    */
   clientIpHeader?: string;
+  /** Sentry (SENTRY_DSN, SENTRY_ENVIRONMENT); unset turns it off. */
+  errorReporting?: ErrorReportingConfig;
 };
 
 export type StorageEnv = {
@@ -225,6 +231,7 @@ export function readServerEnv(env: Env = process.env): ServerEnv {
   const storage = readStorage(env, problems);
   const turnstile = readTurnstile(env, siteUrl, problems);
   const clientIpHeader = readClientIpHeader(env, problems);
+  const errorReporting = readErrorReporting(env, problems);
 
   const contactEmail = env.CONTACT_EMAIL?.trim() || undefined;
   if (contactEmail && !/^[^@\s]+@[^@\s]+$/.test(contactEmail)) {
@@ -264,6 +271,7 @@ export function readServerEnv(env: Env = process.env): ServerEnv {
     googleBooksApiKey: env.GOOGLE_BOOKS_API_KEY?.trim() || undefined,
     turnstile,
     clientIpHeader,
+    errorReporting,
   };
 }
 

@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { AccountLink } from "@/components/AccountLink";
+import { ErrorReporting } from "@/components/ErrorReporting";
 import { NotificationsLink } from "@/components/NotificationsLink";
 import { SiteFooter } from "@/components/SiteFooter";
 
@@ -34,6 +35,7 @@ export default function FrontendLayout({ children }: { children: ReactNode }) {
         </header>
         <main>{children}</main>
         <SiteFooter />
+        <ErrorReporting />
       </body>
     </html>
   );

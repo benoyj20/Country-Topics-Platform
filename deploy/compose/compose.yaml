@@ -44,15 +44,15 @@ services:
 
   # S3-compatible object storage for uploads (SeaweedFS in its single-process
   # mode). Production uses a managed S3-compatible service through the same
-  # S3_* variables. It creates the site's bucket and the integration tests'
-  # bucket on start.
+  # S3_* variables. It creates the site's bucket, the integration tests'
+  # bucket, and the local backup bucket on start.
   storage:
     image: chrislusf/seaweedfs:4.48
     command:
       - mini
       - -dir=/data
       - -admin.ui=false
-      - -bucket=${S3_BUCKET:-countrytopics},${TEST_S3_BUCKET:-countrytopics-test}
+      - -bucket=${S3_BUCKET:-countrytopics},${TEST_S3_BUCKET:-countrytopics-test},${BACKUP_S3_BUCKET:-countrytopics-backups}
     environment:
       AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-countrytopics}
       AWS_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-countrytopics_dev_secret}
@@ -66,6 +66,39 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+
+  # Backups (ADR 0012): a database dump and a copy of new uploads once a
+  # day, kept for 14 days. Locally they go to a bucket in the storage
+  # service above, on the same disk; for the pilot, point BACKUP_S3_* at
+  # another service. `make backup`, `make backup-list`, and `make restore`
+  # run its other commands.
+  backup:
+    build:
+      context: ../..
+      dockerfile: apps/backup/Dockerfile
+    image: countrytopics-backup
+    command: ["schedule"]
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-countrytopics}:${POSTGRES_PASSWORD:-countrytopics_dev}@postgres:5432/${POSTGRES_DB:-countrytopics}?sslmode=disable
+      S3_ENDPOINT: http://storage:8333
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_BUCKET: ${S3_BUCKET:-countrytopics}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-countrytopics}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-countrytopics_dev_secret}
+      # Empty settings fall back to the S3_* ones above.
+      BACKUP_S3_ENDPOINT: ${BACKUP_S3_ENDPOINT:-}
+      BACKUP_S3_REGION: ${BACKUP_S3_REGION:-}
+      BACKUP_S3_BUCKET: ${BACKUP_S3_BUCKET:-countrytopics-backups}
+      BACKUP_S3_ACCESS_KEY_ID: ${BACKUP_S3_ACCESS_KEY_ID:-}
+      BACKUP_S3_SECRET_ACCESS_KEY: ${BACKUP_S3_SECRET_ACCESS_KEY:-}
+      # For make test-backup only: the server its tests make databases on.
+      TEST_DATABASE_URL: postgres://${POSTGRES_USER:-countrytopics}:${POSTGRES_PASSWORD:-countrytopics_dev}@postgres:5432/postgres?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+      storage:
+        condition: service_healthy
 
 volumes:
   postgres-data:

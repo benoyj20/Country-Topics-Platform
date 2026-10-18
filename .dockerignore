@@ -1,0 +1,13 @@
+# Images are built from the repository root; send only source, never local
+# configuration, data, or installed packages.
+**/node_modules
+**/.next
+**/dist
+**/coverage
+**/*.tsbuildinfo
+.env
+.env.*
+!.env.example
+.data
+.superpowers
+.git

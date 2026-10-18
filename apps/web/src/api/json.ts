@@ -32,23 +32,17 @@ export function apiError(
 }
 
 type Read = { ok: true; value: unknown } | { ok: false; response: Response };
+type ReadBytes =
+  { ok: true; bytes: Uint8Array } | { ok: false; response: Response };
 
 /**
- * The request's JSON body, or the response refusing it: a type other than
- * JSON (which also means a plain HTML form on another site cannot send it),
- * a body over `maxBytes` (read no further than that), or invalid JSON.
+ * The request's body, or the response refusing it when it is larger than
+ * `maxBytes` (read no further than that).
  */
-export async function readJsonBody(
+export async function readLimitedBody(
   request: Request,
   maxBytes: number,
-): Promise<Read> {
-  const type = request.headers.get("content-type") ?? "";
-  if (!/^application\/json\s*(;|$)/i.test(type)) {
-    return {
-      ok: false,
-      response: apiError(415, "Send the request as JSON."),
-    };
-  }
+): Promise<ReadBytes> {
   const tooLarge = {
     ok: false as const,
     response: apiError(413, "The request is too large."),
@@ -71,10 +65,31 @@ export async function readJsonBody(
       chunks.push(value);
     }
   }
+  return { ok: true, bytes: Buffer.concat(chunks) };
+}
+
+/**
+ * The request's JSON body, or the response refusing it: a type other than
+ * JSON (which also means a plain HTML form on another site cannot send it),
+ * a body over `maxBytes` (read no further than that), or invalid JSON.
+ */
+export async function readJsonBody(
+  request: Request,
+  maxBytes: number,
+): Promise<Read> {
+  const type = request.headers.get("content-type") ?? "";
+  if (!/^application\/json\s*(;|$)/i.test(type)) {
+    return {
+      ok: false,
+      response: apiError(415, "Send the request as JSON."),
+    };
+  }
+  const body = await readLimitedBody(request, maxBytes);
+  if (!body.ok) return body;
   try {
     return {
       ok: true,
-      value: JSON.parse(new TextDecoder().decode(Buffer.concat(chunks))),
+      value: JSON.parse(new TextDecoder().decode(body.bytes)),
     };
   } catch {
     return { ok: false, response: apiError(400, "The request is not JSON.") };

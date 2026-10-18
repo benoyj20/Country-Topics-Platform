@@ -24,7 +24,21 @@ describe("readWorkerEnv", () => {
       googleBooksApiKey: undefined,
       youtubeApiKey: undefined,
       wayback: undefined,
+      errorReporting: undefined,
     });
+  });
+
+  it("turns error reporting on with a Sentry DSN", () => {
+    const env = readWorkerEnv({
+      ...valid,
+      SENTRY_DSN: "https://key@o1.ingest.us.sentry.io/2",
+      SENTRY_ENVIRONMENT: "pilot",
+    });
+    assert.equal(env.errorReporting?.environment, "pilot");
+    assert.throws(
+      () => readWorkerEnv({ ...valid, SENTRY_DSN: "not a dsn" }),
+      /SENTRY_DSN must be empty or the project's DSN/,
+    );
   });
 
   it("lists every problem by variable name", () => {

@@ -73,17 +73,18 @@ function waitText(seconds: number): string {
 }
 
 /**
- * Counts a member's write against its rate limit (ADR 0010). Returns the
- * response refusing it (429, or 503 when the limits cannot be checked), or
- * null when it may go ahead.
+ * Counts a write against its rate limit (ADR 0010), for a member's id or,
+ * before sign-in, a visitor's address. Returns the response refusing it
+ * (429, or 503 when the limits cannot be checked), or null when it may go
+ * ahead.
  */
 export async function rateLimited(
   action: RateLimitedAction,
-  memberId: string,
+  subjectId: string,
 ): Promise<Response | null> {
   let result: RateLimitResult;
   try {
-    result = await consumeRateLimit(action, memberId);
+    result = await consumeRateLimit(action, subjectId);
   } catch (error) {
     console.error(
       `Rate limit check failed (${action}):`,

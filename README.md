@@ -54,7 +54,10 @@ to their threads and moderators' actions at `/notifications`, and the email
 sign-in form can ask for a Cloudflare Turnstile check. Members can download their
 data or delete their account on `/account`, which erases their comments' text,
 and send feedback from a link on every page, which staff read in the admin
-panel. Draft privacy policy and terms are at `/privacy` and `/terms`. There is a
+panel. Draft privacy policy and terms are at `/privacy` and `/terms`. A backup
+container dumps the database and copies uploads every day, and `make restore`
+restores a backup into a new database and checks every table; errors from the
+site, its pages, and the worker go to Sentry when `SENTRY_DSN` is set. There is a
 health check at `/api/v1/health`. The remaining features follow the
 [MVP plan](docs/mvp-plan.md); see the checklist for what is verified.
 
@@ -92,7 +95,7 @@ Open `http://localhost:4173` and click **Try demo**. See
 ```sh
 make env         # creates .env, or adds missing variables; never changes set values
 make bootstrap   # pnpm install
-make infra-up    # PostgreSQL on 5433, Valkey on 6379, Mailpit on 1025/8025, S3 storage on 8333
+make infra-up    # PostgreSQL on 5433, Valkey on 6379, Mailpit on 1025/8025, S3 storage on 8333, daily backups
 make migrate     # applies the database migrations
 make dev         # site at http://localhost:3000 and the worker
 ```

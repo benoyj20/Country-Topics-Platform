@@ -103,6 +103,16 @@ export default async function PrivacyPage() {
           An email service sends sign-in links to your address.{" "}
           <ToDecide>which email service</ToDecide>
         </li>
+        <li>
+          <strong>Sentry</strong>, in the United States, receives a report when
+          something goes wrong on the site: the error, the page&apos;s address
+          without anything after a question mark, and your browser&apos;s
+          description of itself. The site removes email addresses and cookies
+          from reports and does not send what you type into forms. Reports from
+          your browser pass through the site, so Sentry does not see your IP
+          address.{" "}
+          <ToDecide>how long Sentry keeps reports on the plan used</ToDecide>
+        </li>
       </ul>
 
       <h2>How long we keep it</h2>
@@ -123,8 +133,11 @@ export default async function PrivacyPage() {
           <ToDecide>how long these records are kept</ToDecide>
         </li>
         <li>
-          Backups of the site hold older copies of this data until they are
-          replaced. <ToDecide>how long backups are kept</ToDecide>
+          A backup of the site is taken every day and kept for 14 days, then
+          deleted, so for up to 14 days a backup still holds data deleted since.
+          If a backup is ever restored, accounts deleted after it was taken are
+          deleted again.{" "}
+          <ToDecide>where backups are stored during the pilot</ToDecide>
         </li>
       </ul>
 

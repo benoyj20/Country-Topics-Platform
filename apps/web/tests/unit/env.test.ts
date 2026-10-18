@@ -39,6 +39,7 @@ describe("readServerEnv", () => {
       googleBooksApiKey: undefined,
       turnstile: undefined,
       clientIpHeader: undefined,
+      errorReporting: undefined,
     });
     expect(
       readServerEnv({ ...valid, GOOGLE_BOOKS_API_KEY: " key " })

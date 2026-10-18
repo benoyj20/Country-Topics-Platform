@@ -37,6 +37,11 @@ export const RATE_LIMITS = {
     { max: 20, windowS: DAY_S },
   ],
   "data-export": [{ max: 10, windowS: DAY_S }],
+  // Per visitor address, not member (ADR 0012): browsers' error reports.
+  "error-report": [
+    { max: 20, windowS: MINUTE_S },
+    { max: 200, windowS: DAY_S },
+  ],
 } as const satisfies Record<string, readonly Window[]>;
 export type RateLimitedAction = keyof typeof RATE_LIMITS;
 

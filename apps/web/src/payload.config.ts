@@ -24,6 +24,7 @@ import { Topics } from "./collections/Topics";
 import { Users } from "./collections/Users";
 import { Videos } from "./collections/Videos";
 import { editor } from "./editor";
+import { reportPayloadError } from "./error-reporting/server";
 import { serverEnv } from "./env";
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -65,6 +66,8 @@ export default buildConfig({
     AuditLog,
   ],
   editor,
+  // Unexpected failures in the admin panel's API reach error reporting.
+  hooks: { afterError: [({ error }) => reportPayloadError(error)] },
   plugins: [
     // Uploads live in S3-compatible storage (AGENTS.md: stateless app
     // containers). Files are still served through Payload, so its access

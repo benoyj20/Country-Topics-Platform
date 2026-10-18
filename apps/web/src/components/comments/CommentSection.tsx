@@ -7,7 +7,7 @@ import {
   isCommentSort,
 } from "@countrytopics/domain";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type {
   CommentPage,
@@ -19,6 +19,7 @@ import { counted } from "@/public/format";
 
 import {
   fetchReplies,
+  fetchThread,
   fetchThreads,
   fetchViewer,
   postComment,
@@ -71,6 +72,14 @@ function withoutRepeats<T extends { id: string }>(list: T[]): T[] {
   return list.filter((item) => !seen.has(item.id) && seen.add(item.id));
 }
 
+const LINKED_COMMENT =
+  /^#comment-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+
+/** The comment the page's address points at (`#comment-<id>`), if any. */
+function linkedCommentId(): string | null {
+  return LINKED_COMMENT.exec(window.location.hash)?.[1]?.toLowerCase() ?? null;
+}
+
 /** Oldest first, as the server orders replies (ISO dates sort as text). */
 function byAge(a: PublicComment, b: PublicComment): number {
   return a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id);
@@ -98,6 +107,14 @@ export function CommentSection({ slug }: { slug: string }) {
   const [replyLoads, setReplyLoads] = useState<
     Record<string, "loading" | "failed">
   >({});
+  // A link to one comment, such as from a notification: its thread is
+  // loaded first if the first page does not hold it, then shown.
+  const [linked, setLinked] = useState<{
+    comment: string;
+    thread: string;
+  } | null>(null);
+  const linkHandled = useRef(false);
+  const scrolled = useRef(false);
 
   /** Learns the reader's part in more comments; visitors learn nothing. */
   const learnViewer = useCallback(
@@ -131,6 +148,33 @@ export function CommentSection({ slug }: { slug: string }) {
           first: true,
           signal: controller.signal,
         });
+        const target = linkHandled.current ? null : linkedCommentId();
+        linkHandled.current = true;
+        if (!target) return;
+        const shown = loaded.threads.find(
+          (thread) =>
+            thread.id === target ||
+            thread.replies.some((reply) => reply.id === target),
+        );
+        if (shown) {
+          setLinked({ comment: target, thread: shown.id });
+          return;
+        }
+        fetchThread(slug, target, controller.signal).then(
+          ({ thread }) => {
+            setPage(
+              (known) =>
+                known && {
+                  ...known,
+                  threads: withoutRepeats([thread, ...known.threads]),
+                },
+            );
+            learnViewer(idsOf([thread]), { first: false });
+            setLinked({ comment: target, thread: thread.id });
+          },
+          // A comment since hidden: the page shows the rest as usual.
+          () => undefined,
+        );
       },
       (error: unknown) => {
         if (controller.signal.aborted) return;
@@ -146,18 +190,36 @@ export function CommentSection({ slug }: { slug: string }) {
     return () => controller.abort();
   }, [slug, sort, attempt, learnViewer]);
 
+  // Brings the linked comment into view once it is shown, or its thread
+  // when the comment is a later reply that is not loaded yet. It waits for
+  // the answer about the reader, which adds the comment form above it.
+  useEffect(() => {
+    if (!linked || scrolled.current || viewerState === "loading") return;
+    const element =
+      document.getElementById(`comment-${linked.comment}`) ??
+      document.getElementById(`comment-${linked.thread}`);
+    if (!element) return;
+    scrolled.current = true;
+    element.scrollIntoView({ block: "start" });
+  }, [linked, page, viewerState]);
+
   const current = page?.sort === sort ? page : undefined;
   const failed = failure?.sort === sort && !current ? failure : undefined;
   const signedIn = viewer.account !== null;
   const needsName = signedIn && !(chosenName ?? viewer.account?.displayName);
 
-  function standing(comment: PublicComment): CommentStanding {
+  function standing(
+    comment: PublicComment,
+    thread: CommentThread,
+  ): CommentStanding {
     return {
       signedIn,
       mine: viewer.mine.includes(comment.id),
       vote: viewer.votes[comment.id] ?? 0,
       reported: viewer.reported.includes(comment.id),
       open: current?.open ?? false,
+      locked: thread.locked,
+      staff: viewer.account?.staff ?? false,
     };
   }
 
@@ -221,6 +283,7 @@ export function CommentSection({ slug }: { slug: string }) {
     remember(comment);
     const thread: CommentThread = {
       ...comment,
+      locked: false,
       replyCount: 0,
       replies: [],
       moreReplies: null,
@@ -445,59 +508,67 @@ export function CommentSection({ slug }: { slug: string }) {
 
       {current && current.threads.length > 0 ? (
         <ol className={styles.threads}>
-          {current.threads.map((thread) => (
-            <li key={thread.id}>
-              <CommentItem
-                comment={thread}
-                standing={standing(thread)}
-                onVote={(value) => vote(thread, value)}
-                onReply={canWrite ? () => setReplyingTo(thread.id) : undefined}
-                onReported={() => markReported(thread.id)}
-              >
-                {thread.replies.length > 0 ? (
-                  <ol className={styles.replies}>
-                    {thread.replies.map((reply) => (
-                      <li key={reply.id}>
-                        <CommentItem
-                          comment={reply}
-                          standing={standing(reply)}
-                          onVote={(value) => vote(reply, value)}
-                          // Replies to a reply join its thread: two levels.
-                          onReply={
-                            canWrite
-                              ? () => setReplyingTo(thread.id)
-                              : undefined
-                          }
-                          onReported={() => markReported(reply.id)}
-                        />
-                      </li>
-                    ))}
-                  </ol>
-                ) : null}
-                {thread.moreReplies ? (
-                  <p className={styles.flush}>
-                    <button
-                      type="button"
-                      className={styles.tool}
-                      disabled={replyLoads[thread.id] === "loading"}
-                      onClick={() => void loadReplies(thread)}
-                    >
-                      {replyLoads[thread.id] === "loading"
-                        ? "Loading replies…"
-                        : `Show more replies (${thread.replyCount - thread.replies.length})`}
-                    </button>
-                    {replyLoads[thread.id] === "failed" ? (
-                      <span role="alert">
-                        {" "}
-                        The replies could not be loaded. Try again.
-                      </span>
-                    ) : null}
-                  </p>
-                ) : null}
-                {replyForm(thread)}
-              </CommentItem>
-            </li>
-          ))}
+          {current.threads.map((thread) => {
+            const canReply = canWrite && !thread.locked && !thread.hidden;
+            return (
+              <li key={thread.id}>
+                <CommentItem
+                  comment={thread}
+                  standing={standing(thread, thread)}
+                  onVote={(value) => vote(thread, value)}
+                  onReply={
+                    canReply ? () => setReplyingTo(thread.id) : undefined
+                  }
+                  onReported={() => markReported(thread.id)}
+                  threadLocked={thread.locked}
+                  linked={linked?.comment === thread.id}
+                >
+                  {thread.replies.length > 0 ? (
+                    <ol className={styles.replies}>
+                      {thread.replies.map((reply) => (
+                        <li key={reply.id}>
+                          <CommentItem
+                            comment={reply}
+                            standing={standing(reply, thread)}
+                            onVote={(value) => vote(reply, value)}
+                            // Replies to a reply join its thread: two levels.
+                            onReply={
+                              canReply
+                                ? () => setReplyingTo(thread.id)
+                                : undefined
+                            }
+                            onReported={() => markReported(reply.id)}
+                            linked={linked?.comment === reply.id}
+                          />
+                        </li>
+                      ))}
+                    </ol>
+                  ) : null}
+                  {thread.moreReplies ? (
+                    <p className={styles.flush}>
+                      <button
+                        type="button"
+                        className={styles.tool}
+                        disabled={replyLoads[thread.id] === "loading"}
+                        onClick={() => void loadReplies(thread)}
+                      >
+                        {replyLoads[thread.id] === "loading"
+                          ? "Loading replies…"
+                          : `Show more replies (${thread.replyCount - thread.replies.length})`}
+                      </button>
+                      {replyLoads[thread.id] === "failed" ? (
+                        <span role="alert">
+                          {" "}
+                          The replies could not be loaded. Try again.
+                        </span>
+                      ) : null}
+                    </p>
+                  ) : null}
+                  {canReply ? replyForm(thread) : null}
+                </CommentItem>
+              </li>
+            );
+          })}
         </ol>
       ) : null}
 

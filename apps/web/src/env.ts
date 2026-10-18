@@ -1,5 +1,7 @@
 import { normalizeEmail } from "@countrytopics/domain";
 
+import { isTurnstileTestSecret } from "@/auth/turnstile-shared";
+
 // Server configuration comes only from environment variables (AGENTS.md, "Build
 // for scale"). Errors name the variable, never its value.
 
@@ -25,6 +27,14 @@ export type ServerEnv = {
   contactEmail?: string;
   /** Optional: Google Books as a backup when Open Library does not know an ISBN. */
   googleBooksApiKey?: string;
+  /** Cloudflare Turnstile on the email sign-in form; unset turns it off. */
+  turnstile?: { siteKey: string; secretKey: string };
+  /**
+   * The header in which the proxy in front of the site passes the client's
+   * address, such as `cf-connecting-ip`; Better Auth's sign-in rate limits
+   * count per address. Unset: a single-address `x-forwarded-for`.
+   */
+  clientIpHeader?: string;
 };
 
 export type StorageEnv = {
@@ -112,6 +122,46 @@ function readInviteOnly(env: Env, problems: string[]): boolean {
   return true;
 }
 
+const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1"]);
+
+function readTurnstile(
+  env: Env,
+  siteUrl: string,
+  problems: string[],
+): ServerEnv["turnstile"] {
+  const siteKey = env.TURNSTILE_SITE_KEY?.trim() ?? "";
+  const secretKey = env.TURNSTILE_SECRET_KEY?.trim() ?? "";
+  if (!siteKey && !secretKey) return undefined;
+  if (!siteKey || !secretKey) {
+    problems.push(
+      "TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY must be set together",
+    );
+    return undefined;
+  }
+  // Test keys always give the same answer, so they would let anyone
+  // through on a real site.
+  if (
+    isTurnstileTestSecret(secretKey) &&
+    URL.canParse(siteUrl) &&
+    !LOCAL_HOSTNAMES.has(new URL(siteUrl).hostname)
+  ) {
+    problems.push(
+      "TURNSTILE_SECRET_KEY is one of Cloudflare's test keys, which work only when SITE_URL is localhost",
+    );
+  }
+  return { siteKey, secretKey };
+}
+
+function readClientIpHeader(env: Env, problems: string[]): string | undefined {
+  const value = env.CLIENT_IP_HEADER?.trim().toLowerCase() || undefined;
+  if (value && !/^[a-z0-9-]+$/.test(value)) {
+    problems.push(
+      "CLIENT_IP_HEADER must be empty or a header name, such as cf-connecting-ip",
+    );
+  }
+  return value;
+}
+
 function readStorage(env: Env, problems: string[]): StorageEnv {
   const endpoint = env.S3_ENDPOINT?.trim() || undefined;
   if (endpoint && !/^https?:\/\/\S+$/.test(endpoint)) {
@@ -167,6 +217,8 @@ export function readServerEnv(env: Env = process.env): ServerEnv {
   }
 
   const storage = readStorage(env, problems);
+  const turnstile = readTurnstile(env, siteUrl, problems);
+  const clientIpHeader = readClientIpHeader(env, problems);
 
   const contactEmail = env.CONTACT_EMAIL?.trim() || undefined;
   if (contactEmail && !/^[^@\s]+@[^@\s]+$/.test(contactEmail)) {
@@ -196,6 +248,8 @@ export function readServerEnv(env: Env = process.env): ServerEnv {
     storage,
     contactEmail,
     googleBooksApiKey: env.GOOGLE_BOOKS_API_KEY?.trim() || undefined,
+    turnstile,
+    clientIpHeader,
   };
 }
 

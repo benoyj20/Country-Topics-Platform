@@ -49,6 +49,7 @@ export default async function SignInPage({
       <SignInForm
         googleEnabled={Boolean(serverEnv().google)}
         callbackURL={safeCallbackPath(params.callbackURL, serverEnv().siteUrl)}
+        turnstileSiteKey={serverEnv().turnstile?.siteKey ?? null}
       />
     </section>
   );

@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { AccountLink } from "@/components/AccountLink";
+import { NotificationsLink } from "@/components/NotificationsLink";
 
 import "./styles.css";
 
@@ -25,6 +26,7 @@ export default function FrontendLayout({ children }: { children: ReactNode }) {
             </Link>
             <div className="site-links">
               <Link href="/topics">Topics</Link>
+              <NotificationsLink />
               <AccountLink />
             </div>
           </nav>

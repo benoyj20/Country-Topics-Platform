@@ -1,0 +1,49 @@
+/* A member's notifications. Colours come from the site's tokens in
+   app/(frontend)/styles.css. */
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+
+.line,
+.flush {
+  margin: 0;
+}
+
+.new {
+  margin-right: 0.5rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 0.8rem;
+}
+
+/* The comment's own text: plain, with its line breaks. */
+.excerpt {
+  margin: 0;
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--line);
+  color: var(--muted);
+  white-space: pre-wrap;
+  unicode-bidi: isolate;
+}
+
+.time {
+  color: var(--muted);
+  font-size: 0.85rem;
+}

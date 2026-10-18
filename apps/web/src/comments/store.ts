@@ -24,6 +24,11 @@ import type {
 // paging on the collections' compound indexes. Every query is
 // parameterised; sort expressions come from fixed lists.
 //
+// Moderation (ADR 0010): only visible comments are listed, counted, voted
+// on, reported, or replied to. A hidden thread that still has visible
+// replies is listed as a placeholder, without its author or text, so the
+// replies keep their place. A locked thread takes no new replies or votes.
+//
 // Timestamps come from this process, as Payload's do, never from the
 // database's now(): a search document's version is the latest updatedAt of
 // the topic and the rows it shows, comments included, and comparing values
@@ -45,7 +50,7 @@ type Queryable = Pick<Pool, "query">;
 
 // A topic's comments are public while the topic is: from its first publish,
 // including once archived (when they are closed).
-const PUBLIC_TOPIC = `t._status = 'published' AND t.state IN ('published', 'updated', 'archived')`;
+export const PUBLIC_TOPIC = `t._status = 'published' AND t.state IN ('published', 'updated', 'archived')`;
 
 /** Why a write was refused, with the status and message the API answers. */
 export class CommentRefusal extends Error {
@@ -66,6 +71,12 @@ const CLOSED = () =>
     409,
     "This topic is archived, so its discussion is closed.",
     "closed",
+  );
+const LOCKED = () =>
+  new CommentRefusal(
+    409,
+    "A moderator locked this thread, so it takes no new replies or votes.",
+    "locked",
   );
 
 export type CommentTopic = { id: string; open: boolean };
@@ -90,18 +101,34 @@ type CommentRow = {
   body: string;
   score: number;
   created_at: Date;
+  status: string;
 };
 
 const COMMENT_COLUMNS = `c.id::text AS id, u.display_name AS author, c.body,
-  c.score::int AS score, c.created_at`;
+  c.score::int AS score, c.created_at, c.status::text AS status`;
+
+const VISIBLE = "c.status = 'visible'";
 
 function publicComment(row: CommentRow): PublicComment {
+  const createdAt = row.created_at.toISOString();
+  // Only a thread with visible replies is listed while hidden.
+  if (row.status !== "visible") {
+    return {
+      id: row.id,
+      author: null,
+      body: "",
+      score: 0,
+      createdAt,
+      hidden: true,
+    };
+  }
   return {
     id: row.id,
     author: row.author,
     body: row.body,
     score: row.score,
-    createdAt: row.created_at.toISOString(),
+    createdAt,
+    hidden: false,
   };
 }
 
@@ -154,6 +181,60 @@ function after(
   return `(${order.keys.join(", ")}) ${comparison} (${placeholders.join(", ")})`;
 }
 
+type ThreadRow = CommentRow & { reply_count: number; locked: boolean };
+
+/**
+ * Up to `shown` threads matching `conditions` (on `c`), with their visible
+ * reply counts and first replies; `rows` holds one more when there is
+ * one, to tell whether another page follows. Hidden threads are kept only
+ * while they have visible replies.
+ */
+async function loadThreads(
+  db: Queryable,
+  conditions: string[],
+  params: unknown[],
+  orderBy: string,
+  shown: number,
+): Promise<{ rows: ThreadRow[]; threads: CommentThread[] }> {
+  params.push(shown + 1);
+  const { rows } = await db.query<ThreadRow>(
+    `SELECT ${COMMENT_COLUMNS}, c.locked IS TRUE AS locked, replies.count AS reply_count
+       FROM comments c
+       LEFT JOIN users u ON u.id = c.author_id
+       CROSS JOIN LATERAL (
+         SELECT count(*)::int AS count FROM comments r
+          WHERE r.parent_id = c.id AND r.status = 'visible'
+       ) replies
+      WHERE c.parent_id IS NULL AND (${VISIBLE} OR replies.count > 0)
+        AND ${conditions.join(" AND ")}
+      ORDER BY ${orderBy}
+      LIMIT $${params.length}`,
+    params,
+  );
+  const listed = rows.slice(0, shown);
+  const replies = await firstReplies(
+    db,
+    listed.filter((row) => row.reply_count > 0).map((row) => row.id),
+  );
+  return {
+    rows,
+    threads: listed.map((row): CommentThread => {
+      const first = replies.get(row.id) ?? [];
+      const lastReply = first.at(-1);
+      return {
+        ...publicComment(row),
+        locked: row.locked,
+        replyCount: row.reply_count,
+        replies: first.map(publicComment),
+        moreReplies:
+          row.reply_count > first.length && lastReply
+            ? replyCursor(lastReply)
+            : null,
+      };
+    }),
+  };
+}
+
 /** A page of a topic's threads, each with its first replies. */
 export async function listThreads(
   db: Queryable,
@@ -163,52 +244,56 @@ export async function listThreads(
 ): Promise<CommentPage> {
   const order = THREAD_ORDER[sort];
   const params: unknown[] = [topic.id];
-  const conditions = ["c.topic_id = $1", "c.parent_id IS NULL"];
+  const conditions = ["c.topic_id = $1"];
   if (cursor) conditions.push(after(sort, cursor, order, params));
-  params.push(COMMENT_THREADS_PAGE_SIZE + 1);
-  const [threads, total] = await Promise.all([
-    db.query<CommentRow & { reply_count: number }>(
-      `SELECT ${COMMENT_COLUMNS},
-              (SELECT count(*)::int FROM comments r WHERE r.parent_id = c.id)
-                AS reply_count
-         FROM comments c LEFT JOIN users u ON u.id = c.author_id
-        WHERE ${conditions.join(" AND ")}
-        ORDER BY ${order.keys.map((key) => `${key} ${order.direction}`).join(", ")}
-        LIMIT $${params.length}`,
+  const [page, total] = await Promise.all([
+    loadThreads(
+      db,
+      conditions,
       params,
+      order.keys.map((key) => `${key} ${order.direction}`).join(", "),
+      COMMENT_THREADS_PAGE_SIZE,
     ),
     db.query<{ count: number }>(
-      "SELECT count(*)::int AS count FROM comments WHERE topic_id = $1",
+      `SELECT count(*)::int AS count FROM comments c
+        WHERE c.topic_id = $1 AND ${VISIBLE}`,
       [topic.id],
     ),
   ]);
-  const shown = threads.rows.slice(0, COMMENT_THREADS_PAGE_SIZE);
-  const replies = await firstReplies(
-    db,
-    shown.filter((row) => row.reply_count > 0).map((row) => row.id),
-  );
-  const last = shown.at(-1);
+  const last = page.rows[COMMENT_THREADS_PAGE_SIZE - 1];
   return {
     open: topic.open,
     total: total.rows[0]?.count ?? 0,
-    threads: shown.map((row): CommentThread => {
-      const first = replies.get(row.id) ?? [];
-      const lastReply = first.at(-1);
-      return {
-        ...publicComment(row),
-        replyCount: row.reply_count,
-        replies: first.map(publicComment),
-        moreReplies:
-          row.reply_count > first.length && lastReply
-            ? replyCursor(lastReply)
-            : null,
-      };
-    }),
+    threads: page.threads,
     nextCursor:
-      threads.rows.length > COMMENT_THREADS_PAGE_SIZE && last
+      page.rows.length > COMMENT_THREADS_PAGE_SIZE && last
         ? threadCursor(sort, last)
         : null,
   };
+}
+
+/**
+ * The thread holding a comment (the comment itself, or a reply's thread)
+ * on a topic, as a list shows it; null when it is not listed there. For
+ * links to one comment, such as from a notification.
+ */
+export async function findThread(
+  db: Queryable,
+  topic: CommentTopic,
+  commentId: string,
+): Promise<CommentThread | null> {
+  const { threads } = await loadThreads(
+    db,
+    [
+      "c.topic_id = $1",
+      `c.id = (SELECT COALESCE(x.parent_id, x.id) FROM comments x
+                WHERE x.id = $2 AND x.topic_id = $1)`,
+    ],
+    [topic.id, commentId],
+    "c.id",
+    1,
+  );
+  return threads[0] ?? null;
 }
 
 /** The oldest replies of each thread, in one query. */
@@ -224,7 +309,7 @@ async function firstReplies(
        CROSS JOIN LATERAL (
          SELECT ${COMMENT_COLUMNS}
            FROM comments c LEFT JOIN users u ON u.id = c.author_id
-          WHERE c.parent_id = thread.id
+          WHERE c.parent_id = thread.id AND ${VISIBLE}
           ORDER BY c.created_at, c.id
           LIMIT $2
        ) r`,
@@ -243,8 +328,9 @@ const REPLY_ORDER = {
 };
 
 /**
- * A page of a thread's replies, after the cursor; null when the id is not
- * a thread (a top-level comment) on a public topic.
+ * A page of a thread's visible replies, after the cursor; null when the id
+ * is not a thread (a top-level comment) on a public topic. A hidden
+ * thread's replies stay listed.
  */
 export async function listReplies(
   db: Queryable,
@@ -258,7 +344,7 @@ export async function listReplies(
   );
   if (!rowCount) return null;
   const params: unknown[] = [threadId];
-  const conditions = ["c.parent_id = $1"];
+  const conditions = ["c.parent_id = $1", VISIBLE];
   if (cursor) conditions.push(after("replies", cursor, REPLY_ORDER, params));
   params.push(REPLIES_PAGE_SIZE + 1);
   const { rows } = await db.query<CommentRow>(
@@ -289,78 +375,133 @@ export type NewComment = {
 
 /**
  * Saves a comment. Replies go to the comment that starts a thread, so
- * discussions stay two levels deep. The author must have chosen a display
- * name. Returns the comment as the API shows it, and when it was saved.
+ * discussions stay two levels deep, and tell that thread's author. The
+ * author must have chosen a display name. Returns the comment as the API
+ * shows it, and when it was saved.
  */
 export async function createComment(
-  db: Queryable,
+  pool: Pool,
   { topic, authorId, parentId, body }: NewComment,
 ): Promise<{ comment: PublicComment; updatedAt: string }> {
   if (!topic.open) throw CLOSED();
-  if (parentId) {
-    const { rows } = await db.query<{
-      topic_id: string;
-      parent_id: string | null;
-    }>(
-      `SELECT topic_id::text AS topic_id, parent_id::text AS parent_id
-         FROM comments WHERE id = $1`,
-      [parentId],
-    );
-    const parent = rows[0];
-    if (!parent || parent.topic_id !== topic.id) throw NOT_FOUND();
-    if (parent.parent_id !== null) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    let threadAuthorId: string | null = null;
+    if (parentId) {
+      // Locked against a moderator hiding or locking it meanwhile.
+      const { rows } = await client.query<{
+        topic_id: string;
+        parent_id: string | null;
+        author_id: string | null;
+        status: string;
+        locked: boolean;
+      }>(
+        `SELECT topic_id::text AS topic_id, parent_id::text AS parent_id,
+                author_id::text AS author_id, status::text AS status,
+                locked IS TRUE AS locked
+           FROM comments WHERE id = $1 FOR SHARE`,
+        [parentId],
+      );
+      const parent = rows[0];
+      if (!parent || parent.topic_id !== topic.id) throw NOT_FOUND();
+      if (parent.parent_id !== null) {
+        throw new CommentRefusal(
+          400,
+          "Replies go to the comment that starts the thread.",
+        );
+      }
+      if (parent.status !== "visible") throw NOT_FOUND();
+      if (parent.locked) throw LOCKED();
+      threadAuthorId = parent.author_id;
+    }
+    const { rows: authors } = await client.query<{
+      display_name: string | null;
+    }>("SELECT display_name FROM users WHERE id = $1", [authorId]);
+    const author = authors[0]?.display_name;
+    if (!author) {
       throw new CommentRefusal(
-        400,
-        "Replies go to the comment that starts the thread.",
+        409,
+        "Choose the name shown with your comments first.",
+        "display-name-required",
       );
     }
-  }
-  const { rows: authors } = await db.query<{ display_name: string | null }>(
-    "SELECT display_name FROM users WHERE id = $1",
-    [authorId],
-  );
-  const author = authors[0]?.display_name;
-  if (!author) {
-    throw new CommentRefusal(
-      409,
-      "Choose the name shown with your comments first.",
-      "display-name-required",
+    const at = timestamp();
+    const { rows } = await client.query<
+      Omit<CommentRow, "author"> & { updated_at: Date }
+    >(
+      `INSERT INTO comments
+         (id, topic_id, parent_id, author_id, body, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $6)
+       RETURNING id::text AS id, body, score::int AS score, created_at,
+                 updated_at, status::text AS status`,
+      [uuidv7(), topic.id, parentId, authorId, body, at],
     );
+    const saved = rows[0];
+    if (!saved) throw new Error("The comment was not saved.");
+    if (threadAuthorId && threadAuthorId !== authorId) {
+      await client.query(
+        `INSERT INTO notifications
+           (id, recipient_id, kind, comment_id, created_at, updated_at)
+         VALUES ($1, $2, 'reply', $3, $4, $4)`,
+        [uuidv7(), threadAuthorId, saved.id, at],
+      );
+    }
+    await client.query("COMMIT");
+    return {
+      comment: publicComment({ ...saved, author }),
+      updatedAt: saved.updated_at.toISOString(),
+    };
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
   }
-  const { rows } = await db.query<
-    Omit<CommentRow, "author"> & { updated_at: Date }
-  >(
-    `INSERT INTO comments
-       (id, topic_id, parent_id, author_id, body, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $6)
-     RETURNING id::text AS id, body, score::int AS score, created_at, updated_at`,
-    [uuidv7(), topic.id, parentId, authorId, body, timestamp()],
-  );
-  const saved = rows[0];
-  if (!saved) throw new Error("The comment was not saved.");
-  return {
-    comment: publicComment({ ...saved, author }),
-    updatedAt: saved.updated_at.toISOString(),
-  };
 }
 
-/** A comment on a public topic, for votes and reports; refuses otherwise. */
+/**
+ * A visible comment on a public topic, for votes and reports; refuses
+ * otherwise. `locked` is whether its thread is locked. With `lock`, inside
+ * a transaction, a moderator hiding the comment or locking its thread
+ * waits for the transaction, so a vote cannot slip in as they do.
+ */
 async function commentForAction(
   db: Queryable,
   commentId: string,
-): Promise<{ authorId: string | null; open: boolean }> {
+  { lock = false }: { lock?: boolean } = {},
+): Promise<{ authorId: string | null; open: boolean; locked: boolean }> {
+  // The comment's own row is locked for update, as the vote will update
+  // its score: two voters taking a shared lock first would deadlock.
   const { rows } = await db.query<{
     author_id: string | null;
+    parent_id: string | null;
     state: string;
+    locked: boolean;
   }>(
-    `SELECT c.author_id::text AS author_id, t.state::text AS state
+    `SELECT c.author_id::text AS author_id, c.parent_id::text AS parent_id,
+            t.state::text AS state, c.locked IS TRUE AS locked
        FROM comments c JOIN topics t ON t.id = c.topic_id
-      WHERE c.id = $1 AND ${PUBLIC_TOPIC}`,
+      WHERE c.id = $1 AND ${VISIBLE} AND ${PUBLIC_TOPIC}
+      ${lock ? "FOR NO KEY UPDATE OF c" : ""}`,
     [commentId],
   );
   const comment = rows[0];
   if (!comment) throw NOT_FOUND();
-  return { authorId: comment.author_id, open: comment.state !== "archived" };
+  let locked = comment.locked;
+  if (comment.parent_id) {
+    const { rows: threads } = await db.query<{ locked: boolean }>(
+      `SELECT locked IS TRUE AS locked FROM comments WHERE id = $1
+       ${lock ? "FOR SHARE" : ""}`,
+      [comment.parent_id],
+    );
+    locked = threads[0]?.locked ?? false;
+  }
+  return {
+    authorId: comment.author_id,
+    open: comment.state !== "archived",
+    locked,
+  };
 }
 
 /**
@@ -382,11 +523,12 @@ export async function voteOnComment(
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const comment = await commentForAction(client, commentId);
+    const comment = await commentForAction(client, commentId, { lock: true });
     if (comment.authorId === voterId) {
       throw new CommentRefusal(403, "You cannot vote on your own comment.");
     }
     if (!comment.open) throw CLOSED();
+    if (comment.locked) throw LOCKED();
     await client.query(
       "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
       [`comment_votes:${commentId}:${voterId}`],
@@ -433,8 +575,8 @@ export async function voteOnComment(
 
 /**
  * Records a member's report of a comment, once per member and comment.
- * Returns false when they had already reported it. Archived topics' comments
- * can still be reported.
+ * Returns false when they had already reported it. Comments on archived
+ * topics and in locked threads can still be reported.
  */
 export async function reportComment(
   db: Queryable,

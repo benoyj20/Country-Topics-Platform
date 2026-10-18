@@ -81,6 +81,7 @@ export interface Config {
     comments: Comment;
     'comment-reports': CommentReport;
     'comment-votes': CommentVote;
+    notifications: Notification;
     users: User;
     invitations: Invitation;
     'audit-log': AuditLog;
@@ -89,7 +90,11 @@ export interface Config {
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
   };
-  collectionsJoins: {};
+  collectionsJoins: {
+    comments: {
+      reports: 'comment-reports';
+    };
+  };
   collectionsSelect: {
     topics: TopicsSelect<false> | TopicsSelect<true>;
     'topic-changes': TopicChangesSelect<false> | TopicChangesSelect<true>;
@@ -105,6 +110,7 @@ export interface Config {
     comments: CommentsSelect<false> | CommentsSelect<true>;
     'comment-reports': CommentReportsSelect<false> | CommentReportsSelect<true>;
     'comment-votes': CommentVotesSelect<false> | CommentVotesSelect<true>;
+    notifications: NotificationsSelect<false> | NotificationsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     invitations: InvitationsSelect<false> | InvitationsSelect<true>;
     'audit-log': AuditLogSelect<false> | AuditLogSelect<true>;
@@ -617,7 +623,7 @@ export interface LinkArchive {
   createdAt: string;
 }
 /**
- * Written by members on topic pages. Read-only here; moderation tools come later.
+ * Written by members on topic pages. Staff hide comments that break the rules and lock threads; the text itself cannot be edited.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "comments".
@@ -635,11 +641,34 @@ export interface Comment {
    * Up votes minus down votes.
    */
   score: number;
+  /**
+   * Hidden comments leave the topic page; their author is told why. Only admins can remove one, which erases its text for good: use it only when the law requires it.
+   */
+  status: 'visible' | 'hidden' | 'removed';
+  /**
+   * Shown to the author.
+   */
+  moderationReason?: ('spam' | 'abuse' | 'misleading' | 'off-topic' | 'other') | null;
+  /**
+   * Never shown to members.
+   */
+  moderationNote?: string | null;
+  /**
+   * No new replies or votes in the thread; it stays readable and reportable.
+   */
+  locked?: boolean | null;
+  moderatedBy?: (string | null) | User;
+  moderatedAt?: string | null;
+  reports?: {
+    docs?: (string | CommentReport)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
   updatedAt: string;
   createdAt: string;
 }
 /**
- * Sent by members from topic pages. Read-only here; moderation tools come later.
+ * Sent by members from topic pages, open ones first. Open the comment to hide it, which marks its reports acted on, or dismiss a report that needs nothing done.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "comment-reports".
@@ -650,6 +679,9 @@ export interface CommentReport {
   reporter?: (string | null) | User;
   reason: 'spam' | 'abuse' | 'misleading' | 'off-topic' | 'other';
   note?: string | null;
+  status: 'open' | 'dismissed' | 'actioned';
+  resolvedBy?: (string | null) | User;
+  resolvedAt?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -662,6 +694,19 @@ export interface CommentVote {
   comment: string | Comment;
   voter?: (string | null) | User;
   value: number;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "notifications".
+ */
+export interface Notification {
+  id: string;
+  recipient: string | User;
+  kind: 'reply' | 'comment-hidden';
+  comment: string | Comment;
+  readAt?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -783,6 +828,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'comment-votes';
         value: string | CommentVote;
+      } | null)
+    | ({
+        relationTo: 'notifications';
+        value: string | Notification;
       } | null)
     | ({
         relationTo: 'users';
@@ -1114,6 +1163,13 @@ export interface CommentsSelect<T extends boolean = true> {
   author?: T;
   body?: T;
   score?: T;
+  status?: T;
+  moderationReason?: T;
+  moderationNote?: T;
+  locked?: T;
+  moderatedBy?: T;
+  moderatedAt?: T;
+  reports?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -1126,6 +1182,9 @@ export interface CommentReportsSelect<T extends boolean = true> {
   reporter?: T;
   reason?: T;
   note?: T;
+  status?: T;
+  resolvedBy?: T;
+  resolvedAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -1137,6 +1196,18 @@ export interface CommentVotesSelect<T extends boolean = true> {
   comment?: T;
   voter?: T;
   value?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "notifications_select".
+ */
+export interface NotificationsSelect<T extends boolean = true> {
+  recipient?: T;
+  kind?: T;
+  comment?: T;
+  readAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }

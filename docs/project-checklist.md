@@ -19,8 +19,10 @@ invite-only), roles, staff authenticator checks, the admin panel with countries,
 categories, tags, individuals, versioned topics with a change log, evidence and
 references, video snippets, public pages for visitors (home, countries,
 topics, individuals, and the files they show), browsing and search of every
-topic at `/topics`, members' comments with replies, votes, and reports, and a
-health check; see Weeks 1 to 9 below.
+topic at `/topics`, members' comments with replies, votes, and reports,
+moderation in the admin panel, rate and link limits, Turnstile on the email
+sign-in form, in-app notifications, and a health check; see Weeks 1 to 10
+below.
 
 The snippet flow began as a standalone prototype in `prototypes/youtube-snippet`
 (plain JavaScript, no database); its typed version is in the site since MVP week 6.
@@ -92,7 +94,8 @@ See [the MVP plan](mvp-plan.md) for weeks 0–12.
 - [ ] Before the pilot: Google's Testing mode allows at most 100 listed test users,
   so either list every tester and admin (100 at most) or publish the consent
   screen to Production.
-- [ ] Cloudflare account, needed by week 10 (Turnstile) and week 12 (tunnel).
+- [ ] Cloudflare account, needed before the pilot: real Turnstile keys (built in
+  week 10, off until set) and the tunnel (week 12).
 
 ### Week 1: site and admin skeleton
 
@@ -172,7 +175,7 @@ See [ADR 0002](adr/0002-sign-in-and-roles.md) for the design.
   open after week 2).
 - [ ] Not built yet: Apple sign-in, backup codes for staff, members editing their
   name, account deletion (week 11), and a real email provider (before the pilot).
-  Better Auth's rate limits are on outside tests but not yet verified (week 10).
+  Better Auth's rate limits were verified in week 10 (see there).
 
 ### Week 3: countries, categories, tags, individuals
 
@@ -689,10 +692,120 @@ See [ADR 0009](adr/0009-comments-votes-and-reports.md) for the design.
   yet hide or remove a comment, and each comment queues one search job
   with no rate limit. Nothing is deployed, so no one but the developer can
   post until then.
-- [ ] The developer comments from two accounts.
-- [ ] Not built yet: moderation (hiding, locking, acting on reports, and
-  removing a comment when the law requires it), rate limits (including
-  the search job each comment queues), Turnstile, link limits, and reply
-  notifications (week 10);
-  editing or deleting one's own comment, @mentions, per-country and
-  site-wide threads, and "trending".
+- [x] The developer commented from two accounts (reported working,
+  2026-10-17).
+- [x] Moderation, rate limits (including the search job each comment
+  queues), Turnstile, link limits, and reply notifications came in week 10.
+- [ ] Not built yet: editing or deleting one's own comment, @mentions,
+  per-country and site-wide threads, and "trending".
+
+### Week 10: moderation, limits, Turnstile, notifications
+
+See [ADR 0010](adr/0010-moderation-limits-and-notifications.md) for the design.
+
+- [x] Hiding: a verified moderator hides a comment in the admin panel with
+  a reason (refused without one, 400). The comment leaves the list and the
+  count, its open reports are marked acted on with who resolved them, its
+  author is told why, its topic's search count drops, and the change is
+  audited with the moderator as actor. Votes, reports, replies, and links
+  to it are refused (404). Showing it again clears the reason and is
+  audited. A hidden thread with visible replies is listed as a placeholder
+  with no author or text. Staff cannot change what a member wrote, and
+  members cannot moderate (403) (integration tests, 2026-10-17).
+- [x] Removal: moderators cannot remove (400); an admin's removal erases
+  the text, the audit entry does not hold it, it cannot be undone (400),
+  and the author is told (integration test, 2026-10-17).
+- [x] Locks: only threads can be locked (400). A locked thread refuses
+  replies and votes on itself and its replies (409, code `locked`) but
+  takes reports (integration test, 2026-10-17).
+- [x] Reports: staff dismiss them, recording who and when, and cannot change
+  the reason; members cannot (403); audited (integration test, 2026-10-17).
+- [x] Rate limits, kept in Valkey per member. A sixth comment in a minute is
+  refused with 429, `Retry-After`, and the code `rate-limited`. Other members
+  are not affected, and refused attempts do not count. Votes and reports
+  have their own limits (integration tests, 2026-10-17). When Valkey is
+  still connecting, the first request waits for it; found and fixed by the
+  tests.
+- [x] Link limits: links are text starting with `http://`, `https://`, or
+  `www.` (unit tests). A new member's link is refused (403, code
+  `link-limit`), while a bare domain or a moderator's link is not. An
+  account older than three days may post three links but not four
+  (integration tests, 2026-10-17).
+- [x] Notifications: a reply tells the thread's author, but not a member
+  replying in their own thread. Only the recipient can mark them read.
+  Replies hidden later drop out of the list and the count. Pages come
+  newest first without repeats. Deleting an account deletes its
+  notifications. Answers are `private, no-store` (integration tests,
+  2026-10-17).
+- [x] Turnstile: with keys set, an email-link request without a token is
+  refused (400), one that Cloudflare refuses is refused (403), and other
+  endpoints need none, against a local stand-in for Cloudflare (unit
+  tests). Without keys it is off.
+- [x] The guard tests failed when the vote lock check, staff's read-only
+  access to the text, the recipient check on marking read, and dropping
+  hidden replies from notifications were removed (2026-10-17).
+- [x] Better Auth's rate limits (open since week 2) on a production build:
+  five email-link requests a minute, then 429. Without a client address
+  header every visitor shares that bucket. With `CLIENT_IP_HEADER` set,
+  each address has its own: one was refused while another still got
+  through (`curl`, 2026-10-17). Better Auth's own `X-Retry-After` header
+  holds a wrong value; the form shows its "Too many requests" message.
+- [x] Real browser (headless Edge, production build on the test database,
+  Cloudflare's always-pass Turnstile test keys, 2026-10-17), with no
+  browser errors:
+  - The sign-in button waited for the Turnstile widget's token, and a
+    request without one was refused (400).
+  - A new member's link was refused with the date links open.
+  - Another member replied and reported, then hit the comment limit with
+    "Try again in 59 seconds".
+  - The first member saw "Notifications 1" in the header. The list showed
+    the reply, and the count cleared once it was read. Its link scrolled to
+    the reply and highlighted it.
+  - The admin found the open report in Comment reports. The comment's page
+    listed its reports with no "Add new", and its text was read-only. The
+    admin chose "Hidden by a moderator" and "Spam or advertising" and
+    saved; the report became "acted on".
+  - After a thread was locked, the second member saw the advert gone and
+    the thread locked, with no Reply or vote buttons.
+  - Staff saw "Moderate" links; members did not.
+  - The author's notifications explained the hidden comment.
+  - Nothing scrolled sideways at 390 px.
+- [x] Found in the browser test and fixed:
+  - a linked comment could be pushed out of view by the comment form
+    appearing above it; the page now scrolls once that form is shown;
+  - the reports list on a comment offered "Add new", which staff cannot
+    use.
+- [x] The code review before the first push found ten issues, and a
+  security pass (the repository's security checklist) found one more.
+  Nine were fixed, each with a test that fails without the fix
+  (2026-10-17):
+  - a staff save wrote back the score read when it began, losing a vote
+    made meanwhile (a test holds a vote's row lock during the save);
+  - a vote could slip into a thread a moderator was locking (a test holds
+    the lock; the waiting vote is now refused);
+  - writes the server refused, such as replies to a locked thread, used
+    up the rate limit;
+  - reply notifications showed text from topics that were no longer
+    public;
+  - Turnstile accepted a token solved for another action or hostname
+    under the same key, and the always-pass test keys would have worked
+    on a real site;
+  - "not found" for a linked thread was cached for a minute, though a
+    link can arrive before the read connection has the reply;
+  - the header asked for the unread count on every page change;
+  - a rule for read-only fields was written twice;
+  - links with a user name or password in them, such as
+    `https://bank.example@evil.example`, were shown as links.
+
+  Two were not changed. The notification race on a hidden comment cannot
+  happen: the save holds the comment's row lock until it commits, so a
+  second save waits and sees the first notification. A hidden thread's
+  placeholder still sorts by its old score, which was public before it was
+  hidden.
+- [ ] The developer reports and hides a comment.
+- [ ] Before the pilot (week 12): real Turnstile keys from a Cloudflare
+  account, limited to the site's hostname, and `CLIENT_IP_HEADER` set to
+  `cf-connecting-ip` behind the tunnel.
+- [ ] Not built yet: moderating from the topic page itself, locking a
+  whole topic's discussion (archiving closes it), telling repliers other
+  than the thread's author, and email notifications (after the pilot).

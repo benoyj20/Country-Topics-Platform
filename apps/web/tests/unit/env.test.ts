@@ -36,6 +36,8 @@ describe("readServerEnv", () => {
       },
       contactEmail: undefined,
       googleBooksApiKey: undefined,
+      turnstile: undefined,
+      clientIpHeader: undefined,
     });
     expect(
       readServerEnv({ ...valid, GOOGLE_BOOKS_API_KEY: " key " })
@@ -63,6 +65,39 @@ describe("readServerEnv", () => {
     expect(() =>
       readServerEnv({ ...valid, CONTACT_EMAIL: "not an address" }),
     ).toThrow(/CONTACT_EMAIL/);
+  });
+
+  it("turns Turnstile on with both keys and reads the client address header", () => {
+    expect(
+      readServerEnv({
+        ...valid,
+        TURNSTILE_SITE_KEY: " site ",
+        TURNSTILE_SECRET_KEY: "secret",
+        CLIENT_IP_HEADER: "CF-Connecting-IP",
+      }),
+    ).toMatchObject({
+      turnstile: { siteKey: "site", secretKey: "secret" },
+      clientIpHeader: "cf-connecting-ip",
+    });
+    expect(() =>
+      readServerEnv({ ...valid, TURNSTILE_SITE_KEY: "site" }),
+    ).toThrow(/TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY/);
+    expect(() =>
+      readServerEnv({ ...valid, CLIENT_IP_HEADER: "x-real-ip: 1.2.3.4" }),
+    ).toThrow(/CLIENT_IP_HEADER/);
+    // Cloudflare's always-pass test keys, only on localhost.
+    const testKeys = {
+      TURNSTILE_SITE_KEY: "1x00000000000000000000AA",
+      TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000000AA",
+    };
+    expect(readServerEnv({ ...valid, ...testKeys }).turnstile).toBeDefined();
+    expect(() =>
+      readServerEnv({
+        ...valid,
+        ...testKeys,
+        SITE_URL: "https://countrytopics.example",
+      }),
+    ).toThrow(/test keys/);
   });
 
   it("uses a replica only when it differs from the primary", () => {

@@ -1,5 +1,5 @@
 import { canEnterAdminPanel, isRole, type Role } from "@countrytopics/domain";
-import type { Access, PayloadRequest } from "payload";
+import type { Access, FieldAccess, PayloadRequest } from "payload";
 
 type RequestUser = PayloadRequest["user"];
 
@@ -31,3 +31,6 @@ export const verifiedStaffOnly: Access = ({ req }) => isVerifiedStaff(req.user);
 export const verifiedAdminsOnly: Access = ({ req }) =>
   isVerifiedAdmin(req.user);
 export const nobody: Access = () => false;
+
+/** Field access for values no one changes through Payload once saved. */
+export const readOnlyField: { update: FieldAccess } = { update: () => false };

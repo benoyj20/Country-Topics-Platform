@@ -1,7 +1,7 @@
 import { commentReportProblem } from "@countrytopics/domain";
 
 import { apiError, NO_STORE, readJsonBody } from "@/api/json";
-import { writingMember } from "@/api/member";
+import { rateLimited, refundRateLimited, writingMember } from "@/api/member";
 import {
   commentIdSchema,
   problemsOf,
@@ -9,13 +9,13 @@ import {
   SMALL_REQUEST_MAX_BYTES,
 } from "@/comments/requests";
 import { commentFailure } from "@/comments/responses";
-import { reportComment } from "@/comments/store";
+import { CommentRefusal, reportComment } from "@/comments/store";
 import { writePool } from "@/write-pool";
 
 // POST /api/v1/comments/[id]/reports, `{ reason, note? }`: a signed-in
 // member reports someone else's comment to the moderators. 201 for a new
 // report; 200 when they had already reported it, which changes nothing
-// (ADR 0009).
+// (ADR 0009). Reports are rate-limited (ADR 0010).
 
 export async function POST(
   request: Request,
@@ -39,6 +39,8 @@ export async function POST(
   if (!commentIdSchema.safeParse(id).success) {
     return apiError(404, "That comment does not exist or is not public.");
   }
+  const limited = await rateLimited("report", member.profile.id);
+  if (limited) return limited;
   try {
     const created = await reportComment(await writePool(), {
       reporterId: member.profile.id,
@@ -51,6 +53,9 @@ export async function POST(
       { status: created ? 201 : 200, headers: NO_STORE },
     );
   } catch (error) {
+    if (error instanceof CommentRefusal) {
+      await refundRateLimited("report", member.profile.id);
+    }
     return commentFailure(error, "report");
   }
 }

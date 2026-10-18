@@ -11,9 +11,16 @@ export type PublicComment = {
   /** Up votes minus down votes. */
   score: number;
   createdAt: string;
+  /**
+   * A thread a moderator hid, listed only for its visible replies: its
+   * author and text are empty and its score 0 (ADR 0010).
+   */
+  hidden: boolean;
 };
 
 export type CommentThread = PublicComment & {
+  /** A moderator locked it: no new replies or votes. */
+  locked: boolean;
   /** Replies in all. */
   replyCount: number;
   /** The first replies, oldest first. */
@@ -39,7 +46,11 @@ export type ReplyPage = {
 /** The signed-in person's part in the comments they asked about. */
 export type CommentViewer = {
   /** Null for visitors. */
-  account: { displayName: string | null } | null;
+  account: {
+    displayName: string | null;
+    /** A moderator or admin, who can open a comment in the admin panel. */
+    staff: boolean;
+  } | null;
   /** Their votes, by comment id. */
   votes: Record<string, Exclude<CommentVoteValue, 0>>;
   /** Comments they reported. */

@@ -1,3 +1,5 @@
+import { isRole, isStaff } from "@countrytopics/domain";
+
 import { apiError, NO_STORE } from "@/api/json";
 import { requestProfile } from "@/api/member";
 import { parseIds } from "@/comments/requests";
@@ -25,7 +27,10 @@ export async function GET(request: Request) {
     const profile = await requestProfile(request);
     const viewer: CommentViewer = profile
       ? {
-          account: { displayName: profile.displayName ?? null },
+          account: {
+            displayName: profile.displayName ?? null,
+            staff: isRole(profile.role) && isStaff(profile.role),
+          },
           ...(await commentViewer(await writePool(), profile.id, parsed.ids)),
         }
       : { account: null, votes: {}, reported: [], mine: [] };

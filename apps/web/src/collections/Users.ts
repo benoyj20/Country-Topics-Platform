@@ -124,6 +124,17 @@ export const Users: CollectionConfig = {
         }
       },
     ],
+    beforeDelete: [
+      async ({ id, req }) => {
+        // Notifications cannot outlive their recipient.
+        await req.payload.delete({
+          collection: "notifications",
+          where: { recipient: { equals: id } },
+          overrideAccess: true,
+          req,
+        });
+      },
+    ],
     afterDelete: [
       async ({ doc, req }) => {
         // Deleting a profile removes the person's sign-in account too, which

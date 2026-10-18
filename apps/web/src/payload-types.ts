@@ -84,6 +84,7 @@ export interface Config {
     notifications: Notification;
     users: User;
     invitations: Invitation;
+    feedback: Feedback;
     'audit-log': AuditLog;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
@@ -113,6 +114,7 @@ export interface Config {
     notifications: NotificationsSelect<false> | NotificationsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     invitations: InvitationsSelect<false> | InvitationsSelect<true>;
+    feedback: FeedbackSelect<false> | FeedbackSelect<true>;
     'audit-log': AuditLogSelect<false> | AuditLogSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
@@ -642,9 +644,9 @@ export interface Comment {
    */
   score: number;
   /**
-   * Hidden comments leave the topic page; their author is told why. Only admins can remove one, which erases its text for good: use it only when the law requires it.
+   * Hidden comments leave the topic page; their author is told why. Only admins can remove one, which erases its text for good: use it only when the law requires it. Deleting an account erases its comments' text the same way.
    */
-  status: 'visible' | 'hidden' | 'removed';
+  status: 'visible' | 'hidden' | 'removed' | 'deleted';
   /**
    * Shown to the author.
    */
@@ -721,6 +723,25 @@ export interface Invitation {
   note?: string | null;
   invitedBy?: (string | null) | User;
   acceptedAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Sent by members from the Feedback link at the bottom of every page, new first.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "feedback".
+ */
+export interface Feedback {
+  id: string;
+  author: string | User;
+  kind: 'problem' | 'idea' | 'other';
+  message: string;
+  /**
+   * The page it was sent from, if any.
+   */
+  page?: string | null;
+  status: 'new' | 'done';
   updatedAt: string;
   createdAt: string;
 }
@@ -840,6 +861,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'invitations';
         value: string | Invitation;
+      } | null)
+    | ({
+        relationTo: 'feedback';
+        value: string | Feedback;
       } | null)
     | ({
         relationTo: 'audit-log';
@@ -1236,6 +1261,19 @@ export interface InvitationsSelect<T extends boolean = true> {
   note?: T;
   invitedBy?: T;
   acceptedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "feedback_select".
+ */
+export interface FeedbackSelect<T extends boolean = true> {
+  author?: T;
+  kind?: T;
+  message?: T;
+  page?: T;
+  status?: T;
   updatedAt?: T;
   createdAt?: T;
 }

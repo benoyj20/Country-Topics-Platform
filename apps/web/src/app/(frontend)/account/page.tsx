@@ -1,9 +1,12 @@
 import { redirect } from "next/navigation";
 
+import { RECENT_SIGN_IN_MS } from "@/account/recent-sign-in";
 import { currentAccount } from "@/auth/current-account";
 import { SignOutButton } from "@/components/SignOutButton";
 
+import { DeleteAccountPanel } from "./DeleteAccountPanel";
 import { DisplayNameForm } from "./DisplayNameForm";
+import { DownloadDataButton } from "./DownloadDataButton";
 import { TwoFactorPanel } from "./TwoFactorPanel";
 
 export const metadata = { title: "Your account - Country Topics" };
@@ -40,6 +43,28 @@ export default async function AccountPage() {
       <div>
         <SignOutButton />
       </div>
+
+      <section className="panel stack" aria-labelledby="your-data">
+        <h2 id="your-data">Your data</h2>
+        <p className="muted">
+          A copy of what the site holds about you, as a JSON file: your account,
+          sign-in sessions, comments, votes, reports, notifications, and
+          feedback. See the <a href="/privacy">privacy policy</a>.
+        </p>
+        <DownloadDataButton />
+      </section>
+
+      {account.staff ? (
+        <p className="muted">
+          Staff accounts are deleted by an admin. To leave, ask another admin to
+          delete yours.
+        </p>
+      ) : (
+        <DeleteAccountPanel
+          email={account.email}
+          recentSignInMinutes={RECENT_SIGN_IN_MS / 60_000}
+        />
+      )}
     </section>
   );
 }

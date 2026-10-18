@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import { AccountLink } from "@/components/AccountLink";
 import { NotificationsLink } from "@/components/NotificationsLink";
+import { SiteFooter } from "@/components/SiteFooter";
 
 import "./styles.css";
 
@@ -32,6 +33,7 @@ export default function FrontendLayout({ children }: { children: ReactNode }) {
           </nav>
         </header>
         <main>{children}</main>
+        <SiteFooter />
       </body>
     </html>
   );

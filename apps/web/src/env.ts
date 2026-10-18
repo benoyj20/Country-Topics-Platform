@@ -23,8 +23,13 @@ export type ServerEnv = {
   queuePrefix: string;
   /** S3-compatible storage for uploads. */
   storage: StorageEnv;
-  /** Named in requests to bibliographic services; optional. */
+  /**
+   * Named in requests to bibliographic services, and the contact address
+   * on the privacy policy and terms; optional.
+   */
   contactEmail?: string;
+  /** Who runs the site, as the privacy policy and terms name them; optional. */
+  siteOperator?: string;
   /** Optional: Google Books as a backup when Open Library does not know an ISBN. */
   googleBooksApiKey?: string;
   /** Cloudflare Turnstile on the email sign-in form; unset turns it off. */
@@ -56,6 +61,7 @@ const QUEUE_PREFIX_PATTERN = /^[a-z0-9-]+$/;
 // AWS bucket naming rules, which other S3-compatible services follow.
 const BUCKET_PATTERN = /^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/;
 const DEFAULT_S3_REGION = "us-east-1";
+const SITE_OPERATOR_MAX_LENGTH = 200;
 
 type Env = Record<string, string | undefined>;
 
@@ -225,6 +231,13 @@ export function readServerEnv(env: Env = process.env): ServerEnv {
     problems.push("CONTACT_EMAIL must be empty or an email address");
   }
 
+  const siteOperator = env.SITE_OPERATOR?.trim() || undefined;
+  if (siteOperator && siteOperator.length > SITE_OPERATOR_MAX_LENGTH) {
+    problems.push(
+      `SITE_OPERATOR must be at most ${SITE_OPERATOR_MAX_LENGTH} characters`,
+    );
+  }
+
   if (problems.length > 0) {
     throw new Error(
       `Invalid server configuration:\n- ${problems.join("\n- ")}`,
@@ -247,6 +260,7 @@ export function readServerEnv(env: Env = process.env): ServerEnv {
     queuePrefix,
     storage,
     contactEmail,
+    siteOperator,
     googleBooksApiKey: env.GOOGLE_BOOKS_API_KEY?.trim() || undefined,
     turnstile,
     clientIpHeader,

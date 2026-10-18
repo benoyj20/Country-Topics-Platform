@@ -68,8 +68,8 @@ export const Comments: CollectionConfig = {
       },
     },
     {
-      // Optional so that deleting an account keeps the discussion readable;
-      // its comments then show no name.
+      // Empty once the author deleted their account, which also erased
+      // the text (ADR 0011).
       name: "author",
       type: "relationship",
       relationTo: "users",
@@ -84,12 +84,14 @@ export const Comments: CollectionConfig = {
       required: true,
       access: readOnlyField,
       admin: { readOnly: true },
-      // Empty only once removed; the moderation hook erases it.
+      // Empty only once removed (the moderation hook erases it) or deleted
+      // with its author's account (src/account/deletion.ts).
       validate: (
         value: string | null | undefined,
         { siblingData }: { siblingData: Partial<{ status: unknown }> },
       ) => {
         if (siblingData.status === "removed") return true;
+        if (siblingData.status === "deleted") return true;
         if (!value) return "A comment needs text.";
         return value.length <= COMMENT_BODY_MAX_LENGTH
           ? true
@@ -125,7 +127,7 @@ export const Comments: CollectionConfig = {
       admin: {
         position: "sidebar",
         description:
-          "Hidden comments leave the topic page; their author is told why. Only admins can remove one, which erases its text for good: use it only when the law requires it.",
+          "Hidden comments leave the topic page; their author is told why. Only admins can remove one, which erases its text for good: use it only when the law requires it. Deleting an account erases its comments' text the same way.",
       },
     },
     {

@@ -7,6 +7,11 @@ import {
 import type { CollectionConfig } from "payload";
 
 import {
+  eraseAccountContent,
+  refuseOwnStaffDeletion,
+} from "@/account/deletion";
+
+import {
   isVerifiedAdmin,
   isVerifiedStaff,
   nobody,
@@ -126,26 +131,29 @@ export const Users: CollectionConfig = {
     ],
     beforeDelete: [
       async ({ id, req }) => {
-        // Notifications cannot outlive their recipient.
-        await req.payload.delete({
-          collection: "notifications",
-          where: { recipient: { equals: id } },
-          overrideAccess: true,
-          req,
-        });
+        refuseOwnStaffDeletion(req, String(id));
+        await eraseAccountContent(req, String(id));
       },
     ],
     afterDelete: [
       async ({ doc, req }) => {
+        const own = req.user?.id === doc.id;
+        await recordAudit(
+          req,
+          {
+            action: "user.deleted",
+            targetCollection: "users",
+            targetId: String(doc.id),
+            details: { email: doc.email, role: doc.role, own },
+          },
+          // A member deleting their own account is no longer there to
+          // name as the actor.
+          own ? { actor: null } : undefined,
+        );
         // Deleting a profile removes the person's sign-in account too, which
         // ends all their sessions; they need a new invitation to come back.
+        // Last, as it cannot be rolled back with the rest.
         if (doc.authUserId) await deleteAuthUser(doc.authUserId);
-        await recordAudit(req, {
-          action: "user.deleted",
-          targetCollection: "users",
-          targetId: String(doc.id),
-          details: { email: doc.email, role: doc.role },
-        });
       },
     ],
   },

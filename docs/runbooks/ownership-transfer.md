@@ -48,6 +48,14 @@ Change these through a normal PR after the GitHub transfer:
 | `CONTRIBUTING.md` | "one developer (`benoyj20`)" | The new owner |
 | `docs/runbooks/ownership-transfer.md` | The introduction, the repository name, the GitGuardian rows, step 2.4, and the "Owner today" column | The new owner and repository name |
 
+The site's configuration also names the owner. Change it in the host's environment,
+not the repository:
+
+| Variable | Shown on | Change to |
+| --- | --- | --- |
+| `SITE_OPERATOR` | The privacy policy and terms (`/privacy`, `/terms`), as who runs the site (since week 11) | The new owner's name, with both pages reviewed for the new owner |
+| `CONTACT_EMAIL` | The privacy policy and terms, and requests to bibliographic services | A project address of the new owner |
+
 Git history keeps the original author names and emails; that is expected and is not
 changed.
 

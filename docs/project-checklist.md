@@ -21,8 +21,9 @@ references, video snippets, public pages for visitors (home, countries,
 topics, individuals, and the files they show), browsing and search of every
 topic at `/topics`, members' comments with replies, votes, and reports,
 moderation in the admin panel, rate and link limits, Turnstile on the email
-sign-in form, in-app notifications, and a health check; see Weeks 1 to 10
-below.
+sign-in form, in-app notifications, account deletion and data download,
+feedback, draft privacy policy and terms, and a health check; see Weeks 1 to
+11 below.
 
 The snippet flow began as a standalone prototype in `prototypes/youtube-snippet`
 (plain JavaScript, no database); its typed version is in the site since MVP week 6.
@@ -174,8 +175,9 @@ See [ADR 0002](adr/0002-sign-in-and-roles.md) for the design.
   authenticator reported done by the developer, 2026-10-16, the part still
   open after week 2).
 - [ ] Not built yet: Apple sign-in, backup codes for staff, members editing their
-  name, account deletion (week 11), and a real email provider (before the pilot).
-  Better Auth's rate limits were verified in week 10 (see there).
+  name, and a real email provider (before the pilot). Better Auth's rate
+  limits were verified in week 10, and account deletion was built in week 11
+  (see there).
 
 ### Week 3: countries, categories, tags, individuals
 
@@ -802,10 +804,110 @@ See [ADR 0010](adr/0010-moderation-limits-and-notifications.md) for the design.
   second save waits and sees the first notification. A hidden thread's
   placeholder still sorts by its old score, which was public before it was
   hidden.
-- [ ] The developer reports and hides a comment.
+- [x] The developer reports and hides a comment (reported done by the
+  developer before PR #14 was merged, 2026-10-17).
 - [ ] Before the pilot (week 12): real Turnstile keys from a Cloudflare
   account, limited to the site's hostname, and `CLIENT_IP_HEADER` set to
   `cf-connecting-ip` behind the tunnel.
 - [ ] Not built yet: moderating from the topic page itself, locking a
   whole topic's discussion (archiving closes it), telling repliers other
   than the thread's author, and email notifications (after the pilot).
+
+### Week 11: account deletion, data download, feedback, legal pages
+
+See [ADR 0011](adr/0011-account-deletion-feedback-and-legal-pages.md) for the
+design. Backups, Sentry, and the scale rehearsal are the rest of week 11, in a
+later PR.
+
+- [x] Deleting one's own account (integration tests, 2026-10-17):
+  - refused to visitors (401), from other sites (403), with the wrong email
+    (400, `confirm-email`), for staff (403, `staff-account`), and for a
+    session older than 10 minutes (403, `sign-in-again`), leaving the
+    account in place;
+  - the email is matched however it is typed (case, spaces);
+  - afterwards the profile, sign-in account, sessions, notifications, and
+    feedback are gone and the session no longer works;
+  - the member's comments, hidden ones included, are `deleted` with no text
+    and no author, and a removed one stays removed;
+  - a thread with others' replies shows as a placeholder saying its author
+    deleted their account, a lone comment leaves the list, and a reply
+    leaves its thread's count;
+  - votes stay in scores, and reports stay without the reporter;
+  - audited as `user.deleted` with no actor and `own: true`;
+  - the topic's search count matches the page, and a search job waits for
+    the erasure.
+- [x] An admin deleting an account erases the comments the same way,
+  audited with the admin as actor (integration test, 2026-10-17).
+- [x] A comment saved while the deletion runs waits for it and is erased
+  too. The test fails when the deletion's lock on the profile is removed
+  (2026-10-17).
+- [x] A reply being posted in the member's thread while they delete their
+  account finishes first, and the deletion then succeeds. With the old lock
+  order (profile before comments) the test fails with a deadlock (503)
+  (2026-10-17).
+- [x] Open reports on the erased comments are marked acted on. Staff cannot
+  delete their own profile in the admin panel (403) (integration tests,
+  2026-10-17).
+- [x] Staff cannot show a deleted comment (400) but can lock its thread
+  (integration test, 2026-10-17). The domain rules refuse setting or
+  undoing `deleted` (unit tests).
+- [x] Data download: a JSON file (`attachment`, `private, no-store`) with
+  the member's account, sessions, comments (a hidden one's text and reason,
+  without staff's note), votes, reports, notifications, and feedback, and
+  nothing of another member's. Refused to visitors (401) and to requests
+  marked cross-site (403) (integration tests, 2026-10-17).
+- [x] Feedback: saved with its author and the page's path, without query or
+  fragment. A full address is dropped. Text is tidied like a comment.
+  Refused to visitors (401), other sites (403), and with no text or an
+  unknown kind (400). The sixth in an hour gets 429. Staff list it and mark
+  it done, which is audited, but cannot change the text. Members cannot
+  read it (403) (integration and unit tests, 2026-10-17).
+- [x] Migration: applying it, rolling it back with a `deleted` comment in
+  place (which becomes `removed`, with the feedback table dropped), and
+  applying it again worked on a scratch database. The rollbacks of the
+  week 9 and week 10 migrations failed (each dropped a constraint that
+  `DROP TABLE ... CASCADE` had already removed). They were fixed, and
+  weeks 9 to 11 rolled back and reapplied together (2026-10-17). Rolling
+  back the week 1 migrations still fails; recovery uses backups.
+- [x] Real browser (headless Edge, production build on the test database,
+  2026-10-17), with no browser errors:
+  - the footer's "Send feedback" opened `/feedback` with the topic's path;
+    without a kind the form asked for one, and the feedback was sent and
+    listed in the admin panel;
+  - a member's account page showed "Your data" and "Delete your account";
+    the download button saved the JSON file; staff saw that an admin
+    deletes their account, with no delete form;
+  - the wrong email was refused with its message, the right one (typed in
+    capitals) deleted the account and led to "Your account was deleted",
+    signed out;
+  - on the topic, the erased comment showed as "This comment's author
+    deleted their account." above the other member's reply;
+  - the privacy policy and terms showed the draft notice and their "To be
+    decided" marks;
+  - nothing scrolled sideways at 390 px on the account, feedback, deleted,
+    sign-in, privacy, and terms pages.
+- [x] The code review before the first push found ten issues; nine were
+  fixed (2026-10-17):
+  - deleting an account while someone replied in the member's thread
+    could deadlock (locks taken in the opposite order to a reply's);
+  - open reports on erased comments stayed open, though moderators could
+    no longer act on them;
+  - an admin could still delete their own profile in the admin panel;
+  - a failed data download used up one of the day's ten;
+  - the download link saved error messages as the file instead of
+    showing them;
+  - the download was read in several transactions, so its parts could
+    disagree;
+  - marking feedback done was not audited;
+  - the delete route repeated the shared sign-in check;
+  - the account page loaded the deletion code for one constant.
+
+  Not changed: comments by accounts deleted before this change keep their
+  text, since the migration cannot use the new status it adds; only
+  development data has them.
+- [ ] The developer deletes a test account.
+- [ ] Before the pilot: set `SITE_OPERATOR` and `CONTACT_EMAIL`, decide what
+  the privacy policy and terms mark "To be decided", and have both
+  reviewed. Update the privacy policy when Sentry and backups are added.
+- [ ] Not built yet: deleting a single comment of one's own, and appeals of
+  moderators' decisions.

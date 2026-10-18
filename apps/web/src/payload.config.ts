@@ -10,6 +10,7 @@ import { CommentReports } from "./collections/CommentReports";
 import { Comments } from "./collections/Comments";
 import { CommentVotes } from "./collections/CommentVotes";
 import { Countries } from "./collections/Countries";
+import { Feedback } from "./collections/Feedback";
 import { Individuals } from "./collections/Individuals";
 import { Invitations } from "./collections/Invitations";
 import { LinkArchives } from "./collections/LinkArchives";
@@ -60,6 +61,7 @@ export default buildConfig({
     Notifications,
     Users,
     Invitations,
+    Feedback,
     AuditLog,
   ],
   editor,

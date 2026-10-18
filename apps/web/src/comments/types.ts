@@ -12,10 +12,13 @@ export type PublicComment = {
   score: number;
   createdAt: string;
   /**
-   * A thread a moderator hid, listed only for its visible replies: its
-   * author and text are empty and its score 0 (ADR 0010).
+   * A thread a moderator hid, or whose author deleted their account, listed
+   * only for its visible replies: its author and text are empty and its
+   * score 0 (ADR 0010).
    */
   hidden: boolean;
+  /** Hidden because its author deleted their account (ADR 0011). */
+  deleted: boolean;
 };
 
 export type CommentThread = PublicComment & {

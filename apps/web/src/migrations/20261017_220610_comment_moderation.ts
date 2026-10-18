@@ -51,7 +51,7 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   
   ALTER TABLE "comment_reports" DROP CONSTRAINT "comment_reports_resolved_by_id_users_id_fk";
   
-  ALTER TABLE "payload_locked_documents_rels" DROP CONSTRAINT "payload_locked_documents_rels_notifications_fk";
+  ALTER TABLE "payload_locked_documents_rels" DROP CONSTRAINT IF EXISTS "payload_locked_documents_rels_notifications_fk";
   
   DROP INDEX "comments_moderated_by_idx";
   DROP INDEX "comment_reports_resolved_by_idx";

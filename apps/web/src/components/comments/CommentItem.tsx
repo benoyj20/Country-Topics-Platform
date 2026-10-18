@@ -114,10 +114,12 @@ export function CommentItem({
       <article
         id={`comment-${comment.id}`}
         className={articleClass}
-        aria-label="Hidden comment"
+        aria-label={comment.deleted ? "Deleted comment" : "Hidden comment"}
       >
         <p className={`${styles.body} ${styles.hiddenNote}`}>
-          A moderator hid this comment.
+          {comment.deleted
+            ? "This comment's author deleted their account."
+            : "A moderator hid this comment."}
         </p>
         {standing.staff ? (
           <div className={styles.tools}>

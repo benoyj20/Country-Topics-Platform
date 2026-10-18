@@ -15,14 +15,16 @@ export type AuditEntry = {
 /**
  * Records an admin or system action (AGENTS.md: admin actions are audited). The
  * entry joins the request's transaction, so it is saved only if the change is.
+ * The actor is the request's user unless `actor` says otherwise.
  */
 export async function recordAudit(
   req: PayloadRequest,
   entry: AuditEntry,
+  { actor = req.user?.id ?? null }: { actor?: string | null } = {},
 ): Promise<void> {
   await req.payload.create({
     collection: "audit-log",
-    data: { ...entry, actor: req.user?.id ?? null },
+    data: { ...entry, actor },
     overrideAccess: true,
     req,
   });

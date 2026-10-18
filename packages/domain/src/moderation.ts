@@ -16,6 +16,8 @@ export const COMMENT_STATUSES = [
   "hidden",
   /** Hidden, and its text erased, when the law requires it; admins only. */
   "removed",
+  /** Its text erased when its author deleted their account (ADR 0011). */
+  "deleted",
 ] as const;
 export type CommentStatus = (typeof COMMENT_STATUSES)[number];
 
@@ -61,6 +63,20 @@ export function commentModerationProblem({
   admin: boolean;
   thread: boolean;
 }): ModerationProblem | null {
+  if (previous.status !== next.status && previous.status === "deleted") {
+    return {
+      field: "status",
+      message:
+        "This comment's author deleted their account, which erased its text.",
+    };
+  }
+  if (previous.status !== next.status && next.status === "deleted") {
+    return {
+      field: "status",
+      message:
+        "Comments are deleted only with their author's account. Hide it instead.",
+    };
+  }
   if (previous.status === "removed" && next.status !== "removed") {
     return {
       field: "status",
@@ -73,7 +89,7 @@ export function commentModerationProblem({
       message: "Only admins can remove a comment. Hide it instead.",
     };
   }
-  if (next.status !== "visible" && !next.reason) {
+  if (next.status !== "visible" && next.status !== "deleted" && !next.reason) {
     return { field: "reason", message: "Choose why the comment is hidden." };
   }
   if (next.locked && !thread) {

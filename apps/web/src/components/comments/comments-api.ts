@@ -28,7 +28,12 @@ export class CommentApiError extends Error {
   }
 }
 
-async function call<T>(
+/**
+ * Calls one of the site's /api/v1 routes and answers its JSON, or throws
+ * CommentApiError with the route's message (or `fallback`). The account
+ * and feedback forms use it too (src/components/account-api.ts).
+ */
+export async function call<T>(
   url: string,
   fallback: string,
   init?: RequestInit & { json?: unknown },

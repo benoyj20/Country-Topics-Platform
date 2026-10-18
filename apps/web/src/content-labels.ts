@@ -4,6 +4,8 @@ import type {
   CommentReportStatus,
   CommentStatus,
   EvidenceKind,
+  FeedbackKind,
+  FeedbackStatus,
   ReferenceKind,
   TopicChangeKind,
   TopicPersonRole,
@@ -83,6 +85,7 @@ export const COMMENT_STATUS_LABELS: Record<CommentStatus, string> = {
   visible: "Visible",
   hidden: "Hidden by a moderator",
   removed: "Removed (text erased)",
+  deleted: "Deleted with its author's account (text erased)",
 };
 
 export const COMMENT_REPORT_STATUS_LABELS: Record<CommentReportStatus, string> =
@@ -91,3 +94,14 @@ export const COMMENT_REPORT_STATUS_LABELS: Record<CommentReportStatus, string> =
     dismissed: "Dismissed",
     actioned: "Acted on",
   };
+
+export const FEEDBACK_KIND_LABELS: Record<FeedbackKind, string> = {
+  problem: "Something is not working",
+  idea: "An idea or suggestion",
+  other: "Something else",
+};
+
+export const FEEDBACK_STATUS_LABELS: Record<FeedbackStatus, string> = {
+  new: "New",
+  done: "Done",
+};

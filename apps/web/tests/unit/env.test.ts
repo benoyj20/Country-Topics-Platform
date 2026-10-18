@@ -35,6 +35,7 @@ describe("readServerEnv", () => {
         secretAccessKey: "secret-key",
       },
       contactEmail: undefined,
+      siteOperator: undefined,
       googleBooksApiKey: undefined,
       turnstile: undefined,
       clientIpHeader: undefined,
@@ -65,6 +66,16 @@ describe("readServerEnv", () => {
     expect(() =>
       readServerEnv({ ...valid, CONTACT_EMAIL: "not an address" }),
     ).toThrow(/CONTACT_EMAIL/);
+  });
+
+  it("reads who runs the site, within a length limit", () => {
+    expect(
+      readServerEnv({ ...valid, SITE_OPERATOR: " TEST Operator " })
+        .siteOperator,
+    ).toBe("TEST Operator");
+    expect(() =>
+      readServerEnv({ ...valid, SITE_OPERATOR: "x".repeat(201) }),
+    ).toThrow(/SITE_OPERATOR must be at most 200/);
   });
 
   it("turns Turnstile on with both keys and reads the client address header", () => {

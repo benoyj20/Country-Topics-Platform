@@ -31,6 +31,12 @@ export const RATE_LIMITS = {
     { max: 20, windowS: DAY_S },
   ],
   "display-name": [{ max: 5, windowS: DAY_S }],
+  // ADR 0011.
+  feedback: [
+    { max: 5, windowS: 60 * MINUTE_S },
+    { max: 20, windowS: DAY_S },
+  ],
+  "data-export": [{ max: 10, windowS: DAY_S }],
 } as const satisfies Record<string, readonly Window[]>;
 export type RateLimitedAction = keyof typeof RATE_LIMITS;
 

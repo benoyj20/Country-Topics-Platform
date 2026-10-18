@@ -155,6 +155,18 @@ describe("commentModerationProblem", () => {
     assert.match(check(removed, hidden, { admin: true }) ?? "", /cannot/);
   });
 
+  it("leaves deleting to account deletion, which staff cannot undo", () => {
+    const deleted: CommentModeration = { ...visible, status: "deleted" };
+    assert.match(
+      check(visible, deleted, { admin: true }) ?? "",
+      /only with their author's account/,
+    );
+    assert.match(check(deleted, visible, { admin: true }) ?? "", /erased/);
+    assert.match(check(deleted, hidden, { admin: true }) ?? "", /erased/);
+    // Staff can still lock its thread; it needs no reason.
+    assert.equal(check(deleted, { ...deleted, locked: true }), null);
+  });
+
   it("locks threads only", () => {
     assert.equal(check(visible, { ...visible, locked: true }), null);
     assert.match(

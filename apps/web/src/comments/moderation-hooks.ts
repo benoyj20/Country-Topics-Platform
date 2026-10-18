@@ -90,6 +90,8 @@ const STATUS_ACTIONS = {
   visible: "comment.shown",
   hidden: "comment.hidden",
   removed: "comment.removed",
+  // Set only by account deletion, which staff cannot do or undo here.
+  deleted: "comment.deleted",
 } as const;
 
 /**

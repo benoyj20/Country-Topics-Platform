@@ -120,6 +120,7 @@ function publicComment(row: CommentRow): PublicComment {
       score: 0,
       createdAt,
       hidden: true,
+      deleted: row.status === "deleted",
     };
   }
   return {
@@ -129,6 +130,7 @@ function publicComment(row: CommentRow): PublicComment {
     score: row.score,
     createdAt,
     hidden: false,
+    deleted: false,
   };
 }
 

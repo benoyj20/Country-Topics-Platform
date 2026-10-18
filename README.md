@@ -51,8 +51,11 @@ a report button, within rate limits, with links only from accounts older than
 three days; `/topics` can sort by the most discussed. Moderators work through
 reports in the admin panel, hide comments, and lock threads. Members see replies
 to their threads and moderators' actions at `/notifications`, and the email
-sign-in form can ask for a Cloudflare Turnstile check. There is a health check
-at `/api/v1/health`. The remaining features follow the
+sign-in form can ask for a Cloudflare Turnstile check. Members can download their
+data or delete their account on `/account`, which erases their comments' text,
+and send feedback from a link on every page, which staff read in the admin
+panel. Draft privacy policy and terms are at `/privacy` and `/terms`. There is a
+health check at `/api/v1/health`. The remaining features follow the
 [MVP plan](docs/mvp-plan.md); see the checklist for what is verified.
 
 ```sh

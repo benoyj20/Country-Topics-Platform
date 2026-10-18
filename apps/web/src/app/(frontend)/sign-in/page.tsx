@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { EMAIL_NOT_VERIFIED_ERROR, NOT_INVITED_ERROR } from "@/auth/auth";
@@ -51,6 +52,10 @@ export default async function SignInPage({
         callbackURL={safeCallbackPath(params.callbackURL, serverEnv().siteUrl)}
         turnstileSiteKey={serverEnv().turnstile?.siteKey ?? null}
       />
+      <p className="muted small">
+        By signing in you agree to the <Link href="/terms">terms</Link> and the{" "}
+        <Link href="/privacy">privacy policy</Link>.
+      </p>
     </section>
   );
 }

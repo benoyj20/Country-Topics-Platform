@@ -4,10 +4,10 @@
 //
 // It checks, alternating between web containers:
 //   - a session made on one container works on every other;
-//   - publishing a change on one purges the page on all (shared cache);
-//   - a member's comment limit counts across containers (Valkey);
-//   - the page cache answers from Valkey on a container that did not
-//     render the page.
+//   - publishing a change on one purges the page on all;
+//   - the page is then rendered once and the other containers serve that
+//     copy from the shared cache;
+//   - a member's comment limit counts across containers (Valkey).
 //
 // Only a topic whose title starts with "TEST" is changed. No dependencies:
 // Node 22+ only. Usage: node check-stateless.mjs [topic slug]
@@ -150,25 +150,18 @@ const member = await signIn(MEMBER);
 const sessionSeen = new Map();
 for (let i = 0; i < 6; i += 1) {
   const response = await member.fetch("/api/v1/account/comments");
-  const viewer = await response.json();
-  sessionSeen.set(servedBy(response), viewer.account !== null);
+  const viewer = response.ok ? await response.json() : null;
+  // Signed in only if the container answered and knew the account.
+  sessionSeen.set(servedBy(response), Boolean(viewer?.account));
 }
 check(
   sessionSeen.size >= 2 && [...sessionSeen.values()].every(Boolean),
   `the member's session works on ${sessionSeen.size} containers (${[...sessionSeen.keys()].join(", ")})`,
 );
 
-// 2. The page cache is shared, and a purge reaches every container.
+// 2. A purge reaches every container, and the page is then rendered once
+// and served by the others from the shared cache.
 const page = `/topics/${slug}`;
-const warm = new Map();
-for (let i = 0; i < 6; i += 1) {
-  const response = await member.fetch(page);
-  warm.set(servedBy(response), response.headers.get("x-nextjs-cache"));
-}
-check(
-  [...warm.values()].includes("HIT") && warm.size >= 2,
-  `the page is served from the shared cache by ${warm.size} containers (${[...warm].map(([k, v]) => `${k} ${v}`).join(", ")})`,
-);
 const admin = await signIn(ADMIN);
 await verifyStaff(admin);
 const found = await (
@@ -195,14 +188,29 @@ check(
   saved.ok,
   `the admin published a change through ${servedBy(saved)} (${saved.status})`,
 );
-const after = new Map();
+const shows = new Map();
+/** Each container's first answer after the purge. */
+const firstAnswer = new Map();
 for (let i = 0; i < 6; i += 1) {
   const response = await member.fetch(page);
-  after.set(servedBy(response), (await response.text()).includes(summary));
+  const container = servedBy(response);
+  if (!firstAnswer.has(container)) {
+    firstAnswer.set(container, response.headers.get("x-nextjs-cache"));
+  }
+  const changed = (await response.text()).includes(summary);
+  shows.set(container, (shows.get(container) ?? true) && changed);
 }
 check(
-  after.size >= 2 && [...after.values()].every(Boolean),
-  `every container shows the change at once (${[...after.keys()].join(", ")})`,
+  shows.size >= 2 && [...shows.values()].every(Boolean),
+  `every container shows the change at once (${[...shows.keys()].join(", ")})`,
+);
+// Per-container caches would make each render its own copy (a MISS each);
+// a shared cache renders once and the others' first answer is a HIT.
+const firsts = [...firstAnswer.values()];
+check(
+  firsts.filter((answer) => answer !== "HIT").length <= 1 &&
+    firsts.includes("HIT"),
+  `the page was rendered once and served from the shared cache by the other containers (first answers: ${[...firstAnswer].map(([k, v]) => `${k} ${v}`).join(", ")})`,
 );
 
 // 3. A member's comment limit counts across containers.

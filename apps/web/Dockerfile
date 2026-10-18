@@ -29,10 +29,13 @@ RUN CI=true pnpm install --frozen-lockfile --prod --filter "@countrytopics/web..
 FROM node:22.23.3-alpine3.24
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1
 WORKDIR /app
-COPY --from=build --chown=node:node /repo/package.json /repo/pnpm-workspace.yaml ./
-COPY --from=build --chown=node:node /repo/node_modules ./node_modules
-COPY --from=build --chown=node:node /repo/packages ./packages
-COPY --from=build --chown=node:node /repo/apps/web ./apps/web
+# The code belongs to root and the site runs as `node`, so the site cannot
+# change its own code; only Next.js's cache folder is writable.
+COPY --from=build /repo/package.json /repo/pnpm-workspace.yaml ./
+COPY --from=build /repo/node_modules ./node_modules
+COPY --from=build /repo/packages ./packages
+COPY --from=build /repo/apps/web ./apps/web
+RUN mkdir -p apps/web/.next/cache && chown node:node apps/web/.next/cache
 WORKDIR /app/apps/web
 USER node
 EXPOSE 3000

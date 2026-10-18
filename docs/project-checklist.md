@@ -1007,7 +1007,8 @@ are from the developer's PC (Docker Desktop on Windows, 16 GB), 2026-10-18.
   - serve a page one stored to the other, with its Buffers and Maps intact;
   - drop it everywhere once a tag it shows is purged, while a page with
     other tags stays;
-  - check data entries against the tags they were stored with.
+  - check data entries against the tags they were stored with;
+  - keep each build's pages apart while sharing purges.
 
   Unit tests cover Next.js's rules for expired and stale tags.
 - [x] The production build needs no database. A running build answered the
@@ -1024,17 +1025,20 @@ are from the developer's PC (Docker Desktop on Windows, 16 GB), 2026-10-18.
 - [x] Step 1, statelessness (`make scale-check`, two web and two worker
   containers behind Caddy):
   - the member's session worked on both containers;
-  - pages came from the shared cache on both (HIT);
   - a TEST topic published through one container showed its change on both
     at once;
+  - the page was then rendered once (MISS) and the other container's first
+    answer was a HIT from the shared cache;
   - five comments were taken and the sixth refused (429), alternating
     between containers.
 
   Both workers took jobs from the rehearsal's own queues.
 - [x] Step 2, load tests (k6 in the Compose network). The data: 1,002
   topics, 50 TEST members, and 9,992 comments, seeded by `make scale-seed`.
-  - Cached pages, 100 visitors: 31,044 requests at 294 a second, median
-    15 ms, 95th percentile 36 ms, no failures.
+  - Cached pages, 100 visitors: 31,072 requests at 293 a second, median
+    15 ms, 95th percentile 38 ms (topic pages 39 ms), no failures. This is
+    the final setup, with the cache's own Valkey; before that change it was
+    31,044 requests, with a 95th percentile of 36 ms.
   - Uncached (search, browse, comments), 50 visitors: 11,659 requests,
     95th percentile 46 ms, no failures.
   - Uncached back to back, 50 visitors with no pauses: 561 requests a
@@ -1049,6 +1053,29 @@ are from the developer's PC (Docker Desktop on Windows, 16 GB), 2026-10-18.
   to it until its next health check. With retries on another container
   and passive health checks in the Caddyfile, the same test had 0 failures
   in 29,868 requests (the slowest 2.6 s, while retried).
+- [x] The code review before the first push found ten issues, all fixed
+  (2026-10-18):
+  - cached pages had no build in their keys, so a new build could serve
+    pages pointing at an old build's scripts;
+  - the rehearsal used `CONTAINER_DATABASE_URL`, which names the real
+    database for backups (now `SCALE_DATABASE_URL`);
+  - the cache shared the queues' Valkey, which must never evict, so its
+    growth could starve the queues. It now has its own Valkey (256 MB,
+    least recently used evicted), and entries last 2 hours, not 7 days;
+  - while Valkey was away every page waited 2 seconds; calls now fail at
+    once after the first connection;
+  - the cache check passed with per-container caches, and the session
+    check passed on error responses;
+  - the containers' user owned its code; the code is now read-only for it
+    (also in the backup image);
+  - the cache's connection settings and the queue prefix's default were a
+    second copy of those in `@countrytopics/jobs`;
+  - the seed script cast the database adapter unchecked;
+  - k6 counted the topics list and topic pages as one page.
+- [x] Found while checking the fixes: running `make scale-check` again failed
+  on the admin's authenticator (the preparation did less than
+  `make reset-2fa`) and then on Better Auth's sign-in limit. The preparation
+  now calls that script and clears the rehearsal's sign-in limits.
 - [ ] The developer runs the rehearsal (`make scale-up`, `make scale-check`,
   `make load-test`).
 - [ ] Step 4, not done: a test copy on free cloud tiers (managed PostgreSQL,

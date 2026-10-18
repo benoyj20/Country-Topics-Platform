@@ -97,7 +97,7 @@ Open `http://localhost:4173` and click **Try demo**. See
 ```sh
 make env         # creates .env, or adds missing variables; never changes set values
 make bootstrap   # pnpm install
-make infra-up    # PostgreSQL on 5433, Valkey on 6379, Mailpit on 1025/8025, S3 storage on 8333, daily backups
+make infra-up    # PostgreSQL on 5433, Valkey on 6379 (queues) and 6380 (page cache), Mailpit on 1025/8025, S3 storage on 8333, daily backups
 make migrate     # applies the database migrations
 make dev         # site at http://localhost:3000 and the worker
 ```

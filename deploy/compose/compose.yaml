@@ -36,6 +36,29 @@ services:
       timeout: 5s
       retries: 10
 
+  # The shared page cache's own Valkey (ADR 0013): capped, evicting the
+  # least recently used pages, and not saved to disk, so a full cache can
+  # never take memory the queues in "redis" need (they must never evict).
+  cache:
+    image: valkey/valkey:8-alpine
+    command:
+      - valkey-server
+      - --maxmemory
+      - 256mb
+      - --maxmemory-policy
+      - allkeys-lru
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+    ports:
+      - "127.0.0.1:${PAGE_CACHE_HOST_PORT:-6380}:6379"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   mailpit:
     image: axllent/mailpit:v1.27
     ports:
@@ -126,10 +149,13 @@ services:
       - path: ../../.env
         required: false
     environment: &scale-environment
-      DATABASE_URL: ${CONTAINER_DATABASE_URL:-postgres://${POSTGRES_USER:-countrytopics}@postgres:5432/${SCALE_DATABASE:-countrytopics_rehearsal}?sslmode=disable}
+      # Its own database, never CONTAINER_DATABASE_URL, which names the
+      # real one for backups.
+      DATABASE_URL: ${SCALE_DATABASE_URL:-postgres://${POSTGRES_USER:-countrytopics}@postgres:5432/countrytopics_rehearsal?sslmode=disable}
       PGPASSWORD: ${POSTGRES_PASSWORD:-countrytopics_dev}
       DATABASE_REPLICA_URL: ""
       REDIS_URL: redis://redis:6379
+      PAGE_CACHE_URL: redis://cache:6379
       SMTP_URL: smtp://mailpit:1025
       S3_ENDPOINT: ${CONTAINER_S3_ENDPOINT:-http://storage:8333}
       S3_BUCKET: ${SCALE_S3_BUCKET:-countrytopics-rehearsal}
@@ -153,6 +179,8 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      cache:
         condition: service_healthy
       storage:
         condition: service_healthy

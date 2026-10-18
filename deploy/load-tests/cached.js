@@ -17,6 +17,7 @@ export const options = {
     // Listed so the summary shows each page's times.
     "http_req_duration{page:home}": ["p(95)<300"],
     "http_req_duration{page:topics}": ["p(95)<300"],
+    "http_req_duration{page:topic}": ["p(95)<300"],
     "http_req_duration{page:countries}": ["p(95)<300"],
   },
 };
@@ -27,15 +28,13 @@ export function setup() {
 
 export default function ({ slugs }) {
   const pages = [
-    "/",
-    "/topics",
-    `/topics/${pick(slugs)}`,
-    `/countries/${pick(COUNTRIES)}`,
+    ["home", "/"],
+    ["topics", "/topics"],
+    ["topic", `/topics/${pick(slugs)}`],
+    ["countries", `/countries/${pick(COUNTRIES)}`],
   ];
-  for (const path of pages) {
-    const response = http.get(`${BASE}${path}`, {
-      tags: { page: path.split("/")[1] || "home" },
-    });
+  for (const [page, path] of pages) {
+    const response = http.get(`${BASE}${path}`, { tags: { page } });
     check(response, { "answered 200": (r) => r.status === 200 });
   }
   sleep(PAUSE_S);

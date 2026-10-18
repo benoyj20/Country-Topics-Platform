@@ -27,14 +27,26 @@ required a shared Redis cache handler before running two web containers.
   `cacheHandler`, with `cacheMaxMemorySize: 0`):
   - **What it holds:** pages and `unstable_cache` data live in Valkey under
     `<QUEUE_PREFIX>:page-cache:`, serialized with `v8.serialize` (which keeps
-    a page's Buffers and Maps) and kept 7 days at most.
+    a page's Buffers and Maps) and kept 2 hours at most (pages revalidate
+    hourly).
+  - **Its own Valkey** (`PAGE_CACHE_URL`, the `cache` Compose service):
+    capped at 256 MB, evicting the least recently used entries, and not
+    saved to disk. The queues' Valkey must never evict, so the cache must
+    not be able to fill it. Without `PAGE_CACHE_URL` the cache uses
+    `REDIS_URL`, which suits tests only.
+  - **Entries are per build** (Next.js's `BUILD_ID` is in each key). A page
+    points at its build's scripts, so another build must not serve it. Tag
+    purges are shared by all builds, so a purge reaches old containers
+    during a rolling deploy.
   - **Purges:** a purge records each tag's expiry time in Valkey. An entry
     stored before its tag expired is treated as missing, with Next.js's own
     rules for expired and stale tags.
   - **Why the handler checks tags itself:** Next.js checks tags against a
     list held in each process, which a custom handler's purges never update.
-  - **Outages:** a slow or unreachable Valkey is a miss, so the page is
-    rendered (2-second limit). A purge that fails is reported as an error.
+  - **Outages:** only the first connection is waited for (up to 5 seconds,
+    once for all callers). After that, while Valkey is away, every call
+    fails at once and the page is rendered without the cache. A purge that
+    fails is reported as an error.
   - **Build:** `next build` writes nothing to it.
   - **Plain JavaScript:** Next.js imports the file itself, outside its
     bundles. It makes a handler for every request, so the connection and
@@ -47,6 +59,9 @@ required a shared Redis cache handler before running two web containers.
     with production dependencies only.
   - **The workspace layout is kept,** as in the backup image: Node runs the
     workspace packages' TypeScript, but not from inside `node_modules`.
+  - **Read-only code:** the code belongs to root while the process runs as
+    `node`, so a compromised process cannot change its own code. Only
+    Next.js's cache folder is writable.
   - **The build needs no database.** The web build runs with placeholder
     settings. The only page it pre-renders with data, the home page, skips
     the database during the build: with the shared cache, the build's copy
@@ -64,8 +79,10 @@ required a shared Redis cache handler before running two web containers.
     and a failing container is skipped for 10. Caddy names the answering
     container in `X-Served-By`.
   - **Its own data:** the profile runs on a database restored from a backup
-    (`countrytopics_rehearsal`), its own bucket, and its own Valkey prefix
-    (`countrytopics-scale`). Development data is never touched.
+    (`countrytopics_rehearsal`, or `SCALE_DATABASE_URL`; never
+    `CONTAINER_DATABASE_URL`, which names the real database for backups),
+    its own bucket, and its own Valkey prefix (`countrytopics-scale`).
+    Development data is never touched.
   - **Configuration:** containers take `.env` and override only the addresses
     of services as containers see them (`CONTAINER_DATABASE_URL`,
     `CONTAINER_S3_ENDPOINT`, as in ADR 0012). `CLIENT_IP_HEADER` is
@@ -73,8 +90,15 @@ required a shared Redis cache handler before running two web containers.
 - **Tools kept in the repository,** so step 4 can repeat them against a cloud
   copy:
   - `make scale-check` (`deploy/rehearsal/check-stateless.mjs`) proves the
-    containers hold no state. It covers sessions, the shared page cache,
-    purges, and rate limits, alternating between containers.
+    containers hold no state, alternating between containers:
+    - a session works only if every container answers with the account;
+    - after a purge, the page must be rendered once and served from the
+      shared cache by the others (per-container caches would each render
+      it);
+    - the rate limits count across containers.
+
+    Its preparation runs inside a web container, so it uses the same
+    database. It refuses any database not ending in `_rehearsal`.
   - `make scale-seed` fills the rehearsal database with TEST content. It
     refuses any database whose name does not end in `_rehearsal`.
   - `make load-test` runs k6 (`grafana/k6:1.8.2`), cached and uncached, with

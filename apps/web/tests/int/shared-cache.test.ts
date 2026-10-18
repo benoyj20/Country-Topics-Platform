@@ -1,4 +1,7 @@
 import { createRedisConnection } from "@countrytopics/jobs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import SharedCacheHandler, {
@@ -89,6 +92,32 @@ describe("the shared page cache", () => {
     await webA.set("gone", pageValue, {});
     await webA.set("gone", null, {});
     expect(await webB.get("gone", {})).toBeNull();
+  });
+});
+
+describe("builds", () => {
+  /** Next.js's options for a build whose BUILD_ID is `id`. */
+  function buildOptions(id: string) {
+    const dist = mkdtempSync(path.join(tmpdir(), "next-build-"));
+    writeFileSync(path.join(dist, "BUILD_ID"), id);
+    mkdirSync(path.join(dist, "server"));
+    return { serverDistDir: path.join(dist, "server") };
+  }
+
+  it("keep their own pages, which point at their own scripts, but share purges", async () => {
+    const oldBuild = new SharedCacheHandler(buildOptions("TEST-build-1"));
+    const newBuild = new SharedCacheHandler(buildOptions("TEST-build-2"));
+    await oldBuild.set("/route-cache/APP_PAGE/x/$/builds", pageValue, {});
+    expect(
+      await newBuild.get("/route-cache/APP_PAGE/x/$/builds", {}),
+    ).toBeNull();
+    expect(
+      await oldBuild.get("/route-cache/APP_PAGE/x/$/builds", {}),
+    ).not.toBeNull();
+    await newBuild.revalidateTag("public:topics", { expire: 0 });
+    expect(
+      await oldBuild.get("/route-cache/APP_PAGE/x/$/builds", {}),
+    ).toBeNull();
   });
 });
 

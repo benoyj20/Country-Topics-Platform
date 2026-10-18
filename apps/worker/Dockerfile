@@ -13,10 +13,12 @@ RUN pnpm install --frozen-lockfile --prod --filter "@countrytopics/worker..."
 FROM node:22.23.3-alpine3.24
 ENV NODE_ENV=production
 WORKDIR /app
-COPY --from=build --chown=node:node /repo/package.json /repo/pnpm-workspace.yaml ./
-COPY --from=build --chown=node:node /repo/node_modules ./node_modules
-COPY --from=build --chown=node:node /repo/packages ./packages
-COPY --from=build --chown=node:node /repo/apps/worker ./apps/worker
+# The code belongs to root and the worker runs as `node`, so it cannot
+# change its own code.
+COPY --from=build /repo/package.json /repo/pnpm-workspace.yaml ./
+COPY --from=build /repo/node_modules ./node_modules
+COPY --from=build /repo/packages ./packages
+COPY --from=build /repo/apps/worker ./apps/worker
 WORKDIR /app/apps/worker
 USER node
 CMD ["node", "src/index.ts"]

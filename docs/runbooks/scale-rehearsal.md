@@ -7,7 +7,8 @@ results are in the checklist (Week 11).
 
 The rehearsal never touches development data. It runs on:
 
-- its own database, restored from a backup;
+- its own database, restored from a backup (`countrytopics_rehearsal`, or
+  `SCALE_DATABASE_URL`);
 - its own uploads bucket;
 - its own Valkey prefix (`countrytopics-scale`) for queues, limits, and the
   page cache.
@@ -59,13 +60,20 @@ docker compose --env-file .env -f deploy/compose/compose.yaml --profile scale \
 make scale-check
 ```
 
-It invites two made-up addresses on the rehearsal's database. Then, through
-the load balancer, it checks that:
+It prepares the rehearsal's database from inside a web container, and refuses
+any database not ending in `_rehearsal`. The preparation:
+
+- invites two made-up addresses;
+- resets the admin's authenticator, as `make reset-2fa` does;
+- clears the sign-in rate limits, so runs can follow each other.
+
+Then, through the load balancer, it checks that:
 
 - a session made on one container works on the other;
-- pages come from the shared cache on both;
 - publishing a change to a TEST topic through one container purges the page
   on both;
+- the page is then rendered once, and the other container's first answer is
+  a HIT from the shared cache;
 - a member's comment limit counts across containers.
 
 ## 4. Load-test

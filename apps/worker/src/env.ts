@@ -1,3 +1,4 @@
+import { DEFAULT_QUEUE_PREFIX } from "@countrytopics/jobs";
 import {
   type ErrorReportingConfig,
   readErrorReporting,
@@ -25,7 +26,7 @@ export type WorkerEnv = {
   errorReporting?: ErrorReportingConfig;
 };
 
-export const DEFAULT_QUEUE_PREFIX = "countrytopics";
+export { DEFAULT_QUEUE_PREFIX };
 
 const QUEUE_PREFIX_PATTERN = /^[a-z0-9-]+$/;
 

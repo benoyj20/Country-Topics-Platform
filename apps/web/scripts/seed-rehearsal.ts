@@ -158,8 +158,11 @@ for (let n = 1; n <= MEMBERS; n += 1) {
 }
 
 // Comments straight into the table, as the comment routes write them: many
-// rows, and no hooks to run.
-const { pool } = payload.db as unknown as PostgresAdapter;
+// rows, and no hooks to run. Payload types its database as the generic
+// adapter; this config always uses the PostgreSQL one, checked here before
+// any comment is written (as src/write-pool.ts does).
+const { pool } = payload.db as unknown as Partial<PostgresAdapter>;
+if (!pool) throw new Error("The database adapter has no PostgreSQL pool.");
 let comments = 0;
 for (const [index, topicId] of topicIds.entries()) {
   const at = new Date(Date.now() - (topicIds.length - index) * 60_000);

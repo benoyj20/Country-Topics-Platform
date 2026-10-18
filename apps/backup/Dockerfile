@@ -15,10 +15,12 @@ RUN pnpm install --frozen-lockfile --prod --filter "@countrytopics/backup..."
 FROM node:22.23.3-alpine3.24
 RUN apk add --no-cache postgresql17-client
 WORKDIR /app
-COPY --from=build --chown=node:node /repo/package.json /repo/pnpm-workspace.yaml ./
-COPY --from=build --chown=node:node /repo/node_modules ./node_modules
-COPY --from=build --chown=node:node /repo/packages/observability ./packages/observability
-COPY --from=build --chown=node:node /repo/apps/backup ./apps/backup
+# The code belongs to root and the command runs as `node`, so it cannot
+# change its own code; it writes only temporary files.
+COPY --from=build /repo/package.json /repo/pnpm-workspace.yaml ./
+COPY --from=build /repo/node_modules ./node_modules
+COPY --from=build /repo/packages/observability ./packages/observability
+COPY --from=build /repo/apps/backup ./apps/backup
 WORKDIR /app/apps/backup
 USER node
 ENTRYPOINT ["node", "src/index.ts"]

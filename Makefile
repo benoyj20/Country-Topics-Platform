@@ -49,7 +49,6 @@ restore: ## Restore a backup into a new database: make restore BACKUP=<id> DATAB
 	$(COMPOSE) run --rm backup restore "$(BACKUP)" "$(DATABASE)" $(if $(FILES_BUCKET),--files-bucket "$(FILES_BUCKET)")
 
 SCALE = $(COMPOSE) --profile scale
-SCALE_DATABASE ?= countrytopics_rehearsal
 
 scale-up: ## Scale rehearsal: two web and two worker containers behind a load balancer at http://localhost:8080 (see docs/runbooks/scale-rehearsal.md)
 	$(SCALE) up -d --build --wait web worker lb
@@ -59,7 +58,7 @@ scale-seed: ## Fill the rehearsal database with made-up TEST content for load te
 	$(SCALE) restart worker
 
 scale-check: ## Show the rehearsal keeps no state in its containers (sessions, page cache, limits)
-	$(SCALE) exec -T postgres sh -c 'psql -v ON_ERROR_STOP=1 -q -U "$$POSTGRES_USER" -d $(SCALE_DATABASE)' < deploy/rehearsal/prepare-check.sql
+	$(SCALE) exec -T web node --input-type=module - < deploy/rehearsal/prepare-check.mjs
 	$(SCALE) exec -T redis sh -c "valkey-cli --scan --pattern 'countrytopics-scale:rate:*' | xargs -r valkey-cli del > /dev/null"
 	node deploy/rehearsal/check-stateless.mjs
 

@@ -1,7 +1,13 @@
 // @ts-check
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { deserialize, serialize } from "node:v8";
 
-import { Redis } from "ioredis";
+import {
+  createRedisConnection,
+  DEFAULT_QUEUE_PREFIX,
+  REDIS_CONNECT_TIMEOUT_MS,
+} from "@countrytopics/jobs";
 
 // The shared page cache (ADR 0013): Next.js's cache of pages and
 // unstable_cache data kept in Valkey instead of each web process's memory
@@ -13,71 +19,96 @@ import { Redis } from "ioredis";
 // and all state live outside the instances: the connection in this module,
 // the entries and tag purges in Valkey.
 //
-// Entries are stored with v8.serialize, which keeps the Buffers and Maps
-// of a rendered page. Purges record when each tag expired; an entry made
-// before its tag expired is treated as missing, so the page is rendered
-// again. Times come from each process's clock, as in Next.js's own cache;
-// the web containers must agree on the time (one host, or NTP).
+// - PAGE_CACHE_URL names its own Valkey, which may evict entries (LRU);
+//   the queues' Valkey (REDIS_URL) must never evict, so the cache must not
+//   fill it. Without PAGE_CACHE_URL it falls back to REDIS_URL.
+// - Entries are per build: a page rendered by one build points at that
+//   build's scripts, so another build must not serve it. Tag purges are
+//   shared by every build, so a purge reaches old containers during a
+//   rolling deploy too.
+// - Entries are stored with v8.serialize, which keeps the Buffers and Maps
+//   of a rendered page. An entry made before one of its tags expired is
+//   treated as missing, so the page is rendered again. Times come from
+//   each process's clock, as in Next.js's own cache; the web containers
+//   must agree on the time (one host, or NTP).
 
-/** Entries unused for this long are dropped; pages revalidate hourly anyway. */
-const ENTRY_TTL_S = 7 * 24 * 60 * 60;
-const CONNECT_TIMEOUT_MS = 5_000;
-/** A slow cache must not hold up pages; a miss renders them instead. */
-const COMMAND_TIMEOUT_MS = 2_000;
+/** Entries live at most this long; pages and data revalidate hourly. */
+const ENTRY_TTL_S = 2 * 60 * 60;
 const TAGS_HEADER = "x-next-cache-tags";
 
 /**
  * @typedef {{ stale?: number; expired?: number }} TagState
  * @typedef {{ value: unknown; lastModified: number; tags: string[] }} Entry
+ * @typedef {ReturnType<typeof createRedisConnection>} Redis
  */
 
-/** @type {Redis | undefined} */
+/** @type {{ client: Redis; firstReady: Promise<unknown> } | undefined} */
 let connection;
+/** Build ids by the server folder they were read from. */
+const buildIds = new Map();
 
 function prefix() {
-  return `${process.env.QUEUE_PREFIX?.trim() || "countrytopics"}:page-cache`;
-}
-
-/** @returns {Redis} */
-function client() {
-  if (!connection) {
-    const url = process.env.REDIS_URL?.trim();
-    if (!url) throw new Error("REDIS_URL is not set");
-    connection = new Redis(url, {
-      connectTimeout: CONNECT_TIMEOUT_MS,
-      commandTimeout: COMMAND_TIMEOUT_MS,
-      maxRetriesPerRequest: 1,
-      enableOfflineQueue: false,
-    });
-    // It reconnects by itself; meanwhile pages render without the cache.
-    connection.on("error", (error) =>
-      console.warn("Page cache connection error:", error.message),
-    );
-  }
-  return connection;
+  return `${process.env.QUEUE_PREFIX?.trim() || DEFAULT_QUEUE_PREFIX}:page-cache`;
 }
 
 /**
- * The connection once it is ready. Commands fail at once while it is not
- * (no offline queue), so the first request after a start waits for it,
- * briefly: a cache that cannot be reached is a miss, not an outage.
+ * The build this process serves, from Next.js's BUILD_ID beside the
+ * server's compiled files; "development" for `next dev` and the tests.
+ * @param {{ serverDistDir?: string } | undefined} options
+ */
+function readBuildId(options) {
+  const dir = options?.serverDistDir;
+  if (!dir) return "development";
+  let id = buildIds.get(dir);
+  if (!id) {
+    try {
+      id = readFileSync(path.join(dir, "..", "BUILD_ID"), "utf8").trim();
+    } catch {
+      id = "development";
+    }
+    buildIds.set(dir, id);
+  }
+  return id;
+}
+
+/**
+ * The connection once it is ready. Only the first connection is waited
+ * for, once for every caller together, at most the connect timeout. After
+ * that, while Valkey is away, calls fail at once and pages render without
+ * the cache rather than wait for it.
  * @returns {Promise<Redis>}
  */
 async function redis() {
-  const redis = client();
-  if (redis.status === "ready") return redis;
-  await new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      redis.off("ready", onReady);
-      reject(new Error("Valkey did not answer in time"));
-    }, COMMAND_TIMEOUT_MS);
-    const onReady = () => {
-      clearTimeout(timer);
-      resolve(undefined);
-    };
-    redis.once("ready", onReady);
-  });
-  return redis;
+  if (!connection) {
+    const url =
+      process.env.PAGE_CACHE_URL?.trim() || process.env.REDIS_URL?.trim();
+    if (!url) throw new Error("PAGE_CACHE_URL or REDIS_URL must be set");
+    const client = createRedisConnection(url, "producer");
+    // It reconnects by itself; meanwhile pages render without the cache.
+    client.on("error", (error) =>
+      console.warn("Page cache connection error:", error.message),
+    );
+    const firstReady = new Promise((resolve, reject) => {
+      const timer = setTimeout(
+        () => reject(new Error("Valkey did not answer in time")),
+        REDIS_CONNECT_TIMEOUT_MS,
+      );
+      client.once("ready", () => {
+        clearTimeout(timer);
+        resolve(undefined);
+      });
+    });
+    // Callers await it below; one nobody awaits is not an error.
+    firstReady.catch(() => undefined);
+    connection = { client, firstReady };
+  }
+  const { client, firstReady } = connection;
+  if (client.status === "ready") return client;
+  if (client.status === "connecting" || client.status === "wait") {
+    await firstReady;
+    return client;
+  }
+  throw new Error(`Valkey is ${client.status}`);
 }
 
 /** During `next build` there is no Valkey to reach, and nothing to share. */
@@ -146,6 +177,11 @@ function parseTagState(text) {
 }
 
 export default class SharedCacheHandler {
+  /** @param {{ serverDistDir?: string }} [options] Next.js's cache options. */
+  constructor(options) {
+    this.entryPrefix = `${prefix()}:entry:${readBuildId(options)}:`;
+  }
+
   /**
    * @param {string} key
    * @param {{ tags?: string[]; softTags?: string[] }} [ctx]
@@ -154,7 +190,7 @@ export default class SharedCacheHandler {
     if (building()) return null;
     try {
       const valkey = await redis();
-      const stored = await valkey.getBuffer(`${prefix()}:entry:${key}`);
+      const stored = await valkey.getBuffer(this.entryPrefix + key);
       if (!stored) return null;
       const entry = /** @type {Entry} */ (deserialize(stored));
       const tags = entryTags(entry, ctx);
@@ -186,10 +222,10 @@ export default class SharedCacheHandler {
    */
   async set(key, data, ctx) {
     if (building()) return;
-    const entryKey = `${prefix()}:entry:${key}`;
     try {
+      const valkey = await redis();
       if (data === null) {
-        await (await redis()).del(entryKey);
+        await valkey.del(this.entryPrefix + key);
         return;
       }
       /** @type {Entry} */
@@ -198,7 +234,12 @@ export default class SharedCacheHandler {
         lastModified: Date.now(),
         tags: ctx?.tags ?? [],
       };
-      await (await redis()).set(entryKey, serialize(entry), "EX", ENTRY_TTL_S);
+      await valkey.set(
+        this.entryPrefix + key,
+        serialize(entry),
+        "EX",
+        ENTRY_TTL_S,
+      );
     } catch (error) {
       console.warn(
         "Page cache write failed:",
@@ -208,9 +249,9 @@ export default class SharedCacheHandler {
   }
 
   /**
-   * Marks tags purged for every web process. Without durations they expire
-   * now; with them they are stale now and expire after `expire` seconds,
-   * as in Next.js's own cache.
+   * Marks tags purged for every web process and build. Without durations
+   * they expire now; with them they are stale now and expire after
+   * `expire` seconds, as in Next.js's own cache.
    * @param {string | string[]} tags
    * @param {{ expire?: number }} [durations]
    */

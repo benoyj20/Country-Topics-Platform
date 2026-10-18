@@ -31,6 +31,14 @@ describe("readBackupEnv", () => {
     assert.equal(elsewhere.backups.accessKeyId, "other");
   });
 
+  it("never sends the site's keys to another backup service", () => {
+    assert.throws(
+      () =>
+        readBackupEnv({ ...valid, BACKUP_S3_ENDPOINT: "https://r2.example" }),
+      /BACKUP_S3_ACCESS_KEY_ID and BACKUP_S3_SECRET_ACCESS_KEY must be set when BACKUP_S3_ENDPOINT names another service/,
+    );
+  });
+
   it("refuses a missing or shared backup bucket, naming the variable only", () => {
     assert.throws(
       () => readBackupEnv({ ...valid, BACKUP_S3_BUCKET: "" }),

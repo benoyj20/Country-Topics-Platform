@@ -64,7 +64,7 @@ test-int: ## Run integration tests against TEST_DATABASE_URL (wipes that databas
 	pnpm test:int
 
 test-backup: ## Run the backup and restore tests in the backup image (makes and drops its own databases)
-	$(COMPOSE) run --rm --build --no-deps --entrypoint node backup --test "tests/int/**/*.test.ts"
+	$(COMPOSE) run --rm --build --no-deps -e SENTRY_DSN= --entrypoint node backup --test "tests/int/**/*.test.ts"
 
 build: ## Build all packages
 	pnpm build

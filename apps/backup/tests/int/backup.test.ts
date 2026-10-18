@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { after, before, describe, it } from "node:test";
 import { Readable } from "node:stream";
 import pg from "pg";
@@ -107,6 +109,27 @@ after(async () => {
   for (const storage of [files, backups, restoredFiles]) storage.close();
 });
 
+describe("the backup command", () => {
+  it("starts and lists backups, as its container runs it", async () => {
+    // The real entry point, so a module that cannot load in the image fails
+    // here rather than in production.
+    const { stdout } = await promisify(execFile)(
+      process.execPath,
+      ["src/index.ts", "list"],
+      {
+        env: {
+          ...process.env,
+          DATABASE_URL: sourceUrl,
+          S3_BUCKET: files.bucket,
+          BACKUP_S3_BUCKET: backups.bucket,
+          SENTRY_DSN: "",
+        },
+      },
+    );
+    assert.match(stdout, /No backups yet\.|\d{4}-\d{2}-\d{2}T/);
+  });
+});
+
 describe("backups", () => {
   it("dump the database with its row counts and copy the uploads", async () => {
     const manifest = await takeBackup({
@@ -121,7 +144,7 @@ describe("backups", () => {
       topics: 2,
     });
     assert.equal(manifest.lastMigration, "20261002_000000_second");
-    assert.equal(manifest.files, 1);
+    assert.deepEqual(manifest.fileKeys, ["test-upload.txt"]);
     assert.deepEqual(await keysOf(backups, "files/"), [
       "files/test-upload.txt",
     ]);
@@ -187,7 +210,15 @@ describe("backups", () => {
     );
   });
 
-  it("copy each upload once and delete backups past their retention", async () => {
+  it("copy each upload once and delete backups past their retention, with the uploads only they listed", async () => {
+    // An upload removed from the site after the old backup listed it.
+    const removed = Buffer.from("TEST removed later");
+    await files.write(
+      "removed-later.txt",
+      Readable.from(removed),
+      removed.length,
+      "text/plain",
+    );
     const old = await takeBackup({
       databaseUrl: sourceUrl,
       files,
@@ -195,6 +226,8 @@ describe("backups", () => {
       now: new Date(Date.now() - 20 * DAY_MS),
       log: silent,
     });
+    assert.ok(old.fileKeys.includes("removed-later.txt"));
+    await files.remove(["removed-later.txt"]);
     const messages: string[] = [];
     const fresh = await takeBackup({
       databaseUrl: sourceUrl,
@@ -207,5 +240,9 @@ describe("backups", () => {
     assert.ok(ids.includes(fresh.id));
     assert.ok(!ids.includes(old.id));
     assert.ok(!(await keysOf(backups, "db/")).includes(dumpKey(old.id)));
+    // No kept backup lists the removed upload, so its copy is gone too.
+    assert.deepEqual(await keysOf(backups, "files/"), [
+      "files/test-upload.txt",
+    ]);
   });
 });

@@ -933,15 +933,24 @@ rehearsal is the rest of week 11, in a later PR.
     badly formed name is refused, and so is a dump whose checksum does not
     match;
   - a second backup copies no upload again, and backups past 14 days are
-    deleted while the newest stays.
+    deleted while the newest stays, together with copies of uploads that no
+    kept backup lists (an upload removed from the site);
+  - the real command starts and lists backups, so a module that cannot load
+    in the image fails the test.
 - [x] The rules (names, manifests, retention, configuration, connection
   settings without the password on the command line) have unit tests.
 - [x] The development database: `make infra-up` started the backup service,
   which took the first backup (52 tables, 483 rows, 1 upload). `make
   restore` restored it into a new database with every table matching and
   the upload copied (2026-10-18).
-- [x] Found and fixed while running it: the scheduler's timer did not keep
-  the process alive, so it exited after each check and Compose restarted it.
+- [x] Found and fixed while running it:
+  - the scheduler's timer did not keep the process alive, so it exited after
+    each check and Compose restarted it;
+  - the image placed the shared package inside `node_modules`, where Node
+    does not run TypeScript, so the command could not start; the image now
+    keeps the workspace layout.
+- [x] `docker compose stop backup` stops it in a second with exit code 0
+  (2026-10-18).
 - [x] Error reporting: Sentry accepted a test event from the worker's setup
   (HTTP 200), and a browser-style report sent through `/api/v1/errors` was
   passed on with no warning. A report from another site was refused (403)
@@ -953,10 +962,29 @@ rehearsal is the rest of week 11, in a later PR.
   - the route keeps only error events, scrubbed again with the configured
     environment and the real DSN, refuses other sites, and sends nothing
     while reporting is off (against a stand-in for Sentry);
-  - `SENTRY_DSN` and `SENTRY_ENVIRONMENT` are checked by name.
+  - `SENTRY_DSN` and `SENTRY_ENVIRONMENT` are checked by name;
+  - email addresses in console arguments and other extra data are hidden.
 
   The integration tests clear `SENTRY_DSN`, so they never reach the real
   project.
+- [x] The code review before the first push found ten issues, all fixed
+  (2026-10-18):
+  - email addresses in the console's arguments reached Sentry unscrubbed;
+  - copies of uploads were never deleted, so a removed upload stayed in
+    the backups and came back on restore;
+  - jobs that failed for good on the first attempt (`UnrecoverableError`)
+    were warnings and never reported;
+  - the backup container ignored a managed uploads service
+    (`CONTAINER_S3_ENDPOINT`, `CONTAINER_DATABASE_URL`);
+  - one unreadable manifest stopped every later backup;
+  - the error route's rate limit trusted `X-Forwarded-For`, which a client
+    can forge;
+  - `.env` files in subfolders could reach the image;
+  - a stop signal during a backup was ignored, and Ctrl+C did not end
+    `make backup` or `make restore`;
+  - a backup endpoint without its own keys would have received the site's
+    keys;
+  - failed or stopped backups were not reported.
 - [ ] The developer restores a backup.
 - [ ] Before the pilot:
   - set `BACKUP_S3_*` to another storage service (such as Cloudflare R2) and

@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./node": "./src/node.ts"
   },
   "scripts": {
     "lint": "eslint .",
@@ -17,5 +18,8 @@
     "eslint": "9.39.5",
     "typescript": "5.9.3",
     "typescript-eslint": "8.71.2"
+  },
+  "dependencies": {
+    "@sentry/node": "11.4.0"
   }
 }

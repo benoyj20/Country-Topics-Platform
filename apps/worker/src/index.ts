@@ -13,6 +13,10 @@ import {
   createVideoWorker,
   requeuePendingChecks,
 } from "@countrytopics/jobs";
+import {
+  startErrorReporting,
+  stopErrorReporting,
+} from "@countrytopics/observability/node";
 import { createPostgresTopicSearch } from "@countrytopics/search";
 import {
   checkUrl,
@@ -26,7 +30,6 @@ import {
 import pg from "pg";
 
 import { readWorkerEnv } from "./env.ts";
-import { startErrorReporting, stopErrorReporting } from "./error-reporting.ts";
 
 const DATABASE_CONNECT_TIMEOUT_MS = 5_000;
 
@@ -89,10 +92,16 @@ const workers: Record<string, ReturnType<typeof createEmailWorker>> = {
 };
 
 // Log the job id and error only: email jobs contain sign-in links. Only
-// the last attempt is an error, which error reporting sends on.
+// the last attempt is an error, which error reporting sends on; earlier
+// ones are retried, so they are warnings.
 for (const [name, worker] of Object.entries(workers)) {
   worker.on("failed", (job, error) => {
-    const final = !job || job.attemptsMade >= (job.opts.attempts ?? 1);
+    // BullMQ retries a job until its attempts run out, unless it threw an
+    // UnrecoverableError (bad data), which fails it for good at once.
+    const final =
+      !job ||
+      error.name === "UnrecoverableError" ||
+      job.attemptsMade >= (job.opts.attempts ?? 1);
     (final ? console.error : console.warn)(
       `${name} job ${job?.id ?? "unknown"} failed (attempt ${job?.attemptsMade ?? "?"}${final ? ", the last" : ""}):`,
       error.message,

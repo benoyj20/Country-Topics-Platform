@@ -1,4 +1,9 @@
-import { backupDue, isBackupId } from "./catalog.ts";
+import {
+  startErrorReporting,
+  stopErrorReporting,
+} from "@countrytopics/observability/node";
+
+import { backupDue, backupOverdue, isBackupId } from "./catalog.ts";
 import { listBackups, restoreBackup, takeBackup } from "./backups.ts";
 import { type BackupEnv, readBackupEnv } from "./env.ts";
 import { createStorage, type Storage } from "./storage.ts";
@@ -42,20 +47,32 @@ async function schedule({ env, files, backups }: Context): Promise<void> {
         await takeBackup({ databaseUrl: env.databaseUrl, files, backups });
       }
     } catch (error) {
-      // Tried again at the next check; the error is in the container's log.
+      // Tried again at the next check. Errors are reported (error-reporting.ts).
       console.error(
         "Backup failed:",
         error instanceof Error ? error.message : error,
       );
     }
-    // The timer keeps the process alive between checks; a stop signal
-    // ends the wait early.
+    try {
+      const [newest] = await listBackups(backups);
+      if (backupOverdue(newest, new Date())) {
+        console.error(
+          `The newest backup is ${newest ? `from ${newest.createdAt}` : "missing"}; backups are failing.`,
+        );
+      }
+    } catch {
+      // The failure to reach the backup bucket was reported just above.
+    }
+    if (stopping) break;
+    // The timer keeps the process alive between checks; a stop signal,
+    // even one that came during the backup, ends the wait.
     await new Promise<void>((resolve) => {
       const timer = setTimeout(resolve, CHECK_EVERY_MS);
       wake = () => {
         clearTimeout(timer);
         resolve();
       };
+      if (stopping) wake();
     });
   }
 }
@@ -69,7 +86,7 @@ async function list({ backups }: Context): Promise<void> {
   for (const manifest of manifests) {
     const rows = Object.values(manifest.tables).reduce((a, b) => a + b, 0);
     console.log(
-      `${manifest.id}  ${(manifest.dumpBytes / 1024).toFixed(0)} KB  ${rows} rows  ${manifest.files} uploads  migration ${manifest.lastMigration ?? "none"}`,
+      `${manifest.id}  ${(manifest.dumpBytes / 1024).toFixed(0)} KB  ${rows} rows  ${manifest.fileKeys.length} uploads  migration ${manifest.lastMigration ?? "none"}`,
     );
   }
 }
@@ -114,6 +131,7 @@ const [command, ...args] = process.argv.slice(2);
 let context: Context | undefined;
 try {
   const env = readBackupEnv();
+  startErrorReporting(env.errorReporting);
   context = {
     env,
     files: createStorage(env.files),
@@ -132,4 +150,5 @@ try {
 } finally {
   context?.files.close();
   context?.backups.close();
+  await stopErrorReporting();
 }

@@ -1,5 +1,5 @@
 import { readLimitedBody } from "@/api/json";
-import { clientAddress } from "@/api/client-address";
+import { trustedClientAddress } from "@/api/client-address";
 import { rateLimited } from "@/api/member";
 import { isSameOriginWrite } from "@/auth/same-origin";
 import { serverEnv } from "@/env";
@@ -22,10 +22,11 @@ export async function POST(request: Request) {
   if (!isSameOriginWrite(request.headers, serverEnv().siteUrl)) {
     return new Response(null, { status: 403 });
   }
-  const limited = await rateLimited(
-    "error-report",
-    clientAddress(request.headers),
-  );
+  const limited =
+    (await rateLimited(
+      "error-report",
+      trustedClientAddress(request.headers) ?? "shared",
+    )) ?? (await rateLimited("error-report-site", "site"));
   if (limited) return limited;
   const body = await readLimitedBody(request, ERROR_ENVELOPE_MAX_BYTES);
   if (!body.ok) return body.response;

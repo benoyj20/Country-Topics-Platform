@@ -5,8 +5,8 @@
 **/dist
 **/coverage
 **/*.tsbuildinfo
-.env
-.env.*
+**/.env
+**/.env.*
 !.env.example
 .data
 .superpowers

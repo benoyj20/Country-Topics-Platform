@@ -1,15 +1,12 @@
 import { serverEnv } from "@/env";
 
 /**
- * The visitor's address, for limits that apply before anyone signs in
- * (ADR 0012): the proxy's header when CLIENT_IP_HEADER names one (ADR
- * 0010), else the first X-Forwarded-For entry, which a client can forge,
- * so it serves only to slow abuse, never to identify anyone.
+ * The visitor's address from the proxy's header named by CLIENT_IP_HEADER
+ * (ADR 0010), or null without one. Other headers, such as X-Forwarded-For,
+ * are set by the client and cannot be trusted, so limits that need an
+ * address share one bucket instead (ADR 0012).
  */
-export function clientAddress(headers: Headers): string {
+export function trustedClientAddress(headers: Headers): string | null {
   const header = serverEnv().clientIpHeader;
-  const value = header
-    ? headers.get(header)
-    : headers.get("x-forwarded-for")?.split(",")[0];
-  return value?.trim() || "unknown";
+  return (header && headers.get(header)?.trim()) || null;
 }

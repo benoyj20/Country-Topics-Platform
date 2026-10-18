@@ -6,13 +6,20 @@ FROM node:22.23.3-alpine3.24 AS build
 RUN npm install --global pnpm@10.17.1
 WORKDIR /repo
 COPY . .
-# Only this app and its production dependencies, as plain files.
-RUN pnpm --filter @countrytopics/backup deploy --prod --legacy /out
+# This app and the workspace packages it uses, with production
+# dependencies only. The workspace layout is kept: Node runs TypeScript
+# directly but not from inside node_modules, and pnpm links workspace
+# packages to their own folders.
+RUN pnpm install --frozen-lockfile --prod --filter "@countrytopics/backup..."
 
 FROM node:22.23.3-alpine3.24
 RUN apk add --no-cache postgresql17-client
 WORKDIR /app
-COPY --from=build --chown=node:node /out .
+COPY --from=build --chown=node:node /repo/package.json /repo/pnpm-workspace.yaml ./
+COPY --from=build --chown=node:node /repo/node_modules ./node_modules
+COPY --from=build --chown=node:node /repo/packages/observability ./packages/observability
+COPY --from=build --chown=node:node /repo/apps/backup ./apps/backup
+WORKDIR /app/apps/backup
 USER node
 ENTRYPOINT ["node", "src/index.ts"]
 CMD ["schedule"]

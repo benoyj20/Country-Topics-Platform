@@ -33,8 +33,12 @@ load tests) is the rest of week 11, in its own PR.
     exactly.
   - A manifest records the counts, the newest migration, and the dump's size
     and SHA-256, and is written last.
-  - Uploads are copied once into `files/`. They never change after upload,
-    and they are never deleted while used (ADR 0007).
+  - Uploads are copied once into `files/`, since they never change after
+    upload. Each manifest lists the uploads its backup holds.
+  - A copy is deleted once no kept backup lists it. So a file removed from
+    the site, for example for a legal reason, leaves the backups after 14
+    days like the rest, and a restore copies only the files its own backup
+    lists.
   - Valkey is not backed up: it holds only queues, limits, and caches.
 - **When and for how long:**
   - The service checks hourly and takes a backup when the newest is a day
@@ -44,13 +48,25 @@ load tests) is the rest of week 11, in its own PR.
     configuration, so the two cannot drift apart.
 - **Where:**
   - The `BACKUP_S3_*` settings, each defaulting to the site's storage, with a
-    bucket that must differ from the site's.
+    bucket that must differ from the site's. A different endpoint needs its
+    own keys, so the site's keys are never sent to another service.
+  - Containers reach the database and uploads through `CONTAINER_DATABASE_URL`
+    and `CONTAINER_S3_ENDPOINT`, which default to the Compose services and
+    are set when the site uses managed ones.
   - Locally that is the same disk. For the pilot it should be another
     service, such as Cloudflare R2. The checklist tracks this.
 - **Restores go only into a new database**, created by the tool. It refuses
   the live database and any that exists. It checks the dump's checksum, then
   compares every table's row count with the manifest. It can copy uploads
   into a bucket, copying only missing files.
+- **Failures are reported.** A failed backup or restore, a manifest that
+  cannot be read (skipped, so it cannot stop backups), and a newest backup
+  more than two days old are logged as errors and sent to Sentry.
+- **The image keeps the workspace layout.** Node runs TypeScript directly,
+  but not from inside `node_modules`, and pnpm links workspace packages to
+  their own folders. A test runs the real command, so a module that cannot
+  load fails in CI. The worker's image (scale rehearsal) will work the same
+  way.
 - **Recovering the live site** follows
   [the runbook](../runbooks/backup-and-restore.md). It includes deleting
   again the accounts deleted after the backup.
@@ -59,19 +75,25 @@ load tests) is the rest of week 11, in its own PR.
     - On the site's server: errors Next.js catches (`onRequestError`),
       Payload API errors of 500 or above, and `console.error` calls. Those
       are how the `/api/v1` routes record failures they answer with 503.
-    - In the worker: a job's last failed attempt and its own errors.
+    - In the worker: a job's last failed attempt, including one that fails
+      for good at once (an `UnrecoverableError`), and its own errors.
       Attempts that will be retried are only warnings.
     - In the browser: the SDK loads after the page.
   - **Less personal data:** the `@countrytopics/observability` package
     scrubs every event and breadcrumb. It removes:
     - the user, cookies, request bodies, and query strings;
     - every header but the user agent;
-    - email addresses in messages;
+    - email addresses in messages and in extra data, such as the console's
+      arguments;
     - console and click breadcrumbs.
   - **No tracing:** no performance tracing, replays, or session counts.
   - **The browser never talks to Sentry.** It sends to `/api/v1/errors`.
     The site:
-    - accepts only requests from its own pages, rate-limited per address;
+    - accepts only requests from its own pages;
+    - rate-limits them per visitor address when a trusted proxy header
+      gives one (`CLIENT_IP_HEADER`), else in one shared bucket, since
+      other headers can be forged, and caps them for the whole site to
+      protect the Sentry project's quota;
     - keeps only error events and scrubs them again;
     - sets the environment and adds the real DSN;
     - forwards them with a timeout.

@@ -16,7 +16,6 @@
     "@countrytopics/observability": "workspace:*",
     "@countrytopics/search": "workspace:*",
     "@countrytopics/sources": "workspace:*",
-    "@sentry/node": "11.4.0",
     "pg": "8.20.0"
   },
   "devDependencies": {

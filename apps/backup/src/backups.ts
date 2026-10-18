@@ -15,6 +15,7 @@ import {
   type Manifest,
   manifestKey,
   parseManifest,
+  unusedFileCopies,
 } from "./catalog.ts";
 import { dumpDatabase, restoreDatabase } from "./postgres.ts";
 import type { Storage } from "./storage.ts";
@@ -42,51 +43,76 @@ async function withTempDir<T>(work: (dir: string) => Promise<T>): Promise<T> {
 }
 
 /**
- * Copies each object of `from` (under `fromPrefix`) that `to` does not yet
- * hold with the same size, to `toPrefix` plus the rest of its key. Returns
- * how many objects `to` holds there afterwards and how many were copied.
+ * Copies each object of `from` under `fromPrefix` (only the names in
+ * `only`, when given) that `to` does not yet hold with the same size, to
+ * `toPrefix` plus the rest of its key. Returns the names considered (keys
+ * without `fromPrefix`) and how many were copied.
  */
 async function copyMissing(
   from: Storage,
   fromPrefix: string,
   to: Storage,
   toPrefix: string,
-): Promise<{ total: number; copied: number }> {
+  only?: ReadonlySet<string>,
+): Promise<{ names: string[]; copied: number }> {
   const present = new Map<string, number>();
   for await (const item of to.list(toPrefix)) present.set(item.key, item.size);
+  const names: string[] = [];
   let copied = 0;
   for await (const item of from.list(fromPrefix)) {
-    const key = toPrefix + item.key.slice(fromPrefix.length);
+    const name = item.key.slice(fromPrefix.length);
+    if (only && !only.has(name)) continue;
+    names.push(name);
+    const key = toPrefix + name;
     if (present.get(key) === item.size) continue;
     const { body, size, type } = await from.open(item.key);
     await to.write(key, body, size, type);
     present.set(key, size);
     copied += 1;
   }
-  return { total: present.size, copied };
+  return { names, copied };
 }
 
-/** Every finished backup, newest first. */
+/**
+ * Every finished backup, newest first. A manifest that cannot be read is
+ * left out and logged as an error (which error reporting sends on), so one
+ * damaged file cannot stop backups.
+ */
 export async function listBackups(backups: Storage): Promise<Manifest[]> {
   const manifests: Manifest[] = [];
   for await (const item of backups.list("db/")) {
-    const id = idFromManifestKey(item.key);
-    if (id) manifests.push(parseManifest(await backups.readText(item.key)));
+    if (!idFromManifestKey(item.key)) continue;
+    try {
+      manifests.push(parseManifest(await backups.readText(item.key)));
+    } catch (error) {
+      console.error(
+        `Backup manifest ${item.key} cannot be read, so it is skipped:`,
+        error instanceof Error ? error.message : error,
+      );
+    }
   }
   return manifests.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
-/** Deletes backups past their retention; returns their ids. */
+/**
+ * Deletes backups past their retention, then the upload copies no kept
+ * backup lists; returns the deleted backups' ids.
+ */
 export async function pruneBackups(
   backups: Storage,
   now: Date,
 ): Promise<string[]> {
-  const expired = expiredBackups(await listBackups(backups), now);
+  const manifests = await listBackups(backups);
+  const expired = expiredBackups(manifests, now);
   for (const { id } of expired) {
     // The manifest first, so a half-deleted backup is never listed.
     await backups.remove([manifestKey(id)]);
     await backups.remove([dumpKey(id)]);
   }
+  const kept = manifests.filter((manifest) => !expired.includes(manifest));
+  const copies: string[] = [];
+  for await (const item of backups.list(FILES_PREFIX)) copies.push(item.key);
+  await backups.remove(unusedFileCopies(copies, kept));
   return expired.map(({ id }) => id);
 }
 
@@ -117,13 +143,13 @@ export async function takeBackup({
     const checksum = await sha256(file);
     await backups.writeFile(dumpKey(id), file, "application/octet-stream");
     log(`Backup ${id}: copying uploads`);
-    const { total, copied } = await copyMissing(
+    const { names, copied } = await copyMissing(
       files,
       "",
       backups,
       FILES_PREFIX,
     );
-    log(`Backup ${id}: ${copied} new upload(s), ${total} in all`);
+    log(`Backup ${id}: ${copied} new upload(s), ${names.length} in all`);
     const manifest: Manifest = {
       id,
       createdAt: now.toISOString(),
@@ -131,7 +157,7 @@ export async function takeBackup({
       lastMigration: dump.lastMigration,
       dumpBytes: size,
       dumpSha256: checksum,
-      files: total,
+      fileKeys: names.sort(),
     };
     // Last: only now does the backup exist.
     await backups.writeText(
@@ -205,8 +231,17 @@ export async function restoreBackup({
   if (filesTo) {
     log(`Restore ${id}: copying uploads into ${filesTo.bucket}`);
     await filesTo.ensureBucket();
-    filesCopied = (await copyMissing(backups, FILES_PREFIX, filesTo, ""))
-      .copied;
+    // Only this backup's uploads: later ones are not in its database, and
+    // files since removed must not come back.
+    filesCopied = (
+      await copyMissing(
+        backups,
+        FILES_PREFIX,
+        filesTo,
+        "",
+        new Set(manifest.fileKeys),
+      )
+    ).copied;
   }
   return {
     manifest,

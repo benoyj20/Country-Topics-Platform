@@ -9,7 +9,9 @@ How the site's data is backed up and how to get it back. The design is in
   day, kept for 14 days. The privacy policy states this period. The newest
   backup is never deleted, even if backups stop.
 - **Uploads** (evidence files and photos): every file is copied once into the
-  backup bucket and kept there, because files never change once uploaded.
+  backup bucket, because files never change once uploaded. Each backup lists
+  its files. A copy is deleted when no kept backup lists it, so a file
+  removed from the site leaves the backups after 14 days.
 - **Not backed up:** Valkey, which holds only queues, rate limits, and caches.
   They rebuild themselves, and the search index is rebuilt from the database
   every hour.
@@ -33,8 +35,12 @@ the bucket fall back to the site's `S3_*` settings.
   and damaged data, but not against losing the disk.
 - **For the pilot:** set all five `BACKUP_S3_*` variables to another
   S3-compatible service, such as a Cloudflare R2 bucket, so one failure
-  cannot lose both the site and its backups. Then run `make backup` and
-  `make backup-list` to check that it works.
+  cannot lose both the site and its backups. A different endpoint must have
+  its own keys. Then run `make backup` and `make backup-list` to check that
+  it works.
+- **If the site's database or uploads move to managed services:** set
+  `CONTAINER_DATABASE_URL` and `CONTAINER_S3_ENDPOINT` to them, so the
+  backup container backs up the right ones.
 
 ## Everyday checks
 
@@ -44,8 +50,9 @@ make backup             # take one now, for example before a risky change
 docker compose --env-file .env -f deploy/compose/compose.yaml logs backup
 ```
 
-The newest backup should be less than a day old. A failed backup is logged
-and tried again at the next hourly check.
+The newest backup should be less than a day old. A failed backup is logged,
+sent to Sentry when `SENTRY_DSN` is set, and tried again at the next hourly
+check. If the newest backup is more than two days old, that is reported too.
 
 ## Restore drill (test a backup)
 
@@ -57,8 +64,8 @@ make restore BACKUP=<id from make backup-list> DATABASE=countrytopics_restore FI
 
 It downloads the dump and checks its checksum. Then it creates the database,
 restores into it, and compares every table's row count with the manifest; any
-difference stops it with the tables named. Last, it copies the uploads into
-`FILES_BUCKET`.
+difference stops it with the tables named. Last, it copies the backup's own
+uploads into `FILES_BUCKET`.
 
 To look at the restored site, start a copy against it:
 

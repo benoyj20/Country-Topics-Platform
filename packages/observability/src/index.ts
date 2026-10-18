@@ -86,6 +86,8 @@ export type ScrubbableEvent = {
     headers?: Record<string, string>;
   };
   exception?: { values?: { value?: string }[] };
+  /** Free-form data, such as the arguments console capture attaches. */
+  extra?: Record<string, unknown>;
   logentry?: { message?: string; params?: unknown[] };
   breadcrumbs?: ScrubbableBreadcrumb[];
 };
@@ -116,10 +118,32 @@ export function scrubBreadcrumb<T extends ScrubbableBreadcrumb>(
   return { ...breadcrumb, message: undefined, data };
 }
 
+const NESTING_LIMIT = 5;
+
+/** Strings anywhere in `value` with email addresses replaced. */
+export function withoutEmailsDeep(value: unknown, depth = 0): unknown {
+  if (typeof value === "string") return withoutEmails(value);
+  if (depth >= NESTING_LIMIT || typeof value !== "object" || value === null) {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => withoutEmailsDeep(item, depth + 1));
+  }
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [
+      key,
+      withoutEmailsDeep(item, depth + 1),
+    ]),
+  );
+}
+
 /** The event with everything about people that it need not carry removed. */
 export function scrubErrorEvent<T extends ScrubbableEvent>(event: T): T {
   const scrubbed: T = { ...event, user: undefined };
   if (event.message) scrubbed.message = withoutEmails(event.message);
+  if (event.extra) {
+    scrubbed.extra = withoutEmailsDeep(event.extra) as Record<string, unknown>;
+  }
   if (event.request) {
     const headers = Object.fromEntries(
       Object.entries(event.request.headers ?? {}).filter(([name]) =>

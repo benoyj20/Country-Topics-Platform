@@ -5,18 +5,20 @@ import {
   BACKUP_RETENTION_DAYS,
   backupDue,
   backupId,
+  backupOverdue,
   countDifferences,
   expiredBackups,
   idFromManifestKey,
   type Manifest,
   manifestKey,
   parseManifest,
+  unusedFileCopies,
 } from "../../src/catalog.ts";
 
 const DAY_MS = 24 * 60 * 60 * 1_000;
 const now = new Date("2026-10-18T12:00:00.000Z");
 
-function manifest(daysAgo: number): Manifest {
+function manifest(daysAgo: number, fileKeys: string[] = []): Manifest {
   const at = new Date(now.getTime() - daysAgo * DAY_MS);
   return {
     id: backupId(at),
@@ -25,7 +27,7 @@ function manifest(daysAgo: number): Manifest {
     lastMigration: "20261018_011503_account_deletion_feedback",
     dumpBytes: 1_024,
     dumpSha256: "a".repeat(64),
-    files: 0,
+    fileKeys,
   };
 }
 
@@ -52,6 +54,7 @@ describe("parseManifest", () => {
       { ...written, tables: { users: -1 } },
       { ...written, dumpSha256: "nope" },
       { ...written, dumpBytes: 0 },
+      { ...written, fileKeys: [""] },
     ]) {
       assert.throws(() => parseManifest(JSON.stringify(broken)));
     }
@@ -83,6 +86,27 @@ describe("backupDue", () => {
     assert.equal(backupDue(undefined, now), true);
     assert.equal(backupDue(manifest(0.5), now), false);
     assert.equal(backupDue(manifest(1), now), true);
+  });
+});
+
+describe("backupOverdue", () => {
+  it("raises the alarm only after two missed days", () => {
+    assert.equal(backupOverdue(undefined, now), true);
+    assert.equal(backupOverdue(manifest(1.5), now), false);
+    assert.equal(backupOverdue(manifest(2.5), now), true);
+  });
+});
+
+describe("unusedFileCopies", () => {
+  it("finds upload copies no kept backup lists", () => {
+    const kept = [manifest(0, ["a.pdf"]), manifest(3, ["a.pdf", "b.jpg"])];
+    assert.deepEqual(
+      unusedFileCopies(
+        ["files/a.pdf", "files/b.jpg", "files/removed.jpg"],
+        kept,
+      ),
+      ["files/removed.jpg"],
+    );
   });
 });
 

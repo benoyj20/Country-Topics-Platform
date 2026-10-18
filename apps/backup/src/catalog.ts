@@ -5,8 +5,9 @@
 //   db/<id>.dump   the database, in pg_dump's custom format
 //   db/<id>.json   its manifest, written last: a backup without one is
 //                  unfinished and is never listed or restored
-//   files/<key>    a copy of every upload; uploads never change once
-//                  stored, so each is copied once
+//   files/<key>    a copy of each upload a kept backup lists; uploads never
+//                  change once stored, so each is copied once, and deleted
+//                  when no kept backup lists it any more
 
 /**
  * How long a database backup is kept. The privacy policy states it; change
@@ -29,8 +30,8 @@ export type Manifest = {
   lastMigration: string | null;
   dumpBytes: number;
   dumpSha256: string;
-  /** Uploads in the backup bucket when the backup finished. */
-  files: number;
+  /** The uploads in the site's bucket when the backup was taken. */
+  fileKeys: string[];
 };
 
 /** A sortable, file-name-safe id for a backup taken at `at`. */
@@ -71,8 +72,15 @@ export function parseManifest(text: string): Manifest {
     throw new Error("The manifest is not an object.");
   }
   const record = value as Record<string, unknown>;
-  const { id, createdAt, tables, lastMigration, dumpBytes, dumpSha256, files } =
-    record;
+  const {
+    id,
+    createdAt,
+    tables,
+    lastMigration,
+    dumpBytes,
+    dumpSha256,
+    fileKeys,
+  } = record;
   if (typeof id !== "string" || !isBackupId(id)) {
     throw new Error("The manifest has no valid id.");
   }
@@ -91,8 +99,11 @@ export function parseManifest(text: string): Manifest {
   if (typeof dumpSha256 !== "string" || !/^[0-9a-f]{64}$/.test(dumpSha256)) {
     throw new Error("The manifest's checksum is not valid.");
   }
-  if (!Number.isInteger(files) || (files as number) < 0) {
-    throw new Error("The manifest's file count is not valid.");
+  if (
+    !Array.isArray(fileKeys) ||
+    !fileKeys.every((key) => typeof key === "string" && key.length > 0)
+  ) {
+    throw new Error("The manifest's file list is not valid.");
   }
   return {
     id,
@@ -101,8 +112,22 @@ export function parseManifest(text: string): Manifest {
     lastMigration,
     dumpBytes: dumpBytes as number,
     dumpSha256,
-    files: files as number,
+    fileKeys: fileKeys as string[],
   };
+}
+
+/**
+ * Upload copies (keys under files/) that no kept backup lists, so a file
+ * removed from the site leaves the backups with the last backup that had
+ * it.
+ */
+export function unusedFileCopies(copies: string[], kept: Manifest[]): string[] {
+  const listed = new Set(
+    kept.flatMap((manifest) =>
+      manifest.fileKeys.map((key) => FILES_PREFIX + key),
+    ),
+  );
+  return copies.filter((key) => !listed.has(key));
 }
 
 /**
@@ -125,6 +150,20 @@ export function backupDue(newest: Manifest | undefined, now: Date): boolean {
   return (
     !newest ||
     now.getTime() - Date.parse(newest.createdAt) >= BACKUP_INTERVAL_MS
+  );
+}
+
+/**
+ * Whether backups have stopped: no backup, or the newest older than two
+ * intervals, so one late or failed backup is not yet an alarm.
+ */
+export function backupOverdue(
+  newest: Manifest | undefined,
+  now: Date,
+): boolean {
+  return (
+    !newest ||
+    now.getTime() - Date.parse(newest.createdAt) > 2 * BACKUP_INTERVAL_MS
   );
 }
 

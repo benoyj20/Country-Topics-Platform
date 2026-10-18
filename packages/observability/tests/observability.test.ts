@@ -75,6 +75,25 @@ describe("scrubErrorEvent", () => {
     assert.equal(withoutEmails("no address here"), "no address here");
   });
 
+  it("hides email addresses in console arguments and other extra data", () => {
+    const scrubbed = scrubErrorEvent({
+      extra: {
+        arguments: [
+          "email job 12 failed:",
+          "550 <alice@example.test>: Recipient address rejected",
+          { nested: ["bob@example.test"] },
+        ],
+      },
+    });
+    assert.deepEqual(scrubbed.extra, {
+      arguments: [
+        "email job 12 failed:",
+        "550 <[email]>: Recipient address rejected",
+        { nested: ["[email]"] },
+      ],
+    });
+  });
+
   it("keeps page changes and requests, without queries, and drops console output", () => {
     assert.deepEqual(
       scrubBreadcrumb({

@@ -1,3 +1,8 @@
+import {
+  type ErrorReportingConfig,
+  readErrorReporting,
+} from "@countrytopics/observability";
+
 // Backup configuration, from environment variables only (AGENTS.md). Errors
 // name the variable, never its value.
 
@@ -21,6 +26,8 @@ export type BackupEnv = {
    * service, so one failure cannot take both.
    */
   backups: S3Location;
+  /** Sentry (SENTRY_DSN, SENTRY_ENVIRONMENT); unset turns it off. */
+  errorReporting?: ErrorReportingConfig;
 };
 
 const POSTGRES_URL_PATTERN = /^postgres(ql)?:\/\//;
@@ -41,15 +48,26 @@ function readLocation(
   if (endpoint && !/^https?:\/\/\S+$/.test(endpoint)) {
     problems.push(`${prefix}ENDPOINT must be empty (AWS) or an http(s) URL`);
   }
+  // Another service needs its own keys: the site's must never be sent to it.
+  const sameService = !fallback || endpoint === fallback.endpoint;
+  if (
+    !sameService &&
+    (!value("ACCESS_KEY_ID") || !value("SECRET_ACCESS_KEY"))
+  ) {
+    problems.push(
+      `${prefix}ACCESS_KEY_ID and ${prefix}SECRET_ACCESS_KEY must be set when ${prefix}ENDPOINT names another service`,
+    );
+  }
   const bucket = value("BUCKET") ?? "";
   if (!BUCKET_PATTERN.test(bucket)) {
     problems.push(
       `${prefix}BUCKET must be a bucket name: 3-63 lowercase letters, digits, dots, or hyphens`,
     );
   }
-  const accessKeyId = value("ACCESS_KEY_ID") ?? fallback?.accessKeyId ?? "";
+  const keys = sameService ? fallback : undefined;
+  const accessKeyId = value("ACCESS_KEY_ID") ?? keys?.accessKeyId ?? "";
   const secretAccessKey =
-    value("SECRET_ACCESS_KEY") ?? fallback?.secretAccessKey ?? "";
+    value("SECRET_ACCESS_KEY") ?? keys?.secretAccessKey ?? "";
   if (!accessKeyId || !secretAccessKey) {
     problems.push(
       `${prefix}ACCESS_KEY_ID and ${prefix}SECRET_ACCESS_KEY must be set`,
@@ -72,6 +90,7 @@ export function readBackupEnv(env: Env = process.env): BackupEnv {
   }
   const files = readLocation(env, "S3_", undefined, problems);
   const backups = readLocation(env, "BACKUP_S3_", files, problems);
+  const errorReporting = readErrorReporting(env, problems);
   if (
     !problems.length &&
     backups.bucket === files.bucket &&
@@ -86,5 +105,5 @@ export function readBackupEnv(env: Env = process.env): BackupEnv {
       `Invalid backup configuration:\n- ${problems.join("\n- ")}`,
     );
   }
-  return { databaseUrl, files, backups };
+  return { databaseUrl, files, backups, errorReporting };
 }

@@ -13,6 +13,9 @@ importers:
       '@aws-sdk/client-s3':
         specifier: 3.1152.0
         version: 3.1152.0
+      '@countrytopics/observability':
+        specifier: workspace:*
+        version: link:../../packages/observability
       pg:
         specifier: 8.20.0
         version: 8.20.0
@@ -159,9 +162,6 @@ importers:
       '@countrytopics/sources':
         specifier: workspace:*
         version: link:../../packages/sources
-      '@sentry/node':
-        specifier: 11.4.0
-        version: 11.4.0(@babel/core@7.29.7)(rollup@4.64.6)
       pg:
         specifier: 8.20.0
         version: 8.20.0
@@ -278,6 +278,10 @@ importers:
         version: 8.71.2(eslint@9.39.5)(typescript@5.9.3)
 
   packages/observability:
+    dependencies:
+      '@sentry/node':
+        specifier: 11.4.0
+        version: 11.4.0(@babel/core@7.29.7)(rollup@4.64.6)
     devDependencies:
       '@eslint/js':
         specifier: 9.39.5

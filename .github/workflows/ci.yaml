@@ -110,5 +110,5 @@ jobs:
       - uses: actions/checkout@v4
       - run: cp .env.example .env
       - run: docker compose --env-file .env -f deploy/compose/compose.yaml config --quiet
-      - name: The backup image builds
-        run: docker compose --env-file .env -f deploy/compose/compose.yaml build backup
+      - name: The backup, web, and worker images build
+        run: docker compose --env-file .env -f deploy/compose/compose.yaml --profile scale build backup web worker

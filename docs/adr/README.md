@@ -20,3 +20,4 @@ record that supersedes it and update the old record's status line to point to it
 | [0010](0010-moderation-limits-and-notifications.md) | Moderation, rate and link limits, Turnstile, and notifications | Accepted |
 | [0011](0011-account-deletion-feedback-and-legal-pages.md) | Account deletion, data export, feedback, and legal pages | Accepted |
 | [0012](0012-backups-and-error-reporting.md) | Backups and error reporting | Accepted |
+| [0013](0013-containers-shared-cache-and-scale-rehearsal.md) | Containers, a shared page cache, and the scale rehearsal | Accepted |

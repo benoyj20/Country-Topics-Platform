@@ -519,8 +519,9 @@ See [ADR 0007](adr/0007-public-pages-and-caching.md) for the design.
   statements (a backed one shown, an unbacked one and the bio hidden), and
   the signed-in header link; everything worked after the duplicate Wikidata
   link fix (reported by the developer, 2026-10-17).
-- [ ] Before running two web containers (week 11): a shared Redis cache
+- [x] Before running two web containers (week 11): a shared Redis cache
   handler, so purges reach every instance and no cache sits on local disk.
+  Built in week 11 (see there, and ADR 0013).
 - [x] Paging past 50 topics, filters, and search came in week 8 (below):
   lists that stop short link to `/topics` with their filter.
 - [ ] Not built yet: serving video thumbnails through the site (decided with
@@ -994,3 +995,63 @@ rehearsal is the rest of week 11, in a later PR.
     reports.
 - [ ] Not built yet: uploading source maps to Sentry (needs an auth token at
   build time), and error reporting in the admin panel's own pages.
+
+### Week 11: containers, shared page cache, scale rehearsal
+
+See [ADR 0013](adr/0013-containers-shared-cache-and-scale-rehearsal.md) and
+the [scale rehearsal runbook](runbooks/scale-rehearsal.md). All results below
+are from the developer's PC (Docker Desktop on Windows, 16 GB), 2026-10-18.
+
+- [x] Shared page cache (integration tests against Valkey). Two handlers,
+  standing in for two web containers:
+  - serve a page one stored to the other, with its Buffers and Maps intact;
+  - drop it everywhere once a tag it shows is purged, while a page with
+    other tags stays;
+  - check data entries against the tags they were stored with.
+
+  Unit tests cover Next.js's rules for expired and stale tags.
+- [x] The production build needs no database. A running build answered the
+  home page's first request with a MISS, rendered fresh and stored in
+  Valkey, and later requests with HITs carrying the usual
+  `s-maxage=3600` headers; the build's copy was never served. Next.js's
+  compile-only mode was tried and rejected: it made every page
+  `private, no-store`.
+- [x] Images build from the repository root with no database: web about
+  2 GB, worker about 400 MB, both running as the unprivileged `node` user.
+- [x] Scale rehearsal step 3: the newest backup restored into
+  `countrytopics_rehearsal` with every table matching (52 tables, 483 rows)
+  and its upload copied.
+- [x] Step 1, statelessness (`make scale-check`, two web and two worker
+  containers behind Caddy):
+  - the member's session worked on both containers;
+  - pages came from the shared cache on both (HIT);
+  - a TEST topic published through one container showed its change on both
+    at once;
+  - five comments were taken and the sixth refused (429), alternating
+    between containers.
+
+  Both workers took jobs from the rehearsal's own queues.
+- [x] Step 2, load tests (k6 in the Compose network). The data: 1,002
+  topics, 50 TEST members, and 9,992 comments, seeded by `make scale-seed`.
+  - Cached pages, 100 visitors: 31,044 requests at 294 a second, median
+    15 ms, 95th percentile 36 ms, no failures.
+  - Uncached (search, browse, comments), 50 visitors: 11,659 requests,
+    95th percentile 46 ms, no failures.
+  - Uncached back to back, 50 visitors with no pauses: 561 requests a
+    second, 95th percentile 201 ms, no failures. Comments were the slowest
+    (95th percentile 228 ms, against 113 ms for search and browse).
+
+    The thread query runs in 0.3 ms (planning 1.3 ms) on its indexes, so
+    the time is the endpoint's several round trips, not a slow query. No
+    query needed fixing at this size, 20 times the pilot's.
+- [x] Failover: stopping one web container during the cached test failed
+  142 of 29,144 requests (0.48%). The load balancer kept sending requests
+  to it until its next health check. With retries on another container
+  and passive health checks in the Caddyfile, the same test had 0 failures
+  in 29,868 requests (the slowest 2.6 s, while retried).
+- [ ] The developer runs the rehearsal (`make scale-up`, `make scale-check`,
+  `make load-test`).
+- [ ] Step 4, not done: a test copy on free cloud tiers (managed PostgreSQL,
+  Redis, storage, and a container host) by changing environment variables
+  only. It needs the developer's cloud accounts; the images and
+  `make scale-check` are what it will reuse.

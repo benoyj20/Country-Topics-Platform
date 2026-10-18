@@ -57,8 +57,10 @@ and send feedback from a link on every page, which staff read in the admin
 panel. Draft privacy policy and terms are at `/privacy` and `/terms`. A backup
 container dumps the database and copies uploads every day, and `make restore`
 restores a backup into a new database and checks every table; errors from the
-site, its pages, and the worker go to Sentry when `SENTRY_DSN` is set. There is a
-health check at `/api/v1/health`. The remaining features follow the
+site, its pages, and the worker go to Sentry when `SENTRY_DSN` is set. Pages and
+cached data live in Valkey, shared by every web process, and `make scale-up` runs
+two web and two worker containers behind a load balancer for the scale rehearsal
+(load tests with k6). There is a health check at `/api/v1/health`. The remaining features follow the
 [MVP plan](docs/mvp-plan.md); see the checklist for what is verified.
 
 ```sh

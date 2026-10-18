@@ -32,14 +32,18 @@ AGENTS.md asks that:
     account.
   - Staff accounts are refused (403, `staff-account`). Another admin
     deletes them, so the site is never left without an admin by mistake.
+    Users' delete hook enforces the same in the admin panel: staff cannot
+    delete their own profile there either.
   - The request must come from the site itself, like other members'
     writes.
 - **Deleting an account does the same however it is done**, whether the
   member or an admin deletes it (Users' delete hooks,
   `src/account/deletion.ts`), in one transaction:
-  - The profile's row is locked first. A comment or vote being saved at the
-    same moment waits for the deletion and then fails, so nothing slips in
-    after the erasure.
+  - The member's comments are locked, then the profile's row: the order a
+    reply takes them (the thread, then its author for the notification), so
+    the two cannot deadlock. A comment, vote, or notification being saved
+    at the same moment is waited for and erased or deleted with the rest;
+    later ones wait for the deletion and then fail.
   - Comment text is erased: every comment of theirs that was not already
     removed gets the new status `deleted` and an empty body. This settles
     ADR 0009's question in favour of privacy: a comment's text is personal
@@ -48,7 +52,8 @@ AGENTS.md asks that:
     their account". The topic's search count is updated.
   - Notifications and feedback are deleted.
   - Votes stay in comment scores and reports stay for moderators. The
-    database clears their link to the account.
+    database clears their link to the account. Open reports on the erased
+    comments are marked acted on, as when a moderator hides a comment.
   - The audit log records `user.deleted` with the email address and
     `own: true` or `false`. A member deleting their own account is no
     longer there to name as the actor, so the actor is empty.
@@ -63,8 +68,8 @@ AGENTS.md asks that:
   - comments (including the text of hidden ones), votes, reports,
     notifications, and feedback.
 
-  Staff's notes about a comment are left out. The answer is
-  `private, no-store`. Requests the browser marks as coming from another
+  Staff's notes about a comment are left out. It is read in one read-only
+  transaction, so its parts agree. The answer is `private, no-store`. Requests the browser marks as coming from another
   site are refused, so a link elsewhere cannot use up the member's
   allowance of 10 a day.
 - **Feedback.** "Send feedback", at the bottom of every page, opens
@@ -75,7 +80,8 @@ AGENTS.md asks that:
     the path's query or fragment, which can hold search terms or tokens.
   - Limits: 5 an hour and 20 a day, in Valkey like the other limits.
   - Staff read it in the admin panel under Administration → Feedback, new
-    first, and mark it done. They cannot change what was sent.
+    first, and mark it done, which is audited. They cannot change what was
+    sent.
 - **Draft privacy policy and terms** at `/privacy` and `/terms`, linked
   from the footer and the sign-in page.
   - They describe what the code does and nothing it does not.
@@ -88,6 +94,10 @@ AGENTS.md asks that:
 
 ## Consequences
 
+- Comments whose authors were deleted before this change keep their text
+  under "Former member". The migration cannot erase them, because a new
+  enum value cannot be used in the transaction that adds it. Nothing is
+  deployed yet, so only development data has them.
 - Deletion cannot be undone. A deleted member needs a new invitation. The
   invitation they accepted, and the audit entries naming their email, stay
   for the record. The privacy policy says so, and how long they stay is to

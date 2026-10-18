@@ -1,4 +1,4 @@
-import type { Pool } from "pg";
+import type { Pool, PoolClient } from "pg";
 
 import type { User } from "@/payload-types";
 
@@ -62,19 +62,38 @@ export type AccountExport = {
 
 /**
  * Everything listed in AccountExport for `profile`, read from the primary
- * one query after another, so an export holds one connection at a time.
+ * on one connection, in one read-only transaction so the parts agree with
+ * each other (a notification's comment is in the comments).
  */
 export async function accountExport(
   pool: Pool,
   profile: User,
 ): Promise<AccountExport> {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+    const data = await readExport(client, profile);
+    await client.query("COMMIT");
+    return data;
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function readExport(
+  client: PoolClient,
+  profile: User,
+): Promise<AccountExport> {
   const authUserId = profile.authUserId ?? null;
-  const methods = await pool.query<{ provider: string }>(
+  const methods = await client.query<{ provider: string }>(
     `SELECT DISTINCT "providerId" AS provider FROM auth_account
       WHERE "userId" = $1 ORDER BY 1`,
     [authUserId],
   );
-  const sessions = await pool.query<{
+  const sessions = await client.query<{
     created_at: Date;
     expires_at: Date;
     ip_address: string | null;
@@ -85,7 +104,7 @@ export async function accountExport(
       FROM auth_session WHERE "userId" = $1 ORDER BY "createdAt"`,
     [authUserId],
   );
-  const comments = await pool.query<{
+  const comments = await client.query<{
     id: string;
     topic: string | null;
     parent_id: string | null;
@@ -103,7 +122,7 @@ export async function accountExport(
       WHERE c.author_id = $1 ORDER BY c.created_at, c.id`,
     [profile.id],
   );
-  const votes = await pool.query<{
+  const votes = await client.query<{
     comment: string | null;
     value: number;
     created_at: Date;
@@ -112,7 +131,7 @@ export async function accountExport(
       FROM comment_votes WHERE voter_id = $1 ORDER BY created_at, id`,
     [profile.id],
   );
-  const reports = await pool.query<{
+  const reports = await client.query<{
     comment: string | null;
     reason: string;
     note: string | null;
@@ -124,7 +143,7 @@ export async function accountExport(
       FROM comment_reports WHERE reporter_id = $1 ORDER BY created_at, id`,
     [profile.id],
   );
-  const notes = await pool.query<{
+  const notes = await client.query<{
     kind: string;
     comment: string | null;
     created_at: Date;
@@ -135,7 +154,7 @@ export async function accountExport(
       FROM notifications WHERE recipient_id = $1 ORDER BY created_at, id`,
     [profile.id],
   );
-  const feedback = await pool.query<{
+  const feedback = await client.query<{
     kind: string;
     message: string;
     page: string | null;

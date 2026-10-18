@@ -7,12 +7,20 @@ import {
 import type { CollectionConfig } from "payload";
 
 import { nobody, readOnlyField, verifiedStaffOnly } from "@/access";
+import { auditHooks } from "@/audit";
 import { FEEDBACK_KIND_LABELS, FEEDBACK_STATUS_LABELS } from "@/content-labels";
 
 // What members tell us about the site, sent from /feedback through
 // POST /api/v1/feedback (ADR 0011). Staff read it here and mark it done;
 // they cannot change what was sent. Deleting an account deletes its
 // feedback (Users).
+
+// Staff marking feedback done is audited, like other admin actions.
+const audit = auditHooks({
+  collection: "feedback",
+  action: "feedback",
+  snapshot: (doc) => ({ status: doc.status }),
+});
 
 export const Feedback: CollectionConfig = {
   slug: "feedback",
@@ -33,6 +41,7 @@ export const Feedback: CollectionConfig = {
     delete: nobody,
   },
   indexes: [{ fields: ["status", "createdAt"] }],
+  hooks: { afterChange: audit.afterChange },
   fields: [
     {
       name: "author",

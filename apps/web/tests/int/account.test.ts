@@ -309,6 +309,12 @@ describe("feedback", () => {
       overrideAccess: true,
     });
     expect(stored).toMatchObject({ status: "done", message: first.message });
+    expect(await auditEntries("feedback.updated", first.id)).toMatchObject([
+      {
+        actor: adminProfile.id,
+        details: { changes: { status: { from: "new", to: "done" } } },
+      },
+    ]);
     expect((await payloadRest("GET", ["feedback"], dave)).status).toBe(403);
   });
 });
@@ -501,6 +507,18 @@ describe("account deletion", () => {
       (await feedback(carol, { kind: "idea", message: "TEST Carol's idea." }))
         .status,
     ).toBe(201);
+    // A report waiting for moderators on a comment about to be erased.
+    expect(
+      (
+        await postReport(
+          request("POST", `/api/v1/comments/${lonely.id}/reports`, {
+            jar: dave,
+            body: { reason: "off-topic" },
+          }),
+          byId(lonely.id),
+        )
+      ).status,
+    ).toBe(201);
 
     // Typed as people type it.
     const deleted = await deletion(
@@ -561,6 +579,12 @@ describe("account deletion", () => {
       [daveReply.id],
     );
     expect(reports).toEqual([{ reporter_id: null }]);
+    // Reports on the erased comments are closed.
+    const { rows: closed } = await worker.pool.query(
+      "SELECT status::text AS status FROM comment_reports WHERE comment_id = $1",
+      [lonely.id],
+    );
+    expect(closed).toEqual([{ status: "actioned" }]);
     for (const [table, column] of [
       ["notifications", "recipient_id"],
       ["feedback", "author_id"],
@@ -593,6 +617,39 @@ describe("account deletion", () => {
         ),
       ),
     ).toBe(true);
+  });
+
+  it("waits for a reply being posted in the member's thread, without deadlock", async () => {
+    const henry = await signedInMember("account-henry", "TEST Henry A");
+    const thread = await posted(henry.jar, "TEST Henry's thread.");
+    const replyId = uuidv7();
+    const client = await worker.pool.connect();
+    try {
+      // A reply's transaction, as createComment runs it: it shares a lock
+      // on the thread, then tells the thread's author.
+      await client.query("BEGIN");
+      await client.query("SELECT 1 FROM comments WHERE id = $1 FOR SHARE", [
+        thread.id,
+      ]);
+      const deleting = deletion(henry.jar, testEmail("account-henry"));
+      await someoneWaitsForALock();
+      await client.query(
+        `INSERT INTO comments (id, topic_id, parent_id, author_id, body, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, 'TEST a reply meanwhile.', now(), now())`,
+        [replyId, topic.id, thread.id, daveProfile.id],
+      );
+      await client.query(
+        `INSERT INTO notifications (id, recipient_id, kind, comment_id)
+         VALUES ($1, $2, 'reply', $3)`,
+        [uuidv7(), henry.profile.id, replyId],
+      );
+      await client.query("COMMIT");
+      expect((await deleting).status).toBe(200);
+    } finally {
+      client.release();
+    }
+    expect(await storedComment(thread.id)).toMatchObject({ status: "deleted" });
+    expect(await storedComment(replyId)).toMatchObject({ status: "visible" });
   });
 
   it("erases a comment posted while the deletion runs", async () => {
@@ -637,6 +694,24 @@ describe("account deletion", () => {
     expect(await auditEntries("user.deleted", grace.profile.id)).toMatchObject([
       { actor: adminProfile.id, details: { own: false } },
     ]);
+  });
+
+  it("refuses staff deleting their own account in the admin panel", async () => {
+    await expect(
+      payload.delete({
+        collection: "users",
+        id: adminProfile.id,
+        user: adminProfile,
+        overrideAccess: false,
+      }),
+    ).rejects.toMatchObject({ status: 403 });
+    expect(
+      await payload.count({
+        collection: "users",
+        where: { id: { equals: adminProfile.id } },
+        overrideAccess: true,
+      }),
+    ).toMatchObject({ totalDocs: 1 });
   });
 
   it("leaves a deleted comment to staff only to lock, not to show", async () => {

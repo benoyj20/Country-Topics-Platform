@@ -1,6 +1,6 @@
 import { accountExport } from "@/account/export";
 import { apiError, NO_STORE } from "@/api/json";
-import { rateLimited, requestProfile } from "@/api/member";
+import { rateLimited, refundRateLimited, requestProfile } from "@/api/member";
 import { writePool } from "@/write-pool";
 
 // GET /api/v1/account/export: the signed-in member's data as a JSON file
@@ -34,6 +34,7 @@ export async function GET(request: Request) {
       "Data export failed:",
       error instanceof Error ? error.message : error,
     );
+    await refundRateLimited("data-export", profile.id);
     return apiError(
       503,
       "Your data could not be gathered right now. Try again in a moment.",

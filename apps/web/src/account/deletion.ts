@@ -1,5 +1,6 @@
+import { isRole, isStaff } from "@countrytopics/domain";
 import { sql } from "@payloadcms/db-postgres";
-import type { PayloadRequest } from "payload";
+import { APIError, type PayloadRequest } from "payload";
 
 import { queueSearchIndex } from "@/content-jobs";
 import { transactionDb } from "@/transaction-lock";
@@ -9,19 +10,44 @@ import { transactionDb } from "@/transaction-lock";
 // deleted their own account or an admin deleted it.
 
 /**
+ * Staff do not delete their own account, in the admin panel or anywhere
+ * else: another admin does, so the site is never left without one by
+ * mistake.
+ */
+export function refuseOwnStaffDeletion(
+  req: PayloadRequest,
+  userId: string,
+): void {
+  const user = req.user;
+  if (user?.id !== userId || !isRole(user.role) || !isStaff(user.role)) return;
+  throw new APIError(
+    "Staff accounts are deleted by an admin. Ask another admin to delete yours.",
+    403,
+    undefined,
+    true,
+  );
+}
+
+/**
  * Deletes the person's notifications and feedback, and erases the text of
  * their comments. Replies by others stay; a thread whose text is erased
  * shows as a placeholder while it has visible replies. Votes and reports
- * stay, without the link to the account, which the database clears.
+ * stay, without the link to the account, which the database clears; open
+ * reports on the erased comments are closed.
  */
 export async function eraseAccountContent(
   req: PayloadRequest,
   userId: string,
 ): Promise<void> {
   const db = await transactionDb(req);
-  // Holds the profile until the deletion commits, so a comment posted
-  // meanwhile waits for it (its author reference checks this row) and then
-  // fails, instead of slipping in after the erasure with its text.
+  // Locks in the order a reply takes them (the thread's comment, then its
+  // author's profile, for the notification), so the two cannot deadlock.
+  // The profile's lock then holds until the deletion commits: a comment or
+  // notification being saved meanwhile references that row, so the
+  // deletion waits for it and sees it, and later ones wait and then fail.
+  await db.execute(
+    sql`SELECT 1 FROM comments WHERE author_id = ${userId} FOR UPDATE`,
+  );
   await db.execute(sql`SELECT 1 FROM users WHERE id = ${userId} FOR UPDATE`);
 
   await req.payload.delete({
@@ -56,6 +82,15 @@ export async function eraseAccountContent(
      WHERE c.id = own.id
     RETURNING c.id::text AS id, c.topic_id::text AS topic_id, own.was_visible
   `);
+  // Nothing is left for moderators to act on, as when they hide a comment.
+  await db.execute(sql`
+    UPDATE comment_reports r
+       SET status = 'actioned', resolved_at = ${at}::timestamptz,
+           updated_at = ${at}::timestamptz
+      FROM comments c
+     WHERE r.comment_id = c.id AND c.author_id = ${userId}
+       AND r.status = 'open'
+  `);
 
   // Only visible comments counted towards their topics' discussion size.
   const counted = erased.rows.filter((row) => row.was_visible);
@@ -67,22 +102,4 @@ export async function eraseAccountContent(
       { table: "comments", id: first.id, updatedAt: at },
     );
   }
-}
-
-/**
- * How recently a member must have signed in to delete their account, so
- * that someone at a device left signed in cannot do it.
- */
-export const RECENT_SIGN_IN_MS = 10 * 60 * 1_000;
-
-/**
- * Whether a session began recently enough for account deletion. Both times
- * come from this process's clock: Better Auth stamps sessions when it
- * creates them.
- */
-export function signedInRecently(
-  sessionCreatedAt: Date,
-  now: Date = new Date(),
-): boolean {
-  return now.getTime() - sessionCreatedAt.getTime() <= RECENT_SIGN_IN_MS;
 }

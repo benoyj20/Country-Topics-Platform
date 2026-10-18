@@ -13,8 +13,13 @@ import {
 
 import { apiError, NO_STORE } from "./json";
 
-/** The signed-in person's profile, or null for visitors. */
-export async function requestProfile(request: Request): Promise<User | null> {
+/**
+ * The signed-in person's profile and when their session began, or null
+ * for visitors.
+ */
+export async function requestSession(
+  request: Request,
+): Promise<{ profile: User; sessionCreatedAt: Date } | null> {
   // Route handlers can set cookies, but a read here should not; the
   // browser refreshes its session through /api/auth.
   const session = await getAuth().api.getSession({
@@ -22,31 +27,41 @@ export async function requestProfile(request: Request): Promise<User | null> {
     query: { disableRefresh: true },
   });
   if (!session) return null;
-  return ensureUserProfile(await loadPayload(), session.user);
+  const profile = await ensureUserProfile(await loadPayload(), session.user);
+  return profile
+    ? { profile, sessionCreatedAt: new Date(session.session.createdAt) }
+    : null;
 }
 
-type Member = { ok: true; profile: User } | { ok: false; response: Response };
+/** The signed-in person's profile, or null for visitors. */
+export async function requestProfile(request: Request): Promise<User | null> {
+  return (await requestSession(request))?.profile ?? null;
+}
+
+type Member =
+  | { ok: true; profile: User; sessionCreatedAt: Date }
+  | { ok: false; response: Response };
 
 /**
  * The member making a write: the request must come from the site itself
  * (the session cookie is sent with any same-site request) and carry a
  * session. Every role may write; staff have no extra powers here.
  */
-export async function writingMember(request: Request): Promise<Member> {
+export async function writingMember(
+  request: Request,
+  signInMessage = "Sign in to take part in the discussion.",
+): Promise<Member> {
   if (!isSameOriginWrite(request.headers, serverEnv().siteUrl)) {
     return {
       ok: false,
       response: apiError(403, "Requests from other sites are refused."),
     };
   }
-  const profile = await requestProfile(request);
-  if (!profile) {
-    return {
-      ok: false,
-      response: apiError(401, "Sign in to take part in the discussion."),
-    };
+  const session = await requestSession(request);
+  if (!session) {
+    return { ok: false, response: apiError(401, signInMessage) };
   }
-  return { ok: true, profile };
+  return { ok: true, ...session };
 }
 
 function waitText(seconds: number): string {

@@ -6,7 +6,10 @@ import {
 } from "@countrytopics/domain";
 import type { CollectionConfig } from "payload";
 
-import { eraseAccountContent } from "@/account/deletion";
+import {
+  eraseAccountContent,
+  refuseOwnStaffDeletion,
+} from "@/account/deletion";
 
 import {
   isVerifiedAdmin,
@@ -126,7 +129,12 @@ export const Users: CollectionConfig = {
         }
       },
     ],
-    beforeDelete: [({ id, req }) => eraseAccountContent(req, String(id))],
+    beforeDelete: [
+      async ({ id, req }) => {
+        refuseOwnStaffDeletion(req, String(id));
+        await eraseAccountContent(req, String(id));
+      },
+    ],
     afterDelete: [
       async ({ doc, req }) => {
         const own = req.user?.id === doc.id;

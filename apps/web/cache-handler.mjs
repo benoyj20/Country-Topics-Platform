@@ -139,9 +139,11 @@ export function entryTags(entry, ctx) {
 }
 
 /**
- * Whether an entry made at `lastModified` is gone (a tag expired after it
- * was made) or stale (a tag was marked stale after it was made), as
- * Next.js's own cache decides.
+ * Whether an entry made at `lastModified` is gone (a tag expired since it
+ * was made) or stale (a tag was marked stale since it was made), as
+ * Next.js's own cache decides, except that a purge in the same millisecond
+ * as the entry counts: the page may have been rendered before the purge,
+ * and rendering it again costs less than keeping old content.
  * @param {(TagState | null)[]} states
  * @param {number} lastModified
  * @param {number} now
@@ -154,11 +156,11 @@ export function entryState(states, lastModified, now) {
     if (
       typeof state.expired === "number" &&
       state.expired <= now &&
-      state.expired > lastModified
+      state.expired >= lastModified
     ) {
       return "expired";
     }
-    if (typeof state.stale === "number" && state.stale > lastModified) {
+    if (typeof state.stale === "number" && state.stale >= lastModified) {
       stale = true;
     }
   }

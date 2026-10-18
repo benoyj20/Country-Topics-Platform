@@ -75,7 +75,9 @@ describe("the shared page cache", () => {
     expect(
       await webA.get("/route-cache/APP_PAGE/x/$/other", {}),
     ).not.toBeNull();
-    // Rendered again after the purge, it is served again.
+    // Rendered again after the purge, it is served again. (A purge in the
+    // same millisecond as a page counts against it, so wait past it.)
+    await new Promise((resolve) => setTimeout(resolve, 5));
     await webA.set(key, pageValue, {});
     expect(await webB.get(key, {})).not.toBeNull();
   });
@@ -131,10 +133,12 @@ describe("tag rules", () => {
     ).toEqual(["a", "b", "c", "public:topics", "_N_T_/topics/test"]);
   });
 
-  it("follow Next.js: expired after the entry was made, or only stale", () => {
+  it("follow Next.js: expired since the entry was made, or only stale", () => {
     const made = 1_000;
     const now = 5_000;
     expect(entryState([null, { expired: 2_000 }], made, now)).toBe("expired");
+    // A purge in the same millisecond counts against the entry.
+    expect(entryState([{ expired: made }], made, now)).toBe("expired");
     // A purge before the entry was made, or one not yet due, does not count.
     expect(entryState([{ expired: 500 }], made, now)).toBe("fresh");
     expect(entryState([{ stale: 2_000, expired: 9_000 }], made, now)).toBe(

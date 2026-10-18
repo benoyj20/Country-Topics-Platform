@@ -40,7 +40,9 @@ required a shared Redis cache handler before running two web containers.
     during a rolling deploy.
   - **Purges:** a purge records each tag's expiry time in Valkey. An entry
     stored before its tag expired is treated as missing, with Next.js's own
-    rules for expired and stale tags.
+    rules for expired and stale tags, except that a purge in the same
+    millisecond as an entry also counts against it (found by a fast CI
+    runner): the page may have been rendered before the purge.
   - **Why the handler checks tags itself:** Next.js checks tags against a
     list held in each process, which a custom handler's purges never update.
   - **Outages:** only the first connection is waited for (up to 5 seconds,

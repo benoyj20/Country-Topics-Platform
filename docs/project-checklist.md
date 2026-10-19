@@ -1104,8 +1104,19 @@ and 31 GB), 2026-10-18 and 2026-10-19.
   on the admin's authenticator (the preparation did less than
   `make reset-2fa`) and then on Better Auth's sign-in limit. The preparation
   now calls that script and clears the rehearsal's sign-in limits.
-- [ ] The developer runs the rehearsal (`make scale-up`, `make scale-check`,
-  `make load-test`).
+- [x] The rehearsal, the manual test, run by Claude at the developer's
+  request in PowerShell (2026-10-19):
+  - `make scale-up` started two web and two worker containers behind the
+    load balancer, and the home, topics, country, topic, and privacy pages
+    answered from both containers;
+  - `make scale-check` passed all five checks;
+  - `make load-test TEST=cached`, with one web container stopped at about
+    45 seconds and started again 25 seconds later, had 0 failures in 29,620
+    requests (95th percentile 74 ms);
+  - `make scale-down` stopped them.
+
+  After the restart, a page that the earlier containers had cached was
+  served at once, marked STALE, and refreshed in the background.
 - [ ] Step 4, not done: a test copy on free cloud tiers (managed PostgreSQL,
   Redis, storage, and a container host) by changing environment variables
   only. It needs the developer's cloud accounts; the images and

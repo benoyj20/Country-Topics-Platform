@@ -17,11 +17,13 @@ export function AccountLink() {
   if (isPending)
     return (
       <span className="nav-placeholder" aria-hidden="true">
-        Your account
+        <span className="nav-long">Your </span>account
       </span>
     );
   return data ? (
-    <NavLink href="/account">Your account</NavLink>
+    <NavLink href="/account">
+      <span className="nav-long">Your </span>account
+    </NavLink>
   ) : (
     <Link href="/sign-in" className="nav-cta">
       Sign in

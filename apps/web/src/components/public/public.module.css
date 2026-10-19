@@ -80,6 +80,7 @@
 .hero .searchForm {
   flex-wrap: nowrap;
   padding: 0.4rem;
+  border: 1px solid var(--field-border);
   border-radius: calc(var(--radius-small) + 0.4rem);
   background: var(--card);
   box-shadow: 0 10px 30px -10px rgb(0 0 0 / 45%);
@@ -182,7 +183,7 @@
 
 /* How many items a section holds, next to its heading. */
 .tally {
-  margin-left: 0.5rem;
+  margin-left: 0.25rem;
   padding: 0.05rem 0.55rem;
   border-radius: 999px;
   background: var(--surface);
@@ -192,13 +193,6 @@
   font-weight: 600;
   letter-spacing: 0;
   vertical-align: middle;
-}
-
-.lede {
-  margin: 0;
-  color: var(--muted);
-  font-size: 1.2rem;
-  line-height: 1.55;
 }
 
 .meta {
@@ -473,6 +467,9 @@ a.chip:hover {
     position: sticky;
     top: calc(var(--header-height) + 1.5rem);
     align-self: start;
+    /* A long list of people and tags scrolls within the sidebar. */
+    max-height: calc(100vh - var(--header-height) - 3rem);
+    overflow-y: auto;
   }
 }
 
@@ -506,6 +503,11 @@ a.chip:hover {
    would push the article further down. */
 @media (width < 60rem) {
   .contents {
+    display: none;
+  }
+
+  /* With nothing else in it, the sidebar would leave an empty gap. */
+  .aside:not(:has(> :not(.contents))) {
     display: none;
   }
 }
@@ -862,14 +864,4 @@ a.chip:hover {
   margin: 0;
   padding: 0;
   list-style: none;
-}
-
-/* Read by screen readers, not shown. */
-.visuallyHidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
 }

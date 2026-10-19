@@ -1121,3 +1121,54 @@ and 31 GB), 2026-10-18 and 2026-10-19.
   Redis, storage, and a container host) by changing environment variables
   only. It needs the developer's cloud accounts; the images and
   `make scale-check` are what it will reuse.
+
+### Before week 12: the site's design
+
+- [x] A design for the public site, asked for by the developer before the
+  pilot (2026-10-19):
+  - colour and type tokens in `app/(frontend)/styles.css`, for light and
+    dark: ink-blue text, a blue accent, white cards on a cool grey page;
+  - Inter for text and Source Serif 4 for headings, loaded with
+    `next/font`: downloaded at build time and served by the site, so
+    visitors' browsers never contact Google;
+  - a sticky header with a logo, a "Pilot" badge, and the current page
+    marked; a footer with the site's description and links; a skip link;
+  - the home page: a hero with search, the three kinds of evidence, topic
+    cards, and country links;
+  - topic pages: a sidebar with the category, people, tags, and the
+    page's sections; evidence and references as cards, references edged in
+    their stance's colour; the change log as a timeline;
+  - the topics page: filters beside the results on wide screens;
+  - discussion threads as cards with author initials; sign-in and other
+    one-form pages as a centred card; a styled 404 for missing topics,
+    countries, and people.
+- [x] Topic bodies no longer show the empty paragraphs editors leave
+  between paragraphs; paragraphs are spaced by the page.
+- [x] The code review before the first push found ten issues, all fixed
+  (2026-10-19):
+  - form fields' borders and placeholders were too faint (WCAG 1.4.11 and
+    1.4.3); fields now have 3:1 edges and placeholders the muted text
+    colour;
+  - focused fields had no outline in Windows high-contrast mode;
+  - white text on the dark-mode delete button was 3.7:1;
+  - a long topic sidebar could not scroll;
+  - the header wrapped on phones, so jumps to `#comments` landed under it;
+    it now stays one line;
+  - section headings read as "Evidence3" to screen readers;
+  - the fonts came from two new packages instead of `next/font`, without
+    preloading or a size-matched fallback;
+  - a linked comment's scroll offset was added twice;
+  - two styles were defined twice, and the logo needed its gradient id
+    passed in (now `useId`).
+- [x] Real browser (headless Chrome against `make dev`): home, topics,
+  topic, country, sign-in, privacy, account, notifications, and feedback
+  pages at 1280 px in light and dark, and at 390 px and 360 px; nothing
+  scrolls sideways. Tabbing from the top reaches the skip link first, then
+  the header, the search box, and the topic cards, each with a visible
+  outline. Signed in as the TEST member through Mailpit.
+- [ ] Not checked: evidence and reference cards and the snippet player
+  with real content, as the development database has none on public
+  topics; they use the same card styles as the pages above.
+- [ ] Not changed: an address that matches no page still shows Next.js's
+  plain 404, because the site and the admin panel have separate root
+  layouts. A site-wide 404 needs Next.js's experimental `globalNotFound`.

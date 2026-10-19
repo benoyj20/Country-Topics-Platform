@@ -28,7 +28,6 @@ import type {
 } from "@/public/types";
 
 import styles from "./browse.module.css";
-import publicStyles from "./public.module.css";
 import { TopicList } from "./TopicList";
 
 // F1 browsing (ADR 0008). The URL is the whole state: every filter, the
@@ -242,7 +241,7 @@ export function TopicBrowser() {
   return (
     <div className="stack">
       <form role="search" className={styles.search} onSubmit={submitSearch}>
-        <label htmlFor="browse-q" className={publicStyles.visuallyHidden}>
+        <label htmlFor="browse-q" className="visually-hidden">
           Search topics
         </label>
         <input

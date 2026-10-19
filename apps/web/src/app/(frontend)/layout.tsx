@@ -1,7 +1,5 @@
-import "@fontsource-variable/inter";
-import "@fontsource-variable/source-serif-4";
-
 import type { Metadata, Viewport } from "next";
+import { Inter, Source_Serif_4 } from "next/font/google";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -13,6 +11,21 @@ import { NotificationsLink } from "@/components/NotificationsLink";
 import { SiteFooter } from "@/components/SiteFooter";
 
 import "./styles.css";
+
+// Downloaded when the site is built and served from the site itself, so
+// visitors' browsers never contact Google. Text in other scripts falls back
+// to the system fonts in styles.css.
+const sans = Inter({
+  subsets: ["latin", "latin-ext"],
+  variable: "--font-inter",
+  display: "swap",
+});
+const serif = Source_Serif_4({
+  subsets: ["latin", "latin-ext"],
+  style: ["normal", "italic"],
+  variable: "--font-source-serif",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Country Topics",
@@ -31,7 +44,7 @@ export const viewport: Viewport = {
 
 export default function FrontendLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${sans.variable} ${serif.variable}`}>
       <body>
         <a href="#main" className="skip-link">
           Skip to content
@@ -39,7 +52,7 @@ export default function FrontendLayout({ children }: { children: ReactNode }) {
         <header className="site-header">
           <nav aria-label="Site">
             <Link href="/" className="site-name">
-              <Logo id="header" />
+              <Logo />
               <span className="site-name-text">Country Topics</span>
               <span className="pilot">Pilot</span>
             </Link>

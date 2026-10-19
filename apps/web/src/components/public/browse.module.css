@@ -5,7 +5,7 @@
   display: flex;
   gap: 0.5rem;
   padding: 0.4rem;
-  border: 1px solid var(--line);
+  border: 1px solid var(--field-border);
   border-radius: calc(var(--radius-small) + 0.4rem);
   background: var(--card);
   box-shadow: var(--shadow-small);

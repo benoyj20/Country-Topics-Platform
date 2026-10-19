@@ -20,7 +20,7 @@ export function SiteFooter() {
       <div className="site-footer-inner">
         <div className="site-footer-about">
           <Link href="/" className="site-name">
-            <Logo id="footer" />
+            <Logo />
             Country Topics
           </Link>
           <p>

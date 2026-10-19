@@ -48,7 +48,7 @@ export default async function HomePage() {
         {/* Next.js's form: a client-side navigation to /topics?q=..., and a
             plain GET form before the page's script loads. */}
         <Form role="search" action="/topics" className={styles.searchForm}>
-          <label htmlFor="home-q" className={styles.visuallyHidden}>
+          <label htmlFor="home-q" className="visually-hidden">
             Search topics
           </label>
           <input

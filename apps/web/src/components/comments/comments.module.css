@@ -288,5 +288,4 @@
   border-radius: var(--radius-small);
   outline: 2px solid var(--accent);
   background: var(--accent-soft);
-  scroll-margin-top: calc(var(--header-height) + 1rem);
 }

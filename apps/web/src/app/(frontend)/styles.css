@@ -5,10 +5,11 @@
 :root {
   color-scheme: light dark;
 
+  /* --font-inter and --font-source-serif are set by next/font in layout.tsx. */
   --font-sans:
-    "Inter Variable", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    var(--font-inter), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-serif:
-    "Source Serif 4 Variable", Georgia, Cambria, "Times New Roman", serif;
+    var(--font-source-serif), Georgia, Cambria, "Times New Roman", serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   --page-width: 72rem;
@@ -27,6 +28,8 @@
   --surface: #eef1f5;
   --line: #e1e6ed;
   --line-strong: #c9d1dc;
+  /* Form fields' edges: 3:1 against cards, so fields can be found. */
+  --field-border: #8a94a6;
   --accent: #1d4ed8;
   --accent-hover: #1e40af;
   --accent-soft: #e9efff;
@@ -59,6 +62,7 @@
     --surface: #1a2333;
     --line: #232e42;
     --line-strong: #34425c;
+    --field-border: #63738f;
     --accent: #7ea6ff;
     --accent-hover: #a5c1ff;
     --accent-soft: #17264a;
@@ -72,8 +76,9 @@
     --contradicts-text: #f4a49b;
     --contradicts-line: #e0675b;
     --context-line: #6f7a8e;
-    --danger: #e5534b;
-    --danger-hover: #f0716a;
+    /* Buttons keep white text on it, so it stays as dark as in light mode. */
+    --danger: #c62828;
+    --danger-hover: #d63a3a;
     --danger-soft: #3a1916;
     --warning: #e0a03a;
     --shadow-small: 0 1px 2px rgb(0 0 0 / 30%);
@@ -243,7 +248,6 @@ code {
 
 .site-links {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: 0.25rem;
@@ -313,14 +317,21 @@ code {
     gap: 0.5rem;
   }
 
-  /* The logo stands in for the name; screen readers still hear it. */
-  .site-name-text {
+  /* The header stays one line, as its height is --header-height: the
+     logo stands in for the name and "Your account" becomes "account".
+     Screen readers still hear the whole text. */
+  .site-name-text,
+  .nav-long {
     position: absolute;
     width: 1px;
     height: 1px;
     overflow: hidden;
     clip-path: inset(50%);
     white-space: nowrap;
+  }
+
+  .pilot {
+    display: none;
   }
 
   .site-links a {
@@ -428,6 +439,16 @@ main > .wide {
   color: var(--muted);
 }
 
+/* Read by screen readers, not shown. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .small {
   font-size: 0.875rem;
 }
@@ -527,7 +548,7 @@ select {
   box-sizing: border-box;
   min-height: 2.625rem;
   padding: 0.55rem 0.8rem;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--field-border);
   border-radius: var(--radius-small);
   background: var(--card);
   color: var(--text);
@@ -541,13 +562,16 @@ input:not([type="checkbox"], [type="radio"]):focus,
 textarea:focus,
 select:focus {
   border-color: var(--accent);
-  outline: none;
+  /* Invisible normally; Windows high-contrast mode, which drops the
+     shadow, draws it instead. */
+  outline: 2px solid transparent;
   box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 input::placeholder,
 textarea::placeholder {
-  color: color-mix(in srgb, var(--muted) 80%, transparent);
+  color: var(--muted);
+  opacity: 1;
 }
 
 input[type="checkbox"],

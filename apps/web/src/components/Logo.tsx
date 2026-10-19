@@ -1,10 +1,13 @@
+import { useId } from "react";
+
 /**
  * The site's mark: a globe on a blue tile. Decorative; the link around it
- * carries the site's name. `id` keeps the gradient's id unique when the
- * mark appears twice on a page.
+ * carries the site's name. The browser tab's icon, app/(frontend)/icon.svg,
+ * is the same drawing: change both together.
  */
-export function Logo({ id }: { id: string }) {
-  const gradient = `${id}-logo-fill`;
+export function Logo() {
+  // Unique per use, as the mark appears in the header and the footer.
+  const gradient = `logo-fill-${useId()}`;
   return (
     <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
       <defs>

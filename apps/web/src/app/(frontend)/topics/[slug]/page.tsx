@@ -78,7 +78,7 @@ export default async function TopicPageView({ params }: Props) {
           </p>
         ) : null}
         <h1>{topic.title}</h1>
-        <p className={styles.lede}>{topic.summary}</p>
+        <p className="lede">{topic.summary}</p>
         <p className={styles.meta}>
           {topic.firstPublishedAt
             ? `Published ${formatDate(topic.firstPublishedAt)}`
@@ -164,7 +164,7 @@ export default async function TopicPageView({ params }: Props) {
         {topic.evidence.length > 0 ? (
           <section className={styles.section} aria-labelledby="evidence">
             <h2 id="evidence">
-              Evidence
+              Evidence{" "}
               <span className={styles.tally}>{topic.evidence.length}</span>
             </h2>
             <EvidenceList evidence={topic.evidence} />
@@ -174,7 +174,7 @@ export default async function TopicPageView({ params }: Props) {
         {topic.references.length > 0 ? (
           <section className={styles.section} aria-labelledby="references">
             <h2 id="references">
-              References
+              References{" "}
               <span className={styles.tally}>{topic.references.length}</span>
             </h2>
             <ReferenceList references={topic.references} />

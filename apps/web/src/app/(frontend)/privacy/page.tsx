@@ -18,7 +18,7 @@ export default async function PrivacyPage() {
   // time, not from the build.
   await connection();
   return (
-    <article className="stack">
+    <article className="stack prose">
       <h1>Privacy policy</h1>
       <p className="muted">Draft of 17 October 2026</p>
       <DraftNotice />

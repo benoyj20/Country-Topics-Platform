@@ -1,18 +1,26 @@
 /* The snippet player, on topic pages and in the admin preview. Colours
-   follow the surrounding page; only the highlight is set here. */
+   come from the site's tokens where the page has them (the admin preview
+   does not), and otherwise follow the surrounding text. */
 
 .snippet {
-  --snippet-accent: #2563eb;
-  --snippet-line: color-mix(in srgb, currentColor 18%, transparent);
-  --snippet-muted: color-mix(in srgb, currentColor 65%, transparent);
+  --snippet-accent: var(--accent, #2563eb);
+  --snippet-line: var(
+    --line,
+    color-mix(in srgb, currentColor 18%, transparent)
+  );
+  --snippet-muted: var(
+    --muted,
+    color-mix(in srgb, currentColor 65%, transparent)
+  );
   border: 1px solid var(--snippet-line);
-  border-radius: 8px;
+  border-radius: var(--radius, 8px);
+  background: var(--card, transparent);
   overflow: hidden;
   container-type: inline-size;
 }
 
 .header {
-  padding: 12px 16px;
+  padding: 14px 18px;
   border-bottom: 1px solid var(--snippet-line);
 }
 

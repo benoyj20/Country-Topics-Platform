@@ -1,3 +1,5 @@
+import type { ClaimStance } from "@countrytopics/domain";
+
 import { REFERENCE_KIND_LABELS, STANCE_LABELS } from "@/content-labels";
 import { formatPartialDate } from "@/public/format";
 import type {
@@ -7,6 +9,13 @@ import type {
 } from "@/public/types";
 
 import styles from "./public.module.css";
+
+/** A reference's stance shows as its badge's and edge's colour. */
+const STANCE_CLASSES: Record<ClaimStance, string> = {
+  supports: styles.supports ?? "",
+  contradicts: styles.contradicts ?? "",
+  context: "",
+};
 
 function Citation({ reference }: { reference: PublicReference }) {
   const source = [reference.containerTitle, reference.publisher]
@@ -73,20 +82,13 @@ export function ReferenceList({
   return (
     <ol className={styles.list}>
       {references.map((cited, index) => (
-        <li key={index} className={styles.item}>
-          <p>
-            <span
-              className={`${styles.badge} ${
-                cited.stance === "supports"
-                  ? styles.supports
-                  : cited.stance === "contradicts"
-                    ? styles.contradicts
-                    : ""
-              }`}
-            >
-              {STANCE_LABELS[cited.stance]}
-            </span>
-          </p>
+        <li
+          key={index}
+          className={`${styles.item} ${styles.card} ${styles.reference} ${STANCE_CLASSES[cited.stance]}`}
+        >
+          <span className={`${styles.badge} ${STANCE_CLASSES[cited.stance]}`}>
+            {STANCE_LABELS[cited.stance]}
+          </span>
           <Citation reference={cited.reference} />
           <blockquote className={styles.passage}>
             <p>{cited.passage}</p>
@@ -105,7 +107,7 @@ export function SourceList({ sources }: { sources: ProfileSource[] }) {
   return (
     <ol className={styles.list}>
       {sources.map((source, index) => (
-        <li key={index} className={styles.item}>
+        <li key={index} className={`${styles.item} ${styles.card}`}>
           <Citation reference={source.reference} />
           <blockquote className={styles.passage}>
             <p>{source.passage}</p>

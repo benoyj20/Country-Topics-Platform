@@ -55,7 +55,8 @@ const FACETS: { key: ListKey; title: string; grouped?: boolean }[] = [
   { key: "language", title: "Snippet language" },
 ];
 
-/** Wide enough to show the filters open beside nothing else on the line. */
+/** Wide enough to show the filters open beside the results. Equal to the
+    breakpoint in browse.module.css. */
 const WIDE_SCREEN = "(min-width: 48rem)";
 
 function onScreenChange(notify: () => void): () => void {
@@ -272,255 +273,270 @@ export function TopicBrowser() {
         </div>
       ) : null}
 
-      <details
-        className={styles.filters}
-        open={filtersOpen}
-        onToggle={(event) => setFiltersOpen(event.currentTarget.open)}
-      >
-        <summary>Filters{chosenCount > 0 ? ` (${chosenCount})` : ""}</summary>
-        <div className={styles.facets}>
-          {FACETS.map(({ key, title, grouped }) => (
-            <Facet
-              key={key}
-              title={title}
-              values={facets?.[key] ?? []}
-              chosen={query[key] as string[]}
-              grouped={grouped}
-              onToggle={(value) => toggle(key, value)}
-            />
-          ))}
-          <fieldset className={styles.facet}>
-            <legend>References</legend>
-            <label className={styles.option}>
-              <input
-                type="checkbox"
-                checked={query.references}
-                onChange={() =>
+      <div className={styles.layout}>
+        <details
+          className={styles.filters}
+          open={filtersOpen}
+          onToggle={(event) => setFiltersOpen(event.currentTarget.open)}
+        >
+          <summary>Filters{chosenCount > 0 ? ` (${chosenCount})` : ""}</summary>
+          <div className={styles.facets}>
+            {FACETS.map(({ key, title, grouped }) => (
+              <Facet
+                key={key}
+                title={title}
+                values={facets?.[key] ?? []}
+                chosen={query[key] as string[]}
+                grouped={grouped}
+                onToggle={(value) => toggle(key, value)}
+              />
+            ))}
+            <fieldset className={styles.facet}>
+              <legend>References</legend>
+              <label className={styles.option}>
+                <input
+                  type="checkbox"
+                  checked={query.references}
+                  onChange={() =>
+                    change((previous) => ({
+                      ...previous,
+                      references: !previous.references,
+                    }))
+                  }
+                />
+                Cites a reference
+                {facets ? (
+                  <span className={styles.count}>({facets.references})</span>
+                ) : null}
+              </label>
+            </fieldset>
+            <fieldset className={styles.facet}>
+              <legend>First published</legend>
+              <div className={styles.dates}>
+                <label>
+                  From
+                  <input
+                    type="date"
+                    value={query.from ?? ""}
+                    max={query.to ?? undefined}
+                    onChange={(event) =>
+                      change((previous) => {
+                        // The date just chosen wins over one it contradicts.
+                        const from = event.target.value || null;
+                        const clash = from && previous.to && from > previous.to;
+                        return {
+                          ...previous,
+                          from,
+                          to: clash ? null : previous.to,
+                        };
+                      })
+                    }
+                  />
+                </label>
+                <label>
+                  To
+                  <input
+                    type="date"
+                    value={query.to ?? ""}
+                    min={query.from ?? undefined}
+                    onChange={(event) =>
+                      change((previous) => {
+                        const to = event.target.value || null;
+                        const clash = to && previous.from && previous.from > to;
+                        return {
+                          ...previous,
+                          to,
+                          from: clash ? null : previous.from,
+                        };
+                      })
+                    }
+                  />
+                </label>
+              </div>
+            </fieldset>
+          </div>
+        </details>
+
+        <div className={`stack ${styles.results}`}>
+          {chosenCount > 0 || query.q ? (
+            <ul className={styles.chosen} aria-label="Chosen filters">
+              {query.q ? (
+                <li>
+                  <button
+                    type="button"
+                    className={styles.chip}
+                    aria-label={`Remove the search for ${query.q}`}
+                    onClick={() =>
+                      change((previous) => ({ ...previous, q: null }))
+                    }
+                  >
+                    “{query.q}” <span aria-hidden="true">×</span>
+                  </button>
+                </li>
+              ) : null}
+              {FACETS.flatMap(({ key }) =>
+                (query[key] as string[]).map((value) => (
+                  <li key={`${key}:${value}`}>
+                    <button
+                      type="button"
+                      className={styles.chip}
+                      aria-label={`Remove ${labelOf(key, value)}`}
+                      onClick={() => toggle(key, value)}
+                    >
+                      {labelOf(key, value)} <span aria-hidden="true">×</span>
+                    </button>
+                  </li>
+                )),
+              )}
+              {query.references ? (
+                <li>
+                  <button
+                    type="button"
+                    className={styles.chip}
+                    aria-label="Remove: cites a reference"
+                    onClick={() =>
+                      change((previous) => ({ ...previous, references: false }))
+                    }
+                  >
+                    Cites a reference <span aria-hidden="true">×</span>
+                  </button>
+                </li>
+              ) : null}
+              {(["from", "to"] as const).map((key) =>
+                query[key] ? (
+                  <li key={key}>
+                    <button
+                      type="button"
+                      className={styles.chip}
+                      aria-label={`Remove the date ${key} ${formatDate(`${query[key]}T00:00:00Z`)}`}
+                      onClick={() =>
+                        change((previous) => ({ ...previous, [key]: null }))
+                      }
+                    >
+                      {key === "from" ? "From" : "To"}{" "}
+                      {formatDate(`${query[key]}T00:00:00Z`)}{" "}
+                      <span aria-hidden="true">×</span>
+                    </button>
+                  </li>
+                ) : null,
+              )}
+              <li>
+                <button
+                  type="button"
+                  className={styles.clear}
+                  onClick={() => change(() => EMPTY_BROWSE_QUERY)}
+                >
+                  Clear all
+                </button>
+              </li>
+            </ul>
+          ) : null}
+
+          <div className={styles.toolbar}>
+            <p className={styles.total} aria-live="polite">
+              {failed
+                ? "Could not load topics"
+                : typeof current?.total === "number"
+                  ? topicCount(current.total)
+                  : "Loading topics…"}
+            </p>
+            <label className={styles.sort}>
+              Sort by
+              <select
+                value={sort}
+                onChange={(event) => {
+                  const value = event.target.value as TopicSort;
                   change((previous) => ({
                     ...previous,
-                    references: !previous.references,
-                  }))
-                }
-              />
-              Cites a reference
-              {facets ? (
-                <span className={styles.count}>({facets.references})</span>
-              ) : null}
+                    sort: value === defaultSort(previous) ? null : value,
+                  }));
+                }}
+              >
+                {(Object.keys(SORT_LABELS) as TopicSort[])
+                  .filter((option) => option !== "relevance" || query.q)
+                  .map((option) => (
+                    <option key={option} value={option}>
+                      {SORT_LABELS[option]}
+                    </option>
+                  ))}
+              </select>
             </label>
-          </fieldset>
-          <fieldset className={styles.facet}>
-            <legend>First published</legend>
-            <div className={styles.dates}>
-              <label>
-                From
-                <input
-                  type="date"
-                  value={query.from ?? ""}
-                  max={query.to ?? undefined}
-                  onChange={(event) =>
-                    change((previous) => {
-                      // The date just chosen wins over one it contradicts.
-                      const from = event.target.value || null;
-                      const clash = from && previous.to && from > previous.to;
-                      return {
-                        ...previous,
-                        from,
-                        to: clash ? null : previous.to,
-                      };
-                    })
-                  }
-                />
-              </label>
-              <label>
-                To
-                <input
-                  type="date"
-                  value={query.to ?? ""}
-                  min={query.from ?? undefined}
-                  onChange={(event) =>
-                    change((previous) => {
-                      const to = event.target.value || null;
-                      const clash = to && previous.from && previous.from > to;
-                      return {
-                        ...previous,
-                        to,
-                        from: clash ? null : previous.from,
-                      };
-                    })
-                  }
-                />
-              </label>
-            </div>
-          </fieldset>
-        </div>
-      </details>
-
-      {chosenCount > 0 || query.q ? (
-        <ul className={styles.chosen} aria-label="Chosen filters">
-          {query.q ? (
-            <li>
-              <button
-                type="button"
-                className={styles.chip}
-                aria-label={`Remove the search for ${query.q}`}
-                onClick={() => change((previous) => ({ ...previous, q: null }))}
-              >
-                “{query.q}” <span aria-hidden="true">×</span>
-              </button>
-            </li>
-          ) : null}
-          {FACETS.flatMap(({ key }) =>
-            (query[key] as string[]).map((value) => (
-              <li key={`${key}:${value}`}>
-                <button
-                  type="button"
-                  className={styles.chip}
-                  aria-label={`Remove ${labelOf(key, value)}`}
-                  onClick={() => toggle(key, value)}
-                >
-                  {labelOf(key, value)} <span aria-hidden="true">×</span>
-                </button>
-              </li>
-            )),
-          )}
-          {query.references ? (
-            <li>
-              <button
-                type="button"
-                className={styles.chip}
-                aria-label="Remove: cites a reference"
-                onClick={() =>
-                  change((previous) => ({ ...previous, references: false }))
-                }
-              >
-                Cites a reference <span aria-hidden="true">×</span>
-              </button>
-            </li>
-          ) : null}
-          {(["from", "to"] as const).map((key) =>
-            query[key] ? (
-              <li key={key}>
-                <button
-                  type="button"
-                  className={styles.chip}
-                  aria-label={`Remove the date ${key} ${formatDate(`${query[key]}T00:00:00Z`)}`}
-                  onClick={() =>
-                    change((previous) => ({ ...previous, [key]: null }))
-                  }
-                >
-                  {key === "from" ? "From" : "To"}{" "}
-                  {formatDate(`${query[key]}T00:00:00Z`)}{" "}
-                  <span aria-hidden="true">×</span>
-                </button>
-              </li>
-            ) : null,
-          )}
-          <li>
             <button
               type="button"
-              className={styles.clear}
-              onClick={() => change(() => EMPTY_BROWSE_QUERY)}
+              className="button secondary"
+              onClick={copyLink}
             >
-              Clear all
+              Copy link
             </button>
-          </li>
-        </ul>
-      ) : null}
+            <span role="status" className={styles.copied}>
+              {copy === "copied" ? "Link copied." : null}
+            </span>
+          </div>
+          {copy === "failed" ? (
+            <label className={styles.copyField}>
+              Your browser did not allow copying; copy this link instead:
+              <input
+                type="text"
+                readOnly
+                value={
+                  typeof window === "undefined" ? "" : window.location.href
+                }
+                onFocus={(event) => event.currentTarget.select()}
+              />
+            </label>
+          ) : null}
 
-      <div className={styles.toolbar}>
-        <p className={styles.total} aria-live="polite">
-          {failed
-            ? "Could not load topics"
-            : typeof current?.total === "number"
-              ? topicCount(current.total)
-              : "Loading topics…"}
-        </p>
-        <label className={styles.sort}>
-          Sort by
-          <select
-            value={sort}
-            onChange={(event) => {
-              const value = event.target.value as TopicSort;
-              change((previous) => ({
-                ...previous,
-                sort: value === defaultSort(previous) ? null : value,
-              }));
-            }}
-          >
-            {(Object.keys(SORT_LABELS) as TopicSort[])
-              .filter((option) => option !== "relevance" || query.q)
-              .map((option) => (
-                <option key={option} value={option}>
-                  {SORT_LABELS[option]}
-                </option>
-              ))}
-          </select>
-        </label>
-        <button type="button" className="button secondary" onClick={copyLink}>
-          Copy link
-        </button>
-        <span role="status" className={styles.copied}>
-          {copy === "copied" ? "Link copied." : null}
-        </span>
-      </div>
-      {copy === "failed" ? (
-        <label className={styles.copyField}>
-          Your browser did not allow copying; copy this link instead:
-          <input
-            type="text"
-            readOnly
-            value={typeof window === "undefined" ? "" : window.location.href}
-            onFocus={(event) => event.currentTarget.select()}
-          />
-        </label>
-      ) : null}
-
-      {failed ? (
-        <div className="notice" role="alert">
-          <p className={styles.flush}>{failed.message}</p>
-          <button
-            type="button"
-            className="button secondary"
-            onClick={() => {
-              setFailure(undefined);
-              setAttempt((count) => count + 1);
-            }}
-          >
-            Try again
-          </button>
-        </div>
-      ) : (
-        <div aria-busy={loading} className={loading ? styles.stale : undefined}>
-          {loading && shown.length === 0 ? null : (
-            <TopicList
-              topics={{ items: shown, more: false }}
-              empty={
-                chosenCount > 0 || query.q
-                  ? "No topics match. Try other words or fewer filters."
-                  : "No topics are published yet."
-              }
-            />
+          {failed ? (
+            <div className="notice" role="alert">
+              <p className={styles.flush}>{failed.message}</p>
+              <button
+                type="button"
+                className="button secondary"
+                onClick={() => {
+                  setFailure(undefined);
+                  setAttempt((count) => count + 1);
+                }}
+              >
+                Try again
+              </button>
+            </div>
+          ) : (
+            <div
+              aria-busy={loading}
+              className={loading ? styles.stale : undefined}
+            >
+              {loading && shown.length === 0 ? null : (
+                <TopicList
+                  topics={{ items: shown, more: false }}
+                  empty={
+                    chosenCount > 0 || query.q
+                      ? "No topics match. Try other words or fewer filters."
+                      : "No topics are published yet."
+                  }
+                />
+              )}
+            </div>
           )}
-        </div>
-      )}
 
-      {current?.nextCursor ? (
-        <div className={styles.more}>
-          <button
-            type="button"
-            className="button secondary"
-            onClick={loadMore}
-            disabled={more === "loading"}
-          >
-            {more === "loading" ? "Loading…" : "Show more topics"}
-          </button>
-          {more === "failed" ? (
-            <p role="alert" className={styles.flush}>
-              More topics could not be loaded. Try again.
-            </p>
+          {current?.nextCursor ? (
+            <div className={styles.more}>
+              <button
+                type="button"
+                className="button secondary"
+                onClick={loadMore}
+                disabled={more === "loading"}
+              >
+                {more === "loading" ? "Loading…" : "Show more topics"}
+              </button>
+              {more === "failed" ? (
+                <p role="alert" className={styles.flush}>
+                  More topics could not be loaded. Try again.
+                </p>
+              ) : null}
+            </div>
           ) : null}
         </div>
-      ) : null}
+      </div>
     </div>
   );
 }

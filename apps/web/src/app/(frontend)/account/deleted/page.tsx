@@ -5,7 +5,7 @@ export const metadata = { title: "Account deleted - Country Topics" };
 // Where the browser goes after a member deletes their account (ADR 0011).
 export default function AccountDeletedPage() {
   return (
-    <section className="stack">
+    <section className="stack auth-card">
       <h1>Your account was deleted</h1>
       <p>
         Your comments&apos; text, notifications, feedback, and sign-in are gone.

@@ -40,7 +40,7 @@ export default async function IndividualPageView({ params }: Props) {
   const individual = await load(params);
 
   return (
-    <div className="stack">
+    <div className="wide">
       <header className={styles.profile}>
         {individual.photo ? (
           <figure className={styles.figure}>
@@ -57,6 +57,7 @@ export default async function IndividualPageView({ params }: Props) {
           </figure>
         ) : null}
         <div className={styles.profileText}>
+          <p className="eyebrow">Individual</p>
           <h1>{individual.name}</h1>
           {individual.aliases.length > 0 ? (
             <p className={styles.meta}>
@@ -71,7 +72,7 @@ export default async function IndividualPageView({ params }: Props) {
           <h2 id="profile">Profile</h2>
           <ul className={styles.statements}>
             {individual.statements.map((statement, index) => (
-              <li key={index} className={styles.item}>
+              <li key={index} className={`${styles.item} ${styles.card}`}>
                 <p className={styles.bio}>{statement.text}</p>
                 <details className={styles.backing}>
                   <summary>Evidence and sources</summary>
@@ -84,7 +85,7 @@ export default async function IndividualPageView({ params }: Props) {
         </section>
       ) : null}
 
-      <p className="muted">
+      <p className={`muted ${styles.section}`}>
         Everything this site says about {individual.name} comes with its
         evidence and references: under each statement above, and in the topics
         below.
@@ -96,6 +97,7 @@ export default async function IndividualPageView({ params }: Props) {
           topics={individual.topics}
           empty="No current topics name this person; archived topics may still link here."
           moreHref={browseHref({ person: [individual.slug] })}
+          layout="grid"
         />
       </section>
 

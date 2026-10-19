@@ -3,6 +3,7 @@ import { formatDate, formatFileSize } from "@/public/format";
 import type { PublicEvidence } from "@/public/types";
 
 import { FileCredit } from "./FileCredit";
+import { DocumentIcon, ImageIcon, LinkIcon } from "./icons";
 import styles from "./public.module.css";
 
 function hostOf(url: string): string {
@@ -15,6 +16,22 @@ function hostOf(url: string): string {
 
 function Note({ note }: { note: string | null }) {
   return note ? <p>{note}</p> : null;
+}
+
+const KINDS = {
+  image: { label: "Image", icon: <ImageIcon /> },
+  document: { label: "Document", icon: <DocumentIcon /> },
+  link: { label: "Web page", icon: <LinkIcon /> },
+};
+
+/** "Document", "Web page": what an item is, above its title. */
+function Kind({ kind }: { kind: keyof typeof KINDS }) {
+  return (
+    <p className={styles.kind}>
+      {KINDS[kind].icon}
+      {KINDS[kind].label}
+    </p>
+  );
 }
 
 function EvidenceItem({ item }: { item: PublicEvidence }) {
@@ -45,6 +62,7 @@ function EvidenceItem({ item }: { item: PublicEvidence }) {
     case "image":
       return (
         <figure className={styles.figure}>
+          <Kind kind="image" />
           <a href={item.file.url}>
             {/* eslint-disable-next-line @next/next/no-img-element -- served by /files with its own cache headers; no resizing yet */}
             <img
@@ -65,6 +83,7 @@ function EvidenceItem({ item }: { item: PublicEvidence }) {
     case "document":
       return (
         <>
+          <Kind kind="document" />
           <h3>
             <a href={item.file.url}>{item.title ?? item.file.filename}</a>
           </h3>
@@ -81,6 +100,7 @@ function EvidenceItem({ item }: { item: PublicEvidence }) {
     case "link":
       return (
         <>
+          <Kind kind="link" />
           <h3>
             <a href={item.url} target="_blank" rel="noopener noreferrer">
               {item.title ?? hostOf(item.url)}
@@ -127,7 +147,15 @@ export function EvidenceList({ evidence }: { evidence: PublicEvidence[] }) {
   return (
     <ol className={styles.list}>
       {evidence.map((item, index) => (
-        <li key={index} className={styles.item}>
+        <li
+          key={index}
+          className={
+            // The snippet player draws its own frame.
+            item.kind === "snippet"
+              ? styles.item
+              : `${styles.item} ${styles.card}`
+          }
+        >
           <EvidenceItem item={item} />
         </li>
       ))}

@@ -986,7 +986,15 @@ rehearsal is the rest of week 11, in a later PR.
   - a backup endpoint without its own keys would have received the site's
     keys;
   - failed or stopped backups were not reported.
-- [ ] The developer restores a backup.
+- [x] Restoring a backup, the manual test, run by Claude at the
+  developer's request in PowerShell (2026-10-19):
+  - `make backup` took a backup (52 tables, 1 upload);
+  - `make restore` put it into a new database, with every table matching
+    and the upload copied;
+  - the same restore again was refused ("already exists").
+
+  The restored database held the development data (3 topics, 5 comments,
+  2 users) and was then dropped.
 - [ ] Before the pilot:
   - set `BACKUP_S3_*` to another storage service (such as Cloudflare R2) and
     take a backup there;

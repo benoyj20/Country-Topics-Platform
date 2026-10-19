@@ -253,10 +253,12 @@ code {
   gap: 0.25rem;
 }
 
+/* Inline blocks, not flex: a flex container drops the space between "Your "
+   and "account", which are separate pieces of text. */
 .site-links a {
-  display: inline-flex;
-  align-items: center;
+  display: inline-block;
   padding: 0.45rem 0.75rem;
+  white-space: nowrap;
   border-radius: var(--radius-small);
   color: var(--text);
   font-size: 0.95rem;

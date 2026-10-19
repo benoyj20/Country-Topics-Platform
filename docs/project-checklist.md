@@ -1166,9 +1166,30 @@ and 31 GB), 2026-10-18 and 2026-10-19.
   scrolls sideways. Tabbing from the top reaches the skip link first, then
   the header, the search box, and the topic cards, each with a visible
   outline. Signed in as the TEST member through Mailpit.
-- [ ] Not checked: evidence and reference cards and the snippet player
-  with real content, as the development database has none on public
-  topics; they use the same card styles as the pages above.
+- [x] The developer found "Your account" shown as "Youraccount": header
+  links were flex containers, which drop the space at the edge of each
+  piece of text. They are inline blocks now. A whole-site audit followed
+  (2026-10-19), with headless Chrome and axe-core 4.10, on 25 pages and
+  states signed out and signed in, at 1280 px (light and dark), 1024 px,
+  768 px, and 390 px (light and dark):
+  - axe-core (WCAG 2.1 A and AA, and best practices): the topics page went
+    from its h1 to the cards' h3s with no h2, so the result count is now
+    the h2; every page is now clean, apart from Next.js's plain 404 below;
+  - no console errors other than 404 pages, no failed requests, no broken
+    images, nothing scrolls sideways, and every internal link answers
+    (the 404s were pages that are meant to be missing);
+  - a check of every flex and grid container that mixes text with
+    elements found no other text run together;
+  - interactive states: the sign-in link sent, the report form, and the
+    delete form's error.
+- [x] Real content, in the rehearsal (`make scale-up`, web only, image
+  built from this branch, so `next/font` was also checked in Docker): a
+  TEST topic in `countrytopics_rehearsal` with a snippet and its
+  transcript, a web page, a document, an image, references with each
+  stance, and a TEST person with a statement and its evidence and source.
+  Found and fixed: a snippet's note sat loose under the player; the
+  profile said "under each statement above" when it showed none; profile
+  text ran the full page width, so profiles are reading width now.
 - [ ] Not changed: an address that matches no page still shows Next.js's
   plain 404, because the site and the admin panel have separate root
   layouts. A site-wide 404 needs Next.js's experimental `globalNotFound`.

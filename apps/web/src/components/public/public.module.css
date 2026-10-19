@@ -669,6 +669,13 @@ a.chip:hover {
   height: 0.95rem;
 }
 
+/* The admin's note on a snippet, under its player. */
+.snippetNote {
+  padding: 0 0.25rem;
+  color: var(--muted);
+  font-size: 0.925rem;
+}
+
 .figure {
   margin: 0;
 }

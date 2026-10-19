@@ -40,7 +40,7 @@ export default async function IndividualPageView({ params }: Props) {
   const individual = await load(params);
 
   return (
-    <div className="wide">
+    <div>
       <header className={styles.profile}>
         {individual.photo ? (
           <figure className={styles.figure}>
@@ -87,8 +87,10 @@ export default async function IndividualPageView({ params }: Props) {
 
       <p className={`muted ${styles.section}`}>
         Everything this site says about {individual.name} comes with its
-        evidence and references: under each statement above, and in the topics
-        below.
+        evidence and references:{" "}
+        {individual.statements.length > 0
+          ? "under each statement above, and in the topics below."
+          : "in the topics below."}
       </p>
 
       <section className={styles.section} aria-labelledby="topics">

@@ -432,13 +432,14 @@ export function TopicBrowser() {
           ) : null}
 
           <div className={styles.toolbar}>
-            <p className={styles.total} aria-live="polite">
+            {/* The results' heading, between the page's h1 and the cards' h3s. */}
+            <h2 className={styles.total} aria-live="polite">
               {failed
                 ? "Could not load topics"
                 : typeof current?.total === "number"
                   ? topicCount(current.total)
                   : "Loading topics…"}
-            </p>
+            </h2>
             <label className={styles.sort}>
               Sort by
               <select

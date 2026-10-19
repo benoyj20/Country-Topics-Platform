@@ -55,7 +55,7 @@ function EvidenceItem({ item }: { item: PublicEvidence }) {
             segments={snippet.segments}
             videoUnavailable={snippet.videoUnavailable}
           />
-          <Note note={item.note} />
+          {item.note ? <p className={styles.snippetNote}>{item.note}</p> : null}
         </>
       );
     }

@@ -22,8 +22,9 @@ topics, individuals, and the files they show), browsing and search of every
 topic at `/topics`, members' comments with replies, votes, and reports,
 moderation in the admin panel, rate and link limits, Turnstile on the email
 sign-in form, in-app notifications, account deletion and data download,
-feedback, draft privacy policy and terms, and a health check; see Weeks 1 to
-11 below.
+feedback, draft privacy policy and terms, daily backups with a checked
+restore, error reporting to Sentry, and a health check; see Weeks 1 to 11
+below.
 
 The snippet flow began as a standalone prototype in `prototypes/youtube-snippet`
 (plain JavaScript, no database); its typed version is in the site since MVP week 6.
@@ -905,9 +906,99 @@ later PR.
   Not changed: comments by accounts deleted before this change keep their
   text, since the migration cannot use the new status it adds; only
   development data has them.
-- [ ] The developer deletes a test account.
+- [x] The developer deletes a test account (reported done by the developer
+  before PR #15 was merged, 2026-10-18).
 - [ ] Before the pilot: set `SITE_OPERATOR` and `CONTACT_EMAIL`, decide what
   the privacy policy and terms mark "To be decided", and have both
   reviewed. Update the privacy policy when Sentry and backups are added.
 - [ ] Not built yet: deleting a single comment of one's own, and appeals of
   moderators' decisions.
+
+### Week 11: backups and error reporting
+
+See [ADR 0012](adr/0012-backups-and-error-reporting.md) and the
+[backup and restore runbook](runbooks/backup-and-restore.md). The scale
+rehearsal is the rest of week 11, in a later PR.
+
+- [x] The backup image builds from the repository root (Node 22.23.3 on
+  Alpine 3.24, with the PostgreSQL 17.11 client tools) and runs as an
+  unprivileged user (2026-10-18).
+- [x] Backups against a real server and storage (integration tests in the
+  image, `make test-backup`, 2026-10-18):
+  - a backup records every table's row count from the dump's own snapshot,
+    the newest migration, and copies the uploads;
+  - a restore into a new database matches every table, and copies the
+    uploads into the named bucket;
+  - restoring over the live database, into an existing one, or under a
+    badly formed name is refused, and so is a dump whose checksum does not
+    match;
+  - a second backup copies no upload again, and backups past 14 days are
+    deleted while the newest stays, together with copies of uploads that no
+    kept backup lists (an upload removed from the site);
+  - the real command starts and lists backups, so a module that cannot load
+    in the image fails the test.
+- [x] The rules (names, manifests, retention, configuration, connection
+  settings without the password on the command line) have unit tests.
+- [x] The development database: `make infra-up` started the backup service,
+  which took the first backup (52 tables, 483 rows, 1 upload). `make
+  restore` restored it into a new database with every table matching and
+  the upload copied (2026-10-18).
+- [x] Found and fixed while running it:
+  - the scheduler's timer did not keep the process alive, so it exited after
+    each check and Compose restarted it;
+  - the image placed the shared package inside `node_modules`, where Node
+    does not run TypeScript, so the command could not start; the image now
+    keeps the workspace layout.
+- [x] `docker compose stop backup` stops it in a second with exit code 0
+  (2026-10-18).
+- [x] Error reporting: Sentry accepted a test event from the worker's setup
+  (HTTP 200), and a browser-style report sent through `/api/v1/errors` was
+  passed on with no warning. A report from another site was refused (403)
+  (2026-10-18).
+- [x] Unit tests:
+  - scrubbing removes the user, cookies, bodies, query strings, headers
+    other than the user agent, email addresses, and console and click
+    breadcrumbs;
+  - the route keeps only error events, scrubbed again with the configured
+    environment and the real DSN, refuses other sites, and sends nothing
+    while reporting is off (against a stand-in for Sentry);
+  - `SENTRY_DSN` and `SENTRY_ENVIRONMENT` are checked by name;
+  - email addresses in console arguments and other extra data are hidden.
+
+  The integration tests clear `SENTRY_DSN`, so they never reach the real
+  project.
+- [x] The code review before the first push found ten issues, all fixed
+  (2026-10-18):
+  - email addresses in the console's arguments reached Sentry unscrubbed;
+  - copies of uploads were never deleted, so a removed upload stayed in
+    the backups and came back on restore;
+  - jobs that failed for good on the first attempt (`UnrecoverableError`)
+    were warnings and never reported;
+  - the backup container ignored a managed uploads service
+    (`CONTAINER_S3_ENDPOINT`, `CONTAINER_DATABASE_URL`);
+  - one unreadable manifest stopped every later backup;
+  - the error route's rate limit trusted `X-Forwarded-For`, which a client
+    can forge;
+  - `.env` files in subfolders could reach the image;
+  - a stop signal during a backup was ignored, and Ctrl+C did not end
+    `make backup` or `make restore`;
+  - a backup endpoint without its own keys would have received the site's
+    keys;
+  - failed or stopped backups were not reported.
+- [x] Restoring a backup, the manual test, run by Claude at the
+  developer's request in PowerShell (2026-10-19):
+  - `make backup` took a backup (52 tables, 1 upload);
+  - `make restore` put it into a new database, with every table matching
+    and the upload copied;
+  - the same restore again was refused ("already exists").
+
+  The restored database held the development data (3 topics, 5 comments,
+  2 users) and was then dropped.
+- [ ] Before the pilot:
+  - set `BACKUP_S3_*` to another storage service (such as Cloudflare R2) and
+    take a backup there;
+  - set `SENTRY_ENVIRONMENT=pilot`;
+  - in Sentry, turn on "Prevent Storing of IP Addresses" for server-side
+    reports.
+- [ ] Not built yet: uploading source maps to Sentry (needs an auth token at
+  build time), and error reporting in the admin panel's own pages.

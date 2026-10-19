@@ -25,6 +25,7 @@ const nextConfig: NextConfig = {
     "@countrytopics/domain",
     "@countrytopics/email",
     "@countrytopics/jobs",
+    "@countrytopics/observability",
     "@countrytopics/search",
     "@countrytopics/sources",
   ],

@@ -13,6 +13,10 @@ import {
   createVideoWorker,
   requeuePendingChecks,
 } from "@countrytopics/jobs";
+import {
+  startErrorReporting,
+  stopErrorReporting,
+} from "@countrytopics/observability/node";
 import { createPostgresTopicSearch } from "@countrytopics/search";
 import {
   checkUrl,
@@ -30,6 +34,7 @@ import { readWorkerEnv } from "./env.ts";
 const DATABASE_CONNECT_TIMEOUT_MS = 5_000;
 
 const env = readWorkerEnv();
+startErrorReporting(env.errorReporting);
 const connection = createRedisConnection(env.redisUrl, "worker");
 const pool = new pg.Pool({
   connectionString: env.databaseUrl,
@@ -86,11 +91,19 @@ const workers: Record<string, ReturnType<typeof createEmailWorker>> = {
   }),
 };
 
-// Log the job id and error only: email jobs contain sign-in links.
+// Log the job id and error only: email jobs contain sign-in links. Only
+// the last attempt is an error, which error reporting sends on; earlier
+// ones are retried, so they are warnings.
 for (const [name, worker] of Object.entries(workers)) {
   worker.on("failed", (job, error) => {
-    console.error(
-      `${name} job ${job?.id ?? "unknown"} failed (attempt ${job?.attemptsMade ?? "?"}):`,
+    // BullMQ retries a job until its attempts run out, unless it threw an
+    // UnrecoverableError (bad data), which fails it for good at once.
+    const final =
+      !job ||
+      error.name === "UnrecoverableError" ||
+      job.attemptsMade >= (job.opts.attempts ?? 1);
+    (final ? console.error : console.warn)(
+      `${name} job ${job?.id ?? "unknown"} failed (attempt ${job?.attemptsMade ?? "?"}${final ? ", the last" : ""}):`,
       error.message,
     );
   });
@@ -153,6 +166,7 @@ async function shutDown(signal: string): Promise<void> {
     searchQueue.close(),
   ]);
   await Promise.all([connection.quit(), producer.quit(), pool.end()]);
+  await stopErrorReporting();
   process.exit(0);
 }
 

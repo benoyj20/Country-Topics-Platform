@@ -37,6 +37,17 @@ export const RATE_LIMITS = {
     { max: 20, windowS: DAY_S },
   ],
   "data-export": [{ max: 10, windowS: DAY_S }],
+  // Browsers' error reports (ADR 0012), per visitor address behind a
+  // trusted proxy, else shared; and for the whole site, which caps what
+  // can reach the Sentry project's quota.
+  "error-report": [
+    { max: 20, windowS: MINUTE_S },
+    { max: 200, windowS: DAY_S },
+  ],
+  "error-report-site": [
+    { max: 120, windowS: MINUTE_S },
+    { max: 2_000, windowS: DAY_S },
+  ],
 } as const satisfies Record<string, readonly Window[]>;
 export type RateLimitedAction = keyof typeof RATE_LIMITS;
 

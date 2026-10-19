@@ -1,3 +1,8 @@
+import {
+  type ErrorReportingConfig,
+  readErrorReporting,
+} from "@countrytopics/observability";
+
 // Worker configuration, from environment variables only. Errors name the
 // variable, never its value.
 
@@ -16,6 +21,8 @@ export type WorkerEnv = {
   youtubeApiKey?: string;
   /** Unset when the Wayback Machine may only be searched, not asked to save. */
   wayback?: { accessKey: string; secretKey: string };
+  /** Sentry (SENTRY_DSN, SENTRY_ENVIRONMENT); unset turns it off. */
+  errorReporting?: ErrorReportingConfig;
 };
 
 export const DEFAULT_QUEUE_PREFIX = "countrytopics";
@@ -82,6 +89,7 @@ export function readWorkerEnv(env: Env = process.env): WorkerEnv {
   }
 
   const wayback = readWayback(env, problems);
+  const errorReporting = readErrorReporting(env, problems);
 
   if (problems.length > 0) {
     throw new Error(
@@ -99,5 +107,6 @@ export function readWorkerEnv(env: Env = process.env): WorkerEnv {
     googleBooksApiKey: env.GOOGLE_BOOKS_API_KEY?.trim() || undefined,
     youtubeApiKey: env.YOUTUBE_API_KEY?.trim() || undefined,
     wayback,
+    errorReporting,
   };
 }

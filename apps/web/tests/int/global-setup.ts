@@ -31,6 +31,10 @@ export default function setup(): void {
     TURNSTILE_SITE_KEY: "",
     TURNSTILE_SECRET_KEY: "",
     CLIENT_IP_HEADER: "",
+    // Tests must never send errors to the real Sentry project; the route
+    // that passes reports on has unit tests with a stand-in.
+    SENTRY_DSN: "",
+    SENTRY_ENVIRONMENT: "",
     // Mailpit keeps old messages, so each run uses fresh addresses.
     TEST_RUN_ID: runId,
   });

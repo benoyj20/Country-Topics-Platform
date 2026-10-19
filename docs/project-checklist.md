@@ -1000,7 +1000,8 @@ rehearsal is the rest of week 11, in a later PR.
 
 See [ADR 0013](adr/0013-containers-shared-cache-and-scale-rehearsal.md) and
 the [scale rehearsal runbook](runbooks/scale-rehearsal.md). All results below
-are from the developer's PC (Docker Desktop on Windows, 16 GB), 2026-10-18.
+are from the developer's PC (Docker Desktop on Windows, giving Docker 16 CPUs
+and 31 GB), 2026-10-18 and 2026-10-19.
 
 - [x] Shared page cache (integration tests against Valkey). Two handlers,
   standing in for two web containers:
@@ -1048,6 +1049,25 @@ are from the developer's PC (Docker Desktop on Windows, 16 GB), 2026-10-18.
     The thread query runs in 0.3 ms (planning 1.3 ms) on its indexes, so
     the time is the endpoint's several round trips, not a slow query. No
     query needed fixing at this size, 20 times the pilot's.
+- [x] Larger loads, cached pages, with each visitor pausing 1 s between
+  rounds of four pages (2026-10-19):
+  - 1,000 visitors on 2 web containers: 1,398 requests a second, 95th
+    percentile 193 ms, slowest 11.9 s, no failures. Right after a rebuild,
+    with the cache empty, the home page's 95th percentile was 3.0 s,
+    because every visitor's first request renders it; it was 458 ms once
+    warm;
+  - 1,000 visitors on 4 web containers (`--scale web=4`, which the load
+    balancer found by itself): 2,265 requests a second, 95th percentile
+    153 ms, slowest 2.0 s, no failures. Each web container renders on
+    about one CPU, so adding containers raised capacity;
+  - 2,500 visitors on 4 web containers: 2,564 requests a second, the
+    ceiling of this PC with k6 on it too. The 95th percentile was 2.4 s,
+    the slowest request hit 60 s, and 12 of 275,688 failed. Each web
+    container used about 350 MB.
+
+  A test of 10,000 visitors needs the load generated from another machine
+  (step 4). In front of the pilot, Cloudflare serves cached pages without
+  reaching the containers.
 - [x] Failover: stopping one web container during the cached test failed
   142 of 29,144 requests (0.48%). The load balancer kept sending requests
   to it until its next health check. With retries on another container

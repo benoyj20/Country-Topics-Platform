@@ -36,6 +36,29 @@ services:
       timeout: 5s
       retries: 10
 
+  # The shared page cache's own Valkey (ADR 0013): capped, evicting the
+  # least recently used pages, and not saved to disk, so a full cache can
+  # never take memory the queues in "redis" need (they must never evict).
+  cache:
+    image: valkey/valkey:8-alpine
+    command:
+      - valkey-server
+      - --maxmemory
+      - 256mb
+      - --maxmemory-policy
+      - allkeys-lru
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+    ports:
+      - "127.0.0.1:${PAGE_CACHE_HOST_PORT:-6380}:6379"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   mailpit:
     image: axllent/mailpit:v1.27
     ports:
@@ -108,6 +131,99 @@ services:
         condition: service_healthy
       storage:
         condition: service_healthy
+
+  # The scale rehearsal (ADR 0013, docs/runbooks/scale-rehearsal.md):
+  # `make scale-up` starts two web and two worker containers behind a load
+  # balancer at http://localhost:8080, on a database and bucket restored
+  # from a backup, so development data is never touched.
+  web:
+    profiles: ["scale"]
+    build:
+      context: ../..
+      dockerfile: apps/web/Dockerfile
+    image: countrytopics-web
+    deploy:
+      replicas: 2
+    init: true
+    env_file:
+      - path: ../../.env
+        required: false
+    environment: &scale-environment
+      # Its own database, never CONTAINER_DATABASE_URL, which names the
+      # real one for backups.
+      DATABASE_URL: ${SCALE_DATABASE_URL:-postgres://${POSTGRES_USER:-countrytopics}@postgres:5432/countrytopics_rehearsal?sslmode=disable}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-countrytopics_dev}
+      DATABASE_REPLICA_URL: ""
+      REDIS_URL: redis://redis:6379
+      PAGE_CACHE_URL: redis://cache:6379
+      SMTP_URL: smtp://mailpit:1025
+      S3_ENDPOINT: ${CONTAINER_S3_ENDPOINT:-http://storage:8333}
+      S3_BUCKET: ${SCALE_S3_BUCKET:-countrytopics-rehearsal}
+      SITE_URL: http://localhost:${SCALE_HOST_PORT:-8080}
+      # Apart from development's queues, limits, and page cache.
+      QUEUE_PREFIX: countrytopics-scale
+      # Every request comes through the load balancer, which sets it.
+      CLIENT_IP_HEADER: x-forwarded-for
+      # Google's registered redirect is the development address.
+      GOOGLE_CLIENT_ID: ""
+      GOOGLE_CLIENT_SECRET: ""
+      TURNSTILE_SITE_KEY: ""
+      TURNSTILE_SECRET_KEY: ""
+      SENTRY_ENVIRONMENT: rehearsal
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/api/v1/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+      storage:
+        condition: service_healthy
+
+  worker:
+    profiles: ["scale"]
+    build:
+      context: ../..
+      dockerfile: apps/worker/Dockerfile
+    image: countrytopics-worker
+    deploy:
+      replicas: 2
+    init: true
+    env_file:
+      - path: ../../.env
+        required: false
+    environment: *scale-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  lb:
+    profiles: ["scale"]
+    image: caddy:2.11.7-alpine
+    ports:
+      - "127.0.0.1:${SCALE_HOST_PORT:-8080}:8080"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      web:
+        condition: service_healthy
+
+  # Load tests (deploy/load-tests), run by `make load-test` against the load
+  # balancer inside this network.
+  k6:
+    profiles: ["scale"]
+    image: grafana/k6:1.8.2
+    volumes:
+      - ../load-tests:/scripts:ro
+    environment:
+      BASE_URL: http://lb:8080
 
 volumes:
   postgres-data:

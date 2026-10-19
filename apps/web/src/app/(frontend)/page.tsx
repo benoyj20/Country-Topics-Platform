@@ -1,3 +1,4 @@
+import { PHASE_PRODUCTION_BUILD } from "next/constants";
 import Form from "next/form";
 import Link from "next/link";
 
@@ -10,8 +11,22 @@ import { homePage } from "@/public/cached";
 // PUBLIC_REVALIDATE_S, written out because Next.js reads it as a literal.
 export const revalidate = 3600;
 
+/**
+ * The home page that `next build` writes. It is never served: with the
+ * shared cache (ADR 0013) the first visit renders the page and stores it.
+ * So the build needs no database, and a container image can be built
+ * without one.
+ */
+const AT_BUILD: Awaited<ReturnType<typeof homePage>> = {
+  topics: { items: [], more: false },
+  countries: [],
+};
+
 export default async function HomePage() {
-  const { topics, countries } = await homePage();
+  const { topics, countries } =
+    process.env.NEXT_PHASE === PHASE_PRODUCTION_BUILD
+      ? AT_BUILD
+      : await homePage();
   return (
     <div className="stack">
       <h1>Country Topics</h1>

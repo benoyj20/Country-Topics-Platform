@@ -1,6 +1,8 @@
 import { Redis } from "ioredis";
 
 export const REDIS_CONNECT_TIMEOUT_MS = 5_000;
+/** QUEUE_PREFIX when unset: the start of every key the site keeps in Valkey. */
+export const DEFAULT_QUEUE_PREFIX = "countrytopics";
 
 export type RedisRole =
   /** Web requests that add jobs: fail fast instead of queueing commands while Redis is down. */

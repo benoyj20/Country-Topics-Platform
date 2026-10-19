@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help bootstrap env infra-up infra-down infra-config dev dev-prototype migrate generate reset-2fa backup backup-list restore format lint typecheck test test-int test-backup build check
+.PHONY: help bootstrap env infra-up infra-down infra-config dev dev-prototype migrate generate reset-2fa backup backup-list restore scale-up scale-seed scale-check scale-down load-test format lint typecheck test test-int test-backup build check
 
 # Use the local .env when it exists; otherwise Compose falls back to the defaults in compose.yaml.
 COMPOSE = docker compose $(if $(wildcard .env),--env-file .env) -f deploy/compose/compose.yaml
@@ -47,6 +47,26 @@ backup-list: ## List the backups, newest first
 
 restore: ## Restore a backup into a new database: make restore BACKUP=<id> DATABASE=<new name> [FILES_BUCKET=<bucket>]
 	$(COMPOSE) run --rm backup restore "$(BACKUP)" "$(DATABASE)" $(if $(FILES_BUCKET),--files-bucket "$(FILES_BUCKET)")
+
+SCALE = $(COMPOSE) --profile scale
+
+scale-up: ## Scale rehearsal: two web and two worker containers behind a load balancer at http://localhost:8080 (see docs/runbooks/scale-rehearsal.md)
+	$(SCALE) up -d --build --wait web worker lb
+
+scale-seed: ## Fill the rehearsal database with made-up TEST content for load tests: make scale-seed [TOPICS=1000]
+	$(SCALE) run --rm --no-deps web node node_modules/payload/bin.js run scripts/seed-rehearsal.ts $(or $(TOPICS),1000)
+	$(SCALE) restart worker
+
+scale-check: ## Show the rehearsal keeps no state in its containers (sessions, page cache, limits)
+	$(SCALE) exec -T web node --input-type=module - < deploy/rehearsal/prepare-check.mjs
+	$(SCALE) exec -T redis sh -c "valkey-cli --scan --pattern 'countrytopics-scale:rate:*' | xargs -r valkey-cli del > /dev/null"
+	node deploy/rehearsal/check-stateless.mjs
+
+load-test: ## Load-test the rehearsal with k6: make load-test TEST=cached|uncached [VUS=50] [PAUSE_S=0]
+	$(SCALE) run --rm --no-deps $(if $(VUS),-e VUS=$(VUS)) $(if $(PAUSE_S),-e PAUSE_S=$(PAUSE_S)) k6 run /scripts/$(or $(TEST),cached).js
+
+scale-down: ## Stop the scale rehearsal's containers
+	$(SCALE) rm --stop --force web worker lb
 
 format: ## Format JavaScript and TypeScript packages
 	pnpm -r exec prettier --write .

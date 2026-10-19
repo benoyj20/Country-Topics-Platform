@@ -18,6 +18,10 @@ const rootEnvFile = path.join(workspaceRoot, ".env");
 if (existsSync(rootEnvFile)) process.loadEnvFile(rootEnvFile);
 
 const nextConfig: NextConfig = {
+  // Pages and cached data live in Valkey, shared by every web process, so
+  // a purge reaches all of them; no process keeps its own copy (ADR 0013).
+  cacheHandler: fileURLToPath(new URL("./cache-handler.mjs", import.meta.url)),
+  cacheMaxMemorySize: 0,
   // The repository's AGENTS.md holds agent rules; stop `next dev` writing its own.
   agentRules: false,
   // Workspace packages ship TypeScript source.

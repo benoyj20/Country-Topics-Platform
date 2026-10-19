@@ -1,4 +1,5 @@
 import { normalizeEmail } from "@countrytopics/domain";
+import { DEFAULT_QUEUE_PREFIX } from "@countrytopics/jobs";
 import {
   type ErrorReportingConfig,
   readErrorReporting,
@@ -24,6 +25,11 @@ export type ServerEnv = {
   /** Feature flag: only invited addresses may create accounts. */
   inviteOnly: boolean;
   redisUrl: string;
+  /**
+   * The page cache's own Valkey, which may evict (cache-handler.mjs);
+   * unset uses REDIS_URL.
+   */
+  pageCacheUrl?: string;
   queuePrefix: string;
   /** S3-compatible storage for uploads. */
   storage: StorageEnv;
@@ -59,7 +65,7 @@ export type StorageEnv = {
 
 /** Login tokens and sessions are signed with these secrets; shorter values are guessable. */
 export const MIN_SECRET_LENGTH = 32;
-export const DEFAULT_QUEUE_PREFIX = "countrytopics";
+export { DEFAULT_QUEUE_PREFIX };
 
 const POSTGRES_URL_PATTERN = /^postgres(ql)?:\/\//;
 const REDIS_URL_PATTERN = /^rediss?:\/\//;
@@ -221,6 +227,13 @@ export function readServerEnv(env: Env = process.env): ServerEnv {
     problems.push("REDIS_URL must be a redis:// or rediss:// URL");
   }
 
+  const pageCacheUrl = env.PAGE_CACHE_URL?.trim() || undefined;
+  if (pageCacheUrl && !REDIS_URL_PATTERN.test(pageCacheUrl)) {
+    problems.push(
+      "PAGE_CACHE_URL must be empty or a redis:// or rediss:// URL",
+    );
+  }
+
   const queuePrefix = env.QUEUE_PREFIX?.trim() || DEFAULT_QUEUE_PREFIX;
   if (!QUEUE_PREFIX_PATTERN.test(queuePrefix)) {
     problems.push(
@@ -264,6 +277,7 @@ export function readServerEnv(env: Env = process.env): ServerEnv {
     adminEmails,
     inviteOnly,
     redisUrl,
+    pageCacheUrl,
     queuePrefix,
     storage,
     contactEmail,

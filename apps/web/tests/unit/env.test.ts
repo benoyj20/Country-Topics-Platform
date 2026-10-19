@@ -26,6 +26,7 @@ describe("readServerEnv", () => {
       adminEmails: [],
       inviteOnly: true,
       redisUrl: valid.REDIS_URL,
+      pageCacheUrl: undefined,
       queuePrefix: "countrytopics",
       storage: {
         endpoint: undefined,
@@ -67,6 +68,16 @@ describe("readServerEnv", () => {
     expect(() =>
       readServerEnv({ ...valid, CONTACT_EMAIL: "not an address" }),
     ).toThrow(/CONTACT_EMAIL/);
+  });
+
+  it("reads the page cache's own Valkey", () => {
+    expect(
+      readServerEnv({ ...valid, PAGE_CACHE_URL: "redis://cache:6379" })
+        .pageCacheUrl,
+    ).toBe("redis://cache:6379");
+    expect(() =>
+      readServerEnv({ ...valid, PAGE_CACHE_URL: "http://cache" }),
+    ).toThrow(/PAGE_CACHE_URL must be empty or a redis/);
   });
 
   it("reads who runs the site, within a length limit", () => {

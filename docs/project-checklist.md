@@ -519,8 +519,9 @@ See [ADR 0007](adr/0007-public-pages-and-caching.md) for the design.
   statements (a backed one shown, an unbacked one and the bio hidden), and
   the signed-in header link; everything worked after the duplicate Wikidata
   link fix (reported by the developer, 2026-10-17).
-- [ ] Before running two web containers (week 11): a shared Redis cache
+- [x] Before running two web containers (week 11): a shared Redis cache
   handler, so purges reach every instance and no cache sits on local disk.
+  Built in week 11 (see there, and ADR 0013).
 - [x] Paging past 50 topics, filters, and search came in week 8 (below):
   lists that stop short link to `/topics` with their filter.
 - [ ] Not built yet: serving video thumbnails through the site (decided with
@@ -1002,3 +1003,121 @@ rehearsal is the rest of week 11, in a later PR.
     reports.
 - [ ] Not built yet: uploading source maps to Sentry (needs an auth token at
   build time), and error reporting in the admin panel's own pages.
+
+### Week 11: containers, shared page cache, scale rehearsal
+
+See [ADR 0013](adr/0013-containers-shared-cache-and-scale-rehearsal.md) and
+the [scale rehearsal runbook](runbooks/scale-rehearsal.md). All results below
+are from the developer's PC (Docker Desktop on Windows, giving Docker 16 CPUs
+and 31 GB), 2026-10-18 and 2026-10-19.
+
+- [x] Shared page cache (integration tests against Valkey). Two handlers,
+  standing in for two web containers:
+  - serve a page one stored to the other, with its Buffers and Maps intact;
+  - drop it everywhere once a tag it shows is purged, while a page with
+    other tags stays;
+  - check data entries against the tags they were stored with;
+  - keep each build's pages apart while sharing purges.
+
+  Unit tests cover Next.js's rules for expired and stale tags.
+- [x] The production build needs no database. A running build answered the
+  home page's first request with a MISS, rendered fresh and stored in
+  Valkey, and later requests with HITs carrying the usual
+  `s-maxage=3600` headers; the build's copy was never served. Next.js's
+  compile-only mode was tried and rejected: it made every page
+  `private, no-store`.
+- [x] Images build from the repository root with no database: web about
+  2 GB, worker about 400 MB, both running as the unprivileged `node` user.
+- [x] Scale rehearsal step 3: the newest backup restored into
+  `countrytopics_rehearsal` with every table matching (52 tables, 483 rows)
+  and its upload copied.
+- [x] Step 1, statelessness (`make scale-check`, two web and two worker
+  containers behind Caddy):
+  - the member's session worked on both containers;
+  - a TEST topic published through one container showed its change on both
+    at once;
+  - the page was then rendered once (MISS) and the other container's first
+    answer was a HIT from the shared cache;
+  - five comments were taken and the sixth refused (429), alternating
+    between containers.
+
+  Both workers took jobs from the rehearsal's own queues.
+- [x] Step 2, load tests (k6 in the Compose network). The data: 1,002
+  topics, 50 TEST members, and 9,992 comments, seeded by `make scale-seed`.
+  - Cached pages, 100 visitors: 31,072 requests at 293 a second, median
+    15 ms, 95th percentile 38 ms (topic pages 39 ms), no failures. This is
+    the final setup, with the cache's own Valkey; before that change it was
+    31,044 requests, with a 95th percentile of 36 ms.
+  - Uncached (search, browse, comments), 50 visitors: 11,659 requests,
+    95th percentile 46 ms, no failures.
+  - Uncached back to back, 50 visitors with no pauses: 561 requests a
+    second, 95th percentile 201 ms, no failures. Comments were the slowest
+    (95th percentile 228 ms, against 113 ms for search and browse).
+
+    The thread query runs in 0.3 ms (planning 1.3 ms) on its indexes, so
+    the time is the endpoint's several round trips, not a slow query. No
+    query needed fixing at this size, 20 times the pilot's.
+- [x] Larger loads, cached pages, with each visitor pausing 1 s between
+  rounds of four pages (2026-10-19):
+  - 1,000 visitors on 2 web containers: 1,398 requests a second, 95th
+    percentile 193 ms, slowest 11.9 s, no failures. Right after a rebuild,
+    with the cache empty, the home page's 95th percentile was 3.0 s,
+    because every visitor's first request renders it; it was 458 ms once
+    warm;
+  - 1,000 visitors on 4 web containers (`--scale web=4`, which the load
+    balancer found by itself): 2,265 requests a second, 95th percentile
+    153 ms, slowest 2.0 s, no failures. Each web container renders on
+    about one CPU, so adding containers raised capacity;
+  - 2,500 visitors on 4 web containers: 2,564 requests a second, the
+    ceiling of this PC with k6 on it too. The 95th percentile was 2.4 s,
+    the slowest request hit 60 s, and 12 of 275,688 failed. Each web
+    container used about 350 MB.
+
+  A test of 10,000 visitors needs the load generated from another machine
+  (step 4). In front of the pilot, Cloudflare serves cached pages without
+  reaching the containers.
+- [x] Failover: stopping one web container during the cached test failed
+  142 of 29,144 requests (0.48%). The load balancer kept sending requests
+  to it until its next health check. With retries on another container
+  and passive health checks in the Caddyfile, the same test had 0 failures
+  in 29,868 requests (the slowest 2.6 s, while retried).
+- [x] The code review before the first push found ten issues, all fixed
+  (2026-10-18):
+  - cached pages had no build in their keys, so a new build could serve
+    pages pointing at an old build's scripts;
+  - the rehearsal used `CONTAINER_DATABASE_URL`, which names the real
+    database for backups (now `SCALE_DATABASE_URL`);
+  - the cache shared the queues' Valkey, which must never evict, so its
+    growth could starve the queues. It now has its own Valkey (256 MB,
+    least recently used evicted), and entries last 2 hours, not 7 days;
+  - while Valkey was away every page waited 2 seconds; calls now fail at
+    once after the first connection;
+  - the cache check passed with per-container caches, and the session
+    check passed on error responses;
+  - the containers' user owned its code; the code is now read-only for it
+    (also in the backup image);
+  - the cache's connection settings and the queue prefix's default were a
+    second copy of those in `@countrytopics/jobs`;
+  - the seed script cast the database adapter unchecked;
+  - k6 counted the topics list and topic pages as one page.
+- [x] Found while checking the fixes: running `make scale-check` again failed
+  on the admin's authenticator (the preparation did less than
+  `make reset-2fa`) and then on Better Auth's sign-in limit. The preparation
+  now calls that script and clears the rehearsal's sign-in limits.
+- [x] The rehearsal, the manual test, run by Claude at the developer's
+  request in PowerShell (2026-10-19):
+  - `make scale-up` started two web and two worker containers behind the
+    load balancer, and the home, topics, country, topic, and privacy pages
+    answered from both containers;
+  - `make scale-check` passed all five checks;
+  - `make load-test TEST=cached`, with one web container stopped at about
+    45 seconds and started again 25 seconds later, had 0 failures in 29,620
+    requests (95th percentile 74 ms);
+  - `make scale-down` stopped them.
+
+  After the restart, a page that the earlier containers had cached was
+  served at once, marked STALE, and refreshed in the background.
+- [ ] Step 4, not done: a test copy on free cloud tiers (managed PostgreSQL,
+  Redis, storage, and a container host) by changing environment variables
+  only. It needs the developer's cloud accounts; the images and
+  `make scale-check` are what it will reuse.

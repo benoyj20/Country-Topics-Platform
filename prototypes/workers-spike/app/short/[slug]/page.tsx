@@ -1,11 +1,19 @@
-// The topic page with a five-second lifetime instead of an hour, to see a
-// stale page refreshed in the background by the Durable Object queue.
-import Topic from "../../topics/[slug]/page";
+import { TopicView } from "../../TopicView";
 
+// The topic page with a five-second lifetime, page and data both, to see a
+// stale page refreshed with new data in the background by the Durable
+// Object queue.
 export const revalidate = 5;
 
 export function generateStaticParams(): { slug: string }[] {
   return [];
 }
 
-export default Topic;
+export default async function ShortTopic({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+  return <TopicView slug={slug} lifetimeS={revalidate} />;
+}

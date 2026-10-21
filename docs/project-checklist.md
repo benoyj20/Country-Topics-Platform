@@ -1239,10 +1239,22 @@ and 31 GB), 2026-10-18 and 2026-10-19.
   purge by tag shows the edit on the next request, and a forged one is
   refused; a stale page refreshed in the background; fonts served from the
   Worker; error reports reached a stand-in Sentry.
-- [x] Found and fixed in the spike: Sentry's Cloudflare SDK sent the
-  visitor's cookies and a user, so reports now go through the site's
-  scrubbing; the topic page was not cached until it returned an empty
-  `generateStaticParams`, as apps/web's does.
+- [x] Found and fixed in the spike: the topic page was not cached until it
+  returned an empty `generateStaticParams`, as apps/web's does.
+- [x] The code review before the first push found ten issues, all fixed:
+  - Sentry 11 dropped `sendDefaultPii`, so every SDK in the repository
+    collected users, cookies, headers, bodies, and query strings by
+    default, and only the scrubbing kept them out of reports. The shared
+    `ERROR_REPORTING_DEFAULTS` now set `dataCollection` to collect none
+    of it; the spike showed reports clean with the scrubbing removed too.
+  - The spike's cache tags were per topic; they are now apps/web's
+    collection tags, which is what the backend will purge.
+  - The five-second page reused hour-long data, so its refresh proved
+    only a re-render; it now shows new data arriving.
+  - The link helper was not an exact copy, the page-data fetch had no
+    timeout or shape check, the stand-in Sentry could miscount or crash,
+    old build state could enter the image, and nothing type-checked the
+    spike (it has a `typecheck` script now).
 - [x] `pnpm-workspace.yaml` pins `@aws-sdk/types` to 3.974.6, the version
   the workspace already used: AWS SDK packages published on 2026-10-21,
   pulled in by the adapter, asked for a 3.975.0 that was still being

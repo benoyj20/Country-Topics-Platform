@@ -8,7 +8,8 @@
     "dev": "next dev --port 3101",
     "build:worker": "opennextjs-cloudflare build",
     "preview": "opennextjs-cloudflare preview",
-    "size": "wrangler deploy --dry-run --outdir .wrangler/dry-run"
+    "size": "wrangler deploy --dry-run --outdir .wrangler/dry-run",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@countrytopics/observability": "workspace:*",

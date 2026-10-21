@@ -5,8 +5,10 @@ import {
 import Link from "next/link";
 import type { ComponentProps, ReactNode } from "react";
 
-// A copy of apps/web's TopicBody, with its two link helpers inlined, to see
-// whether Payload's rich-text renderer runs in the Workers runtime.
+// A copy of apps/web's TopicBody, with its two link helpers from
+// src/editor.ts copied in (that file also loads Payload's server-side
+// editor), to see whether Payload's rich-text renderer runs in the Workers
+// runtime. Phase 5 moves the helpers into a package both can import.
 
 type LinkFields = { url?: unknown; newTab?: unknown };
 
@@ -21,20 +23,28 @@ function isAllowedLinkUrl(value: string): boolean {
 function internalLinkTarget(
   fields: unknown,
 ): { relationTo: string; id: string } | null {
-  if (!fields || typeof fields !== "object" || !("doc" in fields)) return null;
-  const doc = fields.doc;
   if (
-    !doc ||
-    typeof doc !== "object" ||
-    !("relationTo" in doc) ||
-    !("value" in doc)
+    !fields ||
+    typeof fields !== "object" ||
+    !("linkType" in fields) ||
+    fields.linkType !== "internal" ||
+    !("doc" in fields) ||
+    !fields.doc ||
+    typeof fields.doc !== "object" ||
+    !("relationTo" in fields.doc) ||
+    typeof fields.doc.relationTo !== "string" ||
+    !("value" in fields.doc)
   ) {
     return null;
   }
-  const { relationTo, value } = doc;
-  return typeof relationTo === "string" && typeof value === "string"
-    ? { relationTo, id: value }
-    : null;
+  const value = fields.doc.value;
+  const id =
+    typeof value === "string"
+      ? value
+      : value && typeof value === "object" && "id" in value
+        ? String(value.id)
+        : null;
+  return id ? { relationTo: fields.doc.relationTo, id } : null;
 }
 
 function externalLink(fields: LinkFields, children: ReactNode): ReactNode {

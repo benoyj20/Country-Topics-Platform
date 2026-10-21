@@ -26,6 +26,23 @@ let reports = 0;
 let lastReport = null;
 let pageRequests = 0;
 
+/**
+ * The event in a Sentry envelope: a header line, then pairs of an item
+ * header and its payload. Null when there is none or it cannot be read.
+ */
+function envelopeEvent(text) {
+  const lines = text.split(String.fromCharCode(10));
+  for (let i = 1; i + 1 < lines.length; i += 2) {
+    try {
+      if (JSON.parse(lines[i]).type === "event")
+        return JSON.parse(lines[i + 1]);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 function send(res, status, body) {
   res.writeHead(status, { "content-type": "application/json" });
   res.end(JSON.stringify(body));
@@ -51,23 +68,22 @@ createServer((req, res) => {
     const chunks = [];
     req.on("data", (chunk) => chunks.push(chunk));
     req.on("end", () => {
-      reports += 1;
-      // An envelope: a header line, then an item header and its payload.
-      const [, , payload = "{}"] = Buffer.concat(chunks)
-        .toString("utf8")
-        .split(String.fromCharCode(10));
-      const event = JSON.parse(payload);
-      const exception = event.exception?.values?.[0];
-      lastReport = {
-        type: exception?.type,
-        value: exception?.value,
-        environment: event.environment,
-        hasUser: "user" in event,
-        hasCookies: Boolean(
-          event.request?.cookies || event.request?.headers?.cookie,
-        ),
-      };
-      console.log(`error report ${reports} received: ${exception?.value}`);
+      const event = envelopeEvent(Buffer.concat(chunks).toString("utf8"));
+      // Client reports and sessions are not error reports.
+      if (event) {
+        reports += 1;
+        const exception = event.exception?.values?.[0];
+        lastReport = {
+          type: exception?.type,
+          value: exception?.value,
+          environment: event.environment,
+          hasUser: "user" in event,
+          hasCookies: Boolean(
+            event.request?.cookies || event.request?.headers?.cookie,
+          ),
+        };
+        console.log(`error report ${reports} received: ${exception?.value}`);
+      }
       send(res, 200, {});
     });
     return;

@@ -9,8 +9,9 @@ there. Nothing here is deployed, and the apps never import it.
 ## What it has
 
 - `app/topics/[slug]/page.tsx`: the topic page, from page data fetched with
-  the topic's cache tag and cached for an hour; `app/short/[slug]` is the
-  same page with a five-second lifetime, to watch a background refresh.
+  apps/web's cache tags and cached for an hour; `app/short/[slug]` is the
+  same page with its data cached for five seconds, to watch a background
+  refresh bring in new data.
 - `app/TopicBody.tsx`: apps/web's rich-text renderer, copied.
 - `app/layout.tsx`, `app/styles.css`: the site's fonts (`next/font`) and
   styles, copied.
@@ -39,7 +40,8 @@ topics can be added by mounting their page data into `fixtures/`.
 - Purge: change the title with
   `curl -X POST "http://localhost:3102/test/title?slug=test-workers-spike-topic&title=Edited"`,
   then
-  `curl -X POST -H "x-purge-key: spike-local-purge-key" "http://localhost:8787/api/revalidate?slug=test-workers-spike-topic"`.
+  `curl -X POST -H "x-purge-key: spike-local-purge-key" "http://localhost:8787/api/revalidate?tag=public:topics"`,
+  the tag apps/web purges when a topic is published.
 - Error report: open http://localhost:8787/boom, then
   http://localhost:3102/test/reports.
 - Size: `docker run --rm countrytopics-workers-spike pnpm size`.

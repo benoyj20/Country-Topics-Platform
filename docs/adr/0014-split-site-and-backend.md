@@ -560,17 +560,22 @@ yet, so it was not deployed to `workers.dev`:
 | Size                             | 1.17 MB compressed (5.6 MB raw): under the free plan's 3 MB and Workers Paid's 10 MB                                                                                                     |
 | Start-up                         | About 56 ms of CPU locally (`wrangler check startup`), against a 1-second limit                                                                                                          |
 | Caching                          | Repeat requests are cache hits from R2, with no call to the backend                                                                                                                      |
-| Purge by tag                     | An edit stays hidden until its tag is purged; the next request is then rendered fresh; a forged purge is refused                                                                         |
-| Background refresh               | A stale page is served once while the Durable Object queue renders a new one                                                                                                             |
+| Purge by tag                     | With apps/web's tags (`public:topics` and the rest): an edit stays hidden until the tag is purged, then the next request renders it; a forged purge or an unknown tag is refused         |
+| Background refresh               | Once a page's lifetime is over it is served stale once, while the Durable Object queue fetches the new data and renders it                                                               |
 | Fonts                            | `next/font`'s files are served from the Worker's assets as `font/woff2`                                                                                                                  |
-| Error reports                    | Errors reach Sentry, with no user or cookies once the site's scrubbing is applied                                                                                                        |
+| Error reports                    | Errors reach Sentry with no user, cookies, or other personal data, from Sentry's own settings and again from the site's scrubbing                                                        |
 
 What it changes for the later phases:
 
-- **Error reports must be scrubbed.** Sentry's Cloudflare SDK sent the
-  visitor's cookies and a user even without `sendDefaultPii`, so the
-  frontend passes every report through `@countrytopics/observability`'s
-  `scrubErrorEvent`, as the spike does.
+- **Sentry 11 collects personal data unless told not to.** Its old
+  `sendDefaultPii: false`, which every SDK in the repository was given, no
+  longer exists; the new `dataCollection` option collects users, cookies,
+  headers, bodies, query strings, and local variables by default. The
+  spike's first reports carried the visitor's cookie and a user. The shared
+  `ERROR_REPORTING_DEFAULTS` now turn all of it off, for the site, the
+  worker, and the backup tool as well, and `scrubErrorEvent` stays as the
+  second line of defence. Before this, the scrubbing alone had kept it out
+  of the reports.
 - **Topic pages keep `generateStaticParams` returning `[]`,** as apps/web's
   do. Without it Next.js renders them on every request and caches nothing.
 - **On this Windows machine, OpenNext builds only on Linux:** its build

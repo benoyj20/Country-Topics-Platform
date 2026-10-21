@@ -74,6 +74,7 @@ Open `http://localhost:4173` and click **Try demo**. See
 
 - `apps/web` — Next.js site, Payload admin, and `/api/v1`
 - `apps/worker` — background jobs on BullMQ: sign-in emails, reference checks, link archiving, video checks, the search index
+- `packages/contracts` — the public pages' data as the backend serves it at `/api/v1/pages/*` and `/api/v1/topics`: zod schemas, the types made from them, the endpoints' paths, and their cache tags (ADR 0014)
 - `packages/domain` — roles, sign-up rules, name, slug, date, DOI, and ISBN rules, the topic workflow, the evidence rules, snippet and transcript parsing, language codes, the plain text of rich text, and the comment, vote, report, and display-name rules
 - `packages/email` — the email adapter (SMTP) and email templates
 - `packages/environment` — which environment a process belongs to (`APP_ENV`: local, staging, or production), and the start-up checks that stop it running with another environment's addresses

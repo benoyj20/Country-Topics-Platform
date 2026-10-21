@@ -1,3 +1,10 @@
+import {
+  CountryPage,
+  HomePage,
+  IndividualPage,
+  PageNotFound,
+  TopicPage,
+} from "@countrytopics/contracts";
 import config from "@payload-config";
 import {
   getPayload,
@@ -7,6 +14,10 @@ import {
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import * as z from "zod";
 
+import { GET as getCountryData } from "@/app/(frontend)/api/v1/pages/countries/[slug]/route";
+import { GET as getHomeData } from "@/app/(frontend)/api/v1/pages/home/route";
+import { GET as getIndividualData } from "@/app/(frontend)/api/v1/pages/individuals/[slug]/route";
+import { GET as getTopicData } from "@/app/(frontend)/api/v1/pages/topics/[slug]/route";
 import { GET as getFile } from "@/app/(frontend)/files/[id]/route";
 import type { Individual, Media, Topic, User } from "@/payload-types";
 import {
@@ -334,6 +345,11 @@ describe("topic pages", () => {
     expect(page?.bodyLinks).toEqual({
       [`individuals:${linkedOnly.id}`]: `/individuals/${linkedOnly.slug}`,
     });
+    // The body keeps the public link's target, and drops the draft's, so
+    // the page's data does not name it.
+    const body = JSON.stringify(page?.body);
+    expect(body).toContain(linkedOnly.id);
+    expect(body).not.toContain(draft.id);
   });
 
   it("keep archived topics, and do not exist for drafts", async () => {
@@ -408,6 +424,103 @@ describe("individual pages", () => {
     expect((await loadIndividualPage(portrayed.slug))?.photo?.url).toBe(
       `/files/${photo.id}`,
     );
+  });
+});
+
+describe("page data over HTTP", () => {
+  type SlugRoute = (
+    request: Request,
+    context: { params: Promise<{ slug: string }> },
+  ) => Promise<Response>;
+
+  function bySlug(route: SlugRoute, path: string, slug: string) {
+    return route(new Request(`${SITE_URL}/api/v1/pages/${path}/${slug}`), {
+      params: Promise.resolve({ slug }),
+    });
+  }
+
+  /** The JSON the loader returns, as it would arrive over HTTP. */
+  function asSent(value: unknown): unknown {
+    return JSON.parse(JSON.stringify(value));
+  }
+
+  it("answer with exactly what each page renders from, in the shared contract", async () => {
+    const cases: [
+      string,
+      Response,
+      unknown,
+      { parse(value: unknown): unknown },
+    ][] = [
+      ["home", await getHomeData(), await loadHomePage(), HomePage],
+      [
+        "a published topic",
+        await bySlug(getTopicData, "topics", live.slug),
+        await loadTopicPage(live.slug),
+        TopicPage,
+      ],
+      [
+        "an archived topic",
+        await bySlug(getTopicData, "topics", archived.slug),
+        await loadTopicPage(archived.slug),
+        TopicPage,
+      ],
+      [
+        "a country",
+        await bySlug(getCountryData, "countries", kenyaSlug),
+        await loadCountryPage(kenyaSlug),
+        CountryPage,
+      ],
+      [
+        "a person",
+        await bySlug(getIndividualData, "individuals", subject.slug),
+        await loadIndividualPage(subject.slug),
+        IndividualPage,
+      ],
+      [
+        "a person with a photo",
+        await bySlug(getIndividualData, "individuals", portrayed.slug),
+        await loadIndividualPage(portrayed.slug),
+        IndividualPage,
+      ],
+    ];
+    for (const [name, response, page, contract] of cases) {
+      expect(response.status, name).toBe(200);
+      expect(response.headers.get("cache-control"), name).toBe("no-store");
+      const body: unknown = await response.json();
+      expect(body, name).toEqual(asSent(page));
+      // Parsing drops what the contract does not list, so an answer that
+      // parses unchanged holds nothing else.
+      expect(contract.parse(body), name).toEqual(body);
+    }
+    const archivedPage = TopicPage.parse(
+      await (await bySlug(getTopicData, "topics", archived.slug)).json(),
+    );
+    expect(archivedPage.state).toBe("archived");
+  });
+
+  it("answer 404 wherever the page would be missing", async () => {
+    const missing: [string, Response][] = [
+      ["a draft topic", await bySlug(getTopicData, "topics", draft.slug)],
+      ["no such topic", await bySlug(getTopicData, "topics", "no-such-topic")],
+      ["a malformed slug", await bySlug(getTopicData, "topics", "Not_A-Slug")],
+      [
+        "no such country",
+        await bySlug(getCountryData, "countries", "no-such-country"),
+      ],
+      [
+        "a person named only in a draft",
+        await bySlug(getIndividualData, "individuals", draftOnly.slug),
+      ],
+      [
+        "a person no topic names",
+        await bySlug(getIndividualData, "individuals", unnamedWithPhoto.slug),
+      ],
+    ];
+    for (const [name, response] of missing) {
+      expect(response.status, name).toBe(404);
+      expect(response.headers.get("cache-control"), name).toBe("no-store");
+      PageNotFound.parse(await response.json());
+    }
   });
 });
 

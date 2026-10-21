@@ -1304,4 +1304,37 @@ and 31 GB), 2026-10-18 and 2026-10-19.
     before the page's reads instead of with them.
 - [x] The local database has a TEST admin, `test-admin-spike@example.test`,
   invited for the checks, and one TEST topic, "TEST admin spike topic
-  (phase 2)". Neither is real.
+  (phase 2)". Neither is real. The topic was archived after the checks.
+
+### The split, phase 3: contracts and page data (ADR 0014)
+
+- [x] `packages/contracts`: zod schemas and types for the public pages'
+  data and browsing, re-exported by apps/web's `src/public/types.ts`, and
+  each endpoint's path and cache tags (2026-10-21).
+- [x] `GET /api/v1/pages/home`, `/api/v1/pages/topics/:slug`,
+  `/api/v1/pages/countries/:slug`, and `/api/v1/pages/individuals/:slug`,
+  from the pages' cached loaders, sent with `no-store`; 404 where the page
+  is missing, 503 when the data cannot be loaded.
+- [x] Integration tests: each endpoint's JSON equals its loader's and
+  passes its contract; drafts, unknown or malformed slugs, and people no
+  published topic names answer 404; archived topics answer as archived.
+- [x] Checked against the local database: all 269 addresses answered the
+  same status as their pages, every answer passed its contract, and
+  repeated reads took about 6 ms.
+- [x] The code review before the first push found nine issues, all fixed:
+  - The paths helper put any value into the path, so a slug such as
+    `..%2F..%2Faccount` could have sent a signed request to another
+    endpoint; it refuses anything but a slug now.
+  - A topic body's JSON named the drafts and private profiles it linked
+    to, which the rendered page never did; those links lose their target
+    now.
+  - Strict schemas would have broken the frontend whenever the backend
+    added a field, as the two deploy apart; parsing drops unknown fields
+    now, and the backend's tests check that every answer parses unchanged.
+  - The cache tags lived only in apps/web; they are in the contracts now.
+  - Failures were logged without their stack; the browse contract, the
+    503 answer, and the body's root were not fully checked; values were
+    listed twice instead of taken from the domain package; and the three
+    slug routes were copies of one another.
+- [ ] Not in phase 3: the member API's schemas (phase 5) and Payload's
+  REST types (phase 7) in `packages/contracts`.

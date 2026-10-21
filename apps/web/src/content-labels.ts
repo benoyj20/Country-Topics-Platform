@@ -6,6 +6,7 @@ import type {
   EvidenceKind,
   FeedbackKind,
   FeedbackStatus,
+  Licence,
   ReferenceKind,
   TopicChangeKind,
   TopicPersonRole,
@@ -60,8 +61,7 @@ export const REFERENCE_KIND_LABELS: Record<ReferenceKind, string> = {
   other: "Other",
 };
 
-/** The licences a file may have; only files we may publish are uploaded. */
-export const LICENCE_LABELS = {
+export const LICENCE_LABELS: Record<Licence, string> = {
   public_domain: "Public domain or CC0",
   cc_by: "CC BY",
   cc_by_sa: "CC BY-SA",
@@ -69,8 +69,7 @@ export const LICENCE_LABELS = {
   permission: "Used with the owner's permission",
   own_work: "Our own work",
   official_document: "Official or public record",
-} as const;
-export type Licence = keyof typeof LICENCE_LABELS;
+};
 
 export const COMMENT_REPORT_REASON_LABELS: Record<CommentReportReason, string> =
   {

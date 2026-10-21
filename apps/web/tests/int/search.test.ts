@@ -1,3 +1,4 @@
+import { BrowseResult as BrowseContract } from "@countrytopics/contracts";
 import {
   createRedisConnection,
   createSearchQueue,
@@ -608,6 +609,8 @@ describe("GET /api/v1/topics", () => {
       "public, max-age=0, s-maxage=60, stale-while-revalidate=300",
     );
     const body = (await response.json()) as BrowseResult;
+    // It holds nothing the shared contract does not list.
+    expect(BrowseContract.parse(body)).toEqual(body);
     expect(body.topics.map((topic) => topic.slug)).toEqual([glacier.slug]);
     expect(body.topics[0]).toMatchObject({
       countries: [{ name: "Iceland", slug: iceland.slug }],

@@ -1,3 +1,4 @@
+import { PUBLIC_TAGS, type PublicTag } from "@countrytopics/contracts";
 import { revalidateTag } from "next/cache";
 import { after } from "next/server";
 import type {
@@ -5,23 +6,8 @@ import type {
   CollectionAfterDeleteHook,
 } from "payload";
 
-/**
- * Cache tags of the public pages, one per collection they show. Every page
- * is tagged with each collection it reads, so a change anywhere in a
- * collection refreshes every page that could show it. The site is small;
- * per-document tags would save renders but risk missing a dependency.
- */
-export const PUBLIC_TAGS = {
-  topics: "public:topics",
-  individuals: "public:individuals",
-  countries: "public:countries",
-  categories: "public:categories",
-  tags: "public:tags",
-  snippets: "public:snippets",
-  references: "public:references",
-  media: "public:media",
-} as const;
-export type PublicTag = (typeof PUBLIC_TAGS)[keyof typeof PUBLIC_TAGS];
+// The public pages' cache tags, shared with the frontend.
+export { PUBLIC_TAGS, type PublicTag };
 
 /**
  * How long a public page or its data is served before it is rendered again,

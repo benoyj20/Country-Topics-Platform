@@ -1,6 +1,8 @@
 import { unstable_cache } from "next/cache";
 import { cache } from "react";
 
+import { PAGE_DATA_TAGS } from "@countrytopics/contracts";
+
 import {
   PUBLIC_REVALIDATE_S,
   PUBLIC_TAGS,
@@ -25,11 +27,11 @@ import {
 function cached<Args extends string[], Result>(
   name: string,
   load: (...args: Args) => Promise<Result>,
-  tags: PublicTag[],
+  tags: readonly PublicTag[],
 ) {
   return cache(
     unstable_cache(load, ["public", name], {
-      tags,
+      tags: [...tags],
       revalidate: PUBLIC_REVALIDATE_S,
     }),
   );
@@ -37,36 +39,27 @@ function cached<Args extends string[], Result>(
 
 const T = PUBLIC_TAGS;
 
-export const topicPage = cached("topic-page", loadTopicPage, [
-  T.topics,
-  T.individuals,
-  T.countries,
-  T.categories,
-  T.tags,
-  T.snippets,
-  T.references,
-  T.media,
-]);
+// The page loaders' tags are the frontend's too, for the same data over
+// /api/v1/pages/* (@countrytopics/contracts).
+export const topicPage = cached(
+  "topic-page",
+  loadTopicPage,
+  PAGE_DATA_TAGS.topic,
+);
 
-export const individualPage = cached("individual-page", loadIndividualPage, [
-  T.individuals,
-  T.topics,
-  T.countries,
-  T.snippets,
-  T.media,
-  T.references,
-]);
+export const individualPage = cached(
+  "individual-page",
+  loadIndividualPage,
+  PAGE_DATA_TAGS.individual,
+);
 
-export const countryPage = cached("country-page", loadCountryPage, [
-  T.countries,
-  T.topics,
-  T.individuals,
-]);
+export const countryPage = cached(
+  "country-page",
+  loadCountryPage,
+  PAGE_DATA_TAGS.country,
+);
 
-export const homePage = cached("home-page", loadHomePage, [
-  T.topics,
-  T.countries,
-]);
+export const homePage = cached("home-page", loadHomePage, PAGE_DATA_TAGS.home);
 
 export const publicFile = cached("public-file", loadPublicFile, [
   T.media,

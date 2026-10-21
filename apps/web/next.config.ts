@@ -26,6 +26,7 @@ const nextConfig: NextConfig = {
   agentRules: false,
   // Workspace packages ship TypeScript source.
   transpilePackages: [
+    "@countrytopics/contracts",
     "@countrytopics/domain",
     "@countrytopics/email",
     "@countrytopics/environment",

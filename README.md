@@ -72,11 +72,13 @@ Open `http://localhost:4173` and click **Try demo**. See
 
 ## Repository layout
 
-- `apps/web` — Next.js site, Payload admin, and `/api/v1`
+- `apps/frontend` — the site's address (ADR 0014): it passes every request on to `apps/web`, signed, and in later phases renders the pages and the new admin itself; built for Cloudflare Workers
+- `apps/web` — the backend: Next.js pages for now, Payload and its admin panel, and `/api/v1`; it answers only requests the frontend signed
 - `apps/worker` — background jobs on BullMQ: sign-in emails, reference checks, link archiving, video checks, the search index
 - `packages/contracts` — the public pages' data as the backend serves it at `/api/v1/pages/*` and `/api/v1/topics`: zod schemas, the types made from them, the endpoints' paths, and their cache tags (ADR 0014)
 - `packages/domain` — roles, sign-up rules, name, slug, date, DOI, and ISBN rules, the topic workflow, the evidence rules, snippet and transcript parsing, language codes, the plain text of rich text, and the comment, vote, report, and display-name rules
 - `packages/email` — the email adapter (SMTP) and email templates
+- `packages/forwarding` — the frontend's signature on the requests it passes to the backend, checked there (ADR 0014)
 - `packages/environment` — which environment a process belongs to (`APP_ENV`: local, staging, or production), and the start-up checks that stop it running with another environment's addresses
 - `packages/jobs` — job queues shared by the web app and the worker, and the worker's database reads and writes
 - `packages/search` — the search adapter: topic search with filters and facets, on PostgreSQL full text
@@ -101,16 +103,18 @@ make env         # creates .env, or adds missing variables; never changes set va
 make bootstrap   # pnpm install
 make infra-up    # PostgreSQL on 5433, Valkey on 6379 (queues) and 6380 (page cache), Mailpit on 1025/8025, S3 storage on 8333, daily backups
 make migrate     # applies the database migrations
-make dev         # site at http://localhost:3000 and the worker
+make dev         # site at http://localhost:3000, its backend at http://localhost:3002, and the worker
 ```
 
 To become the first admin, put your address in `ADMIN_EMAILS` in `.env`, restart
 `make dev`, and sign in at `http://localhost:3000/sign-in`, with Google or with the
 emailed link (it arrives in Mailpit). On `/account`, set up an authenticator app,
-then open the admin panel. Invite other people from the admin panel's
+then open the admin panel at `http://localhost:3002/admin`: browsers reach the
+backend only through the site, except Payload's panel, which works at the
+backend's own address on this machine until the new admin replaces it. Invite other people from the admin panel's
 **Invitations** collection. If someone loses their authenticator app, run
-`make reset-2fa EMAIL=their@address` and they can set up a new one. The dev server
-listens on `127.0.0.1` only.
+`make reset-2fa EMAIL=their@address` and they can set up a new one. The dev servers
+listen on `127.0.0.1` only.
 
 Mailpit's inbox is at `http://localhost:8025`. Uploaded files go to the
 `countrytopics` bucket of the local SeaweedFS storage (data in a Docker volume). The

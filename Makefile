@@ -24,8 +24,8 @@ infra-down: ## Stop local infrastructure, keeping its data volumes
 infra-config: ## Validate the Compose configuration
 	$(COMPOSE) config --quiet
 
-dev: ## Run the site (http://localhost:3000) and the worker (run make migrate first)
-	pnpm --parallel --filter @countrytopics/web --filter @countrytopics/worker dev
+dev: ## Run the site (http://localhost:3000), its backend (http://localhost:3002), and the worker (run make migrate first)
+	pnpm --parallel --filter @countrytopics/frontend --filter @countrytopics/web --filter @countrytopics/worker dev
 
 dev-prototype: ## Run the YouTube snippet prototype at http://localhost:4173
 	pnpm --filter @countrytopics/youtube-snippet-prototype dev

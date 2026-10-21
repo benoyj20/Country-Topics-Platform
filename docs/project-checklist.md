@@ -1338,3 +1338,49 @@ and 31 GB), 2026-10-18 and 2026-10-19.
     slug routes were copies of one another.
 - [ ] Not in phase 3: the member API's schemas (phase 5) and Payload's
   REST types (phase 7) in `packages/contracts`.
+
+### The split, phase 4: the API through the frontend (ADR 0014)
+
+- [x] `apps/frontend` passes every request on to the backend, signed with
+  `FORWARDING_KEY` (`packages/forwarding`), with the visitor's address; the
+  backend's `proxy.ts` refuses anything unsigned except its health check
+  and, locally, Payload's panel at `localhost:3002/admin`. `make dev` runs
+  the frontend on 3000, the backend on 3002, and the worker (2026-10-21).
+- [x] Every cookie is `__Host-countrytopics.*`, Secure, `Path=/`, with no
+  `Domain`; plain names only on a local plain-http address other than
+  localhost.
+- [x] Canonical redirects are built from `SITE_URL`; staff writes through
+  Payload's REST API are limited per person, bulk writes more tightly.
+- [x] Checked through the frontend with TEST accounts (ADR 0014, "Phase 4
+  results"): sign-in by email link, comments, votes, reports, export,
+  account deletion, and a staff edit; sign-in's redirect keeps its cookie,
+  in `next dev` and in workerd; unsigned, forged, and expired requests to
+  the backend are refused; the pages hydrate and navigate client-side; the
+  panel saves locally; `make scale-check` and both load tests pass with
+  signed requests.
+- [x] Found while building it:
+  - Next.js removes `_rsc` from every request's URL and re-encodes the
+    query, so the signature covers the path as the backend's proxy sees it.
+  - A proxy that rewrites request headers loses Next.js's router headers,
+    so the backend's proxy passes requests on unchanged.
+  - The frontend drops the `Next-Url` header before passing a request on,
+    so the backend's own `_rsc` check always failed; the frontend makes it
+    instead.
+  - The development server's live reload is a websocket, which only a
+    Next.js rewrite can pass on.
+- [x] The code review before the first push found ten issues; nine were
+  fixed and one was not a problem (public pages link files on the site,
+  not by Payload's `serverURL`):
+  - a path starting with `//` could have named another host, and
+    percent-encoded spellings of `/admin` were passed on;
+  - cookies were Secure even on a plain-http phone test address;
+  - bulk REST writes counted as one save;
+  - the expired-signature message did not mention clocks;
+  - the rehearsal check's redirects did not follow fetch's rules;
+  - the origin and key readers were copied in three places;
+  - `FORWARDING_KEY` was missing from the ownership-transfer runbook;
+  - and the write limit listed operation names the hook never receives.
+- [x] The security review found no high- or medium-confidence issues.
+- [x] The local database has more TEST accounts for these checks: members
+  invited as `test-member-*-phase4*@example.test`, which deleted their own
+  accounts, and their TEST comment on the TEST browse-check topic.

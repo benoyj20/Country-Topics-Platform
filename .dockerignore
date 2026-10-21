@@ -13,3 +13,4 @@
 .git
 **/.open-next
 **/.wrangler
+**/.dev.vars

@@ -9,16 +9,26 @@
 //     copy from the shared cache;
 //   - a member's comment limit counts across containers (Valkey).
 //
-// Only a topic whose title starts with "TEST" is changed. No dependencies:
-// Node 22+ only. Usage: node check-stateless.mjs [topic slug]
+// Only a topic whose title starts with "TEST" is changed. Node 22+ and the
+// repository's signing package only. Usage: node check-stateless.mjs [topic slug]
 
 import { createHmac } from "node:crypto";
+
+import {
+  signedPathAndQuery,
+  signForwardedRequest,
+} from "../../packages/forwarding/src/index.ts";
 
 const SITE = process.env.SCALE_SITE ?? "http://localhost:8080";
 const MAILPIT = process.env.MAILPIT_URL ?? "http://localhost:8025";
 const ADMIN = "rehearsal-admin@example.test";
 const MEMBER = "rehearsal-member@example.test";
 const slug = process.argv[2] ?? "test-browse-check-topic";
+// The rehearsal's own key, as compose.yaml gives its web containers.
+const FORWARDING_KEY = "rehearsal-only-forwarding-key-not-a-secret";
+// One visitor address for the whole check: its limits count per member.
+const CLIENT_ADDRESS = "198.18.0.1";
+const REDIRECTS = new Set([301, 302, 303, 307, 308]);
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const failures = [];
 
@@ -27,22 +37,55 @@ function check(ok, message) {
   if (!ok) failures.push(message);
 }
 
-/** A cookie jar per person, as a browser keeps one. */
+/**
+ * A cookie jar per person, as a browser keeps one. Every request is signed
+ * as the frontend signs it (ADR 0014), since the rehearsal has none, and
+ * redirects are followed here so that each hop is signed too.
+ */
 class Browser {
   cookies = new Map();
   async fetch(path, { method = "GET", body, redirect = "follow" } = {}) {
-    const headers = { origin: SITE };
+    let url = new URL(path, SITE);
+    for (let hop = 0; ; hop += 1) {
+      const response = await this.send(url, method, body);
+      const location = response.headers.get("location");
+      if (
+        redirect !== "follow" ||
+        !REDIRECTS.has(response.status) ||
+        !location ||
+        hop === 5
+      ) {
+        return response;
+      }
+      url = new URL(location, url);
+      // As fetch follows: 307 and 308 repeat the request; the others GET.
+      if (response.status !== 307 && response.status !== 308) {
+        method = "GET";
+        body = undefined;
+      }
+    }
+  }
+
+  async send(url, method, body) {
+    const headers = {
+      origin: SITE,
+      ...(await signForwardedRequest(
+        FORWARDING_KEY,
+        { method, pathAndQuery: signedPathAndQuery(url) },
+        CLIENT_ADDRESS,
+      )),
+    };
     if (this.cookies.size > 0) {
       headers.cookie = [...this.cookies]
         .map(([k, v]) => `${k}=${v}`)
         .join("; ");
     }
     if (body !== undefined) headers["content-type"] = "application/json";
-    const response = await fetch(new URL(path, SITE), {
+    const response = await fetch(url, {
       method,
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
-      redirect,
+      redirect: "manual",
     });
     for (const line of response.headers.getSetCookie()) {
       const [pair] = line.split(";");

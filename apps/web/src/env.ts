@@ -4,7 +4,10 @@ import {
   checkSiteAddress,
   errorEnvironmentFor,
   isLoopbackHostname,
+  MIN_SECRET_LENGTH,
   readAppEnvironment,
+  readBackendUrl,
+  readSecret,
   readSiteUrl,
 } from "@countrytopics/environment";
 import { DEFAULT_QUEUE_PREFIX } from "@countrytopics/jobs";
@@ -23,8 +26,22 @@ export type ServerEnv = {
   /** Unset when reads should use the primary database. */
   databaseReplicaUrl?: string;
   payloadSecret: string;
-  /** The site's public origin, such as `http://localhost:3000`; no trailing slash. */
+  /**
+   * The site's public origin, such as `http://localhost:3000`; no trailing
+   * slash. Since ADR 0014 it is the frontend's: browsers reach this
+   * backend only through it.
+   */
   siteUrl: string;
+  /** This backend's own origin, such as `http://localhost:3002`. */
+  backendUrl: string;
+  /**
+   * Locally only, where staff use Payload's panel at the backend's own
+   * address until ADR 0014's phase 12: that origin, from which unsigned
+   * requests and writes are accepted. Unset in every hosted environment.
+   */
+  panelOrigin?: string;
+  /** The key the frontend signs every request it passes on with. */
+  forwardingKey: string;
   betterAuthSecret: string;
   /** Unset when Google sign-in is not configured. */
   google?: { clientId: string; clientSecret: string };
@@ -52,12 +69,6 @@ export type ServerEnv = {
   googleBooksApiKey?: string;
   /** Cloudflare Turnstile on the email sign-in form; unset turns it off. */
   turnstile?: { siteKey: string; secretKey: string };
-  /**
-   * The header in which the proxy in front of the site passes the client's
-   * address, such as `cf-connecting-ip`; Better Auth's sign-in rate limits
-   * count per address. Unset: a single-address `x-forwarded-for`.
-   */
-  clientIpHeader?: string;
   /** Sentry (SENTRY_DSN, SENTRY_ENVIRONMENT); unset turns it off. */
   errorReporting?: ErrorReportingConfig;
 };
@@ -71,9 +82,7 @@ export type StorageEnv = {
   secretAccessKey: string;
 };
 
-/** Login tokens and sessions are signed with these secrets; shorter values are guessable. */
-export const MIN_SECRET_LENGTH = 32;
-export { DEFAULT_QUEUE_PREFIX };
+export { DEFAULT_QUEUE_PREFIX, MIN_SECRET_LENGTH };
 
 const POSTGRES_URL_PATTERN = /^postgres(ql)?:\/\//;
 const REDIS_URL_PATTERN = /^rediss?:\/\//;
@@ -84,16 +93,6 @@ const DEFAULT_S3_REGION = "us-east-1";
 const SITE_OPERATOR_MAX_LENGTH = 200;
 
 type Env = Record<string, string | undefined>;
-
-function readSecret(env: Env, name: string, problems: string[]): string {
-  const value = env[name]?.trim() ?? "";
-  if (value.length < MIN_SECRET_LENGTH) {
-    problems.push(
-      `${name} must be at least ${MIN_SECRET_LENGTH} characters; leave it empty in .env and run "make env" to generate one`,
-    );
-  }
-  return value;
-}
 
 function readGoogle(env: Env, problems: string[]): ServerEnv["google"] {
   const clientId = env.GOOGLE_CLIENT_ID?.trim() ?? "";
@@ -157,16 +156,6 @@ function readTurnstile(
   return { siteKey, secretKey };
 }
 
-function readClientIpHeader(env: Env, problems: string[]): string | undefined {
-  const value = env.CLIENT_IP_HEADER?.trim().toLowerCase() || undefined;
-  if (value && !/^[a-z0-9-]+$/.test(value)) {
-    problems.push(
-      "CLIENT_IP_HEADER must be empty or a header name, such as cf-connecting-ip",
-    );
-  }
-  return value;
-}
-
 function readStorage(env: Env, problems: string[]): StorageEnv {
   const endpoint = env.S3_ENDPOINT?.trim() || undefined;
   if (endpoint && !/^https?:\/\/\S+$/.test(endpoint)) {
@@ -205,6 +194,8 @@ export function readServerEnv(env: Env = process.env): ServerEnv {
 
   const payloadSecret = readSecret(env, "PAYLOAD_SECRET", problems);
   const siteUrl = readSiteUrl(env, problems);
+  const backendUrl = readBackendUrl(env, siteUrl, problems);
+  const forwardingKey = readSecret(env, "FORWARDING_KEY", problems);
   const betterAuthSecret = readSecret(env, "BETTER_AUTH_SECRET", problems);
   const google = readGoogle(env, problems);
   const adminEmails = readAdminEmails(env, problems);
@@ -231,7 +222,6 @@ export function readServerEnv(env: Env = process.env): ServerEnv {
 
   const storage = readStorage(env, problems);
   const turnstile = readTurnstile(env, siteUrl, problems);
-  const clientIpHeader = readClientIpHeader(env, problems);
   const errorReporting = readErrorReporting(
     env,
     problems,
@@ -239,6 +229,7 @@ export function readServerEnv(env: Env = process.env): ServerEnv {
   );
 
   checkSiteAddress(environment, "SITE_URL", siteUrl, problems);
+  checkServiceAddress(environment, "BACKEND_URL", backendUrl, problems);
   checkServiceAddress(environment, "DATABASE_URL", databaseUrl, problems);
   checkServiceAddress(
     environment,
@@ -276,6 +267,9 @@ export function readServerEnv(env: Env = process.env): ServerEnv {
       replicaUrl && replicaUrl !== databaseUrl ? replicaUrl : undefined,
     payloadSecret,
     siteUrl,
+    backendUrl,
+    panelOrigin: environment === "local" ? backendUrl : undefined,
+    forwardingKey,
     betterAuthSecret,
     google,
     adminEmails,
@@ -288,7 +282,6 @@ export function readServerEnv(env: Env = process.env): ServerEnv {
     siteOperator,
     googleBooksApiKey: env.GOOGLE_BOOKS_API_KEY?.trim() || undefined,
     turnstile,
-    clientIpHeader,
     errorReporting,
   };
 }

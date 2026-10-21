@@ -643,6 +643,16 @@ describe("GET /api/v1/topics", () => {
     expect(response.headers.get("Location")).toBe(
       `${SITE_URL}/api/v1/topics?country=${iceland.slug}&tag=${tag.slug}&language=is`,
     );
+    // Behind the frontend's pass-through the request names the backend's
+    // own address, which browsers never use; the redirect names the site.
+    const passedOn = await getTopics(
+      new Request(
+        `http://localhost:3002/api/v1/topics?sort=newest&tag=${tag.slug}`,
+      ),
+    );
+    expect(passedOn.headers.get("Location")).toBe(
+      `${SITE_URL}/api/v1/topics?tag=${tag.slug}`,
+    );
   });
 
   it("does not name someone without a public page when their slug is typed", async () => {

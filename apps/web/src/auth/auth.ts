@@ -1,3 +1,4 @@
+import { FORWARDING_HEADERS } from "@countrytopics/forwarding";
 import { betterAuth } from "better-auth";
 import { APIError } from "better-auth/api";
 import { magicLink, twoFactor } from "better-auth/plugins";
@@ -9,6 +10,7 @@ import { loadPayload } from "@/payload-instance";
 
 import { ensureUserProfile, maySignIn } from "./accounts";
 import { adminVerification } from "./admin-verification";
+import { cookieSettings } from "./cookies";
 import { turnstilePlugins } from "./turnstile";
 
 export const MAGIC_LINK_EXPIRES_IN_MINUTES = 10;
@@ -31,25 +33,29 @@ async function queueSignInLink(email: string, url: string): Promise<void> {
 
 function createAuth() {
   const env = serverEnv();
+  const cookies = cookieSettings(env.siteUrl);
 
   return betterAuth({
     appName: "Country Topics",
     baseURL: env.siteUrl,
     secret: env.betterAuthSecret,
-    trustedOrigins: [env.siteUrl],
+    // Payload's panel, at the backend's own address, locally only.
+    trustedOrigins: [
+      env.siteUrl,
+      ...(env.panelOrigin ? [env.panelOrigin] : []),
+    ],
     database: new Pool({
       connectionString: env.databaseUrl,
       connectionTimeoutMillis: DATABASE_CONNECT_TIMEOUT_MS,
     }),
     advanced: {
       database: { generateId: "uuid" },
-      useSecureCookies: env.siteUrl.startsWith("https://"),
-      // Rate limits count per client address. Behind a proxy (Cloudflare,
-      // week 12) only the proxy's header can be trusted; set it only when
-      // every request comes through that proxy (ADR 0010).
-      ...(env.clientIpHeader
-        ? { ipAddress: { ipAddressHeaders: [env.clientIpHeader] } }
-        : {}),
+      useSecureCookies: false,
+      cookiePrefix: cookies.prefix,
+      defaultCookieAttributes: { secure: cookies.secure, path: "/" },
+      // Rate limits count per visitor's address, which only the frontend's
+      // signature vouches for (client-address.ts).
+      ipAddress: { ipAddressHeaders: [FORWARDING_HEADERS.clientAddress] },
     },
     // Prefixed so they sit apart from Payload's tables (`users` holds profiles).
     user: { modelName: "auth_user" },

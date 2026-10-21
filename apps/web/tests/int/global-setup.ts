@@ -30,7 +30,10 @@ export default function setup(): void {
     // Turnstile would call Cloudflare; its wiring has unit tests instead.
     TURNSTILE_SITE_KEY: "",
     TURNSTILE_SECRET_KEY: "",
-    CLIENT_IP_HEADER: "",
+    // The tests call the routes directly, as the frontend's signed requests
+    // reach them once checked; the check itself has unit tests.
+    BACKEND_URL: "http://localhost:3002",
+    FORWARDING_KEY: "test-forwarding-key-not-used-anywhere-else",
     // Tests must never send errors to the real Sentry project; the route
     // that passes reports on has unit tests with a stand-in.
     SENTRY_DSN: "",

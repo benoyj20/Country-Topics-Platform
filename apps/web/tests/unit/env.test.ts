@@ -8,6 +8,8 @@ const valid = {
   PAYLOAD_SECRET: "p".repeat(32),
   BETTER_AUTH_SECRET: "b".repeat(32),
   SITE_URL: "http://localhost:3000",
+  BACKEND_URL: "http://localhost:3002",
+  FORWARDING_KEY: "f".repeat(32),
   REDIS_URL: "redis://localhost:6379",
   S3_BUCKET: "countrytopics",
   S3_ACCESS_KEY_ID: "access-key",
@@ -21,6 +23,10 @@ describe("readServerEnv", () => {
       databaseReplicaUrl: undefined,
       payloadSecret: valid.PAYLOAD_SECRET,
       siteUrl: "http://localhost:3000",
+      backendUrl: "http://localhost:3002",
+      // Payload's panel, at the backend's own address, locally only.
+      panelOrigin: "http://localhost:3002",
+      forwardingKey: valid.FORWARDING_KEY,
       betterAuthSecret: valid.BETTER_AUTH_SECRET,
       google: undefined,
       adminEmails: [],
@@ -39,7 +45,6 @@ describe("readServerEnv", () => {
       siteOperator: undefined,
       googleBooksApiKey: undefined,
       turnstile: undefined,
-      clientIpHeader: undefined,
       errorReporting: undefined,
     });
     expect(
@@ -90,24 +95,17 @@ describe("readServerEnv", () => {
     ).toThrow(/SITE_OPERATOR must be at most 200/);
   });
 
-  it("turns Turnstile on with both keys and reads the client address header", () => {
+  it("turns Turnstile on with both keys", () => {
     expect(
       readServerEnv({
         ...valid,
         TURNSTILE_SITE_KEY: " site ",
         TURNSTILE_SECRET_KEY: "secret",
-        CLIENT_IP_HEADER: "CF-Connecting-IP",
       }),
-    ).toMatchObject({
-      turnstile: { siteKey: "site", secretKey: "secret" },
-      clientIpHeader: "cf-connecting-ip",
-    });
+    ).toMatchObject({ turnstile: { siteKey: "site", secretKey: "secret" } });
     expect(() =>
       readServerEnv({ ...valid, TURNSTILE_SITE_KEY: "site" }),
     ).toThrow(/TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY/);
-    expect(() =>
-      readServerEnv({ ...valid, CLIENT_IP_HEADER: "x-real-ip: 1.2.3.4" }),
-    ).toThrow(/CLIENT_IP_HEADER/);
     // Cloudflare's always-pass test keys, only on localhost.
     const testKeys = {
       TURNSTILE_SITE_KEY: "1x00000000000000000000AA",
@@ -129,6 +127,7 @@ describe("readServerEnv", () => {
       DATABASE_URL: "postgres://app:pw@db.example.org:5432/countrytopics",
       REDIS_URL: "redis://redis:6379",
       S3_ENDPOINT: "https://storage.example.org",
+      BACKEND_URL: "https://api.countrytopics.example",
     };
     const production = readServerEnv({
       ...hosted,
@@ -194,6 +193,50 @@ describe("readServerEnv", () => {
     ).toThrow(
       /configuration:\n- APP_ENV must be one of: local, staging, production$/,
     );
+  });
+
+  it("reads the backend's own address and the frontend's key", () => {
+    expect(
+      readServerEnv({ ...valid, BACKEND_URL: "http://localhost:3002/" })
+        .backendUrl,
+    ).toBe("http://localhost:3002");
+    expect(() =>
+      readServerEnv({ ...valid, BACKEND_URL: "localhost:3002" }),
+    ).toThrow(/BACKEND_URL must be an http\(s\) origin/);
+    expect(() =>
+      readServerEnv({ ...valid, BACKEND_URL: "http://localhost:3000" }),
+    ).toThrow(/BACKEND_URL must differ from SITE_URL/);
+    expect(() => readServerEnv({ ...valid, FORWARDING_KEY: "short" })).toThrow(
+      /FORWARDING_KEY must be at least 32 characters/,
+    );
+    expect(() =>
+      readServerEnv({ ...valid, FORWARDING_KEY: "short" }),
+    ).not.toThrow("short");
+  });
+
+  it("allows Payload's panel at the backend's address only locally", () => {
+    const hosted = {
+      ...valid,
+      DATABASE_URL: "postgres://app:pw@db.example.org:5432/countrytopics",
+      REDIS_URL: "redis://redis:6379",
+      S3_ENDPOINT: "https://storage.example.org",
+      APP_ENV: "production",
+      SITE_URL: "https://countrytopics.example",
+      BACKEND_URL: "https://api.countrytopics.example",
+    };
+    expect(readServerEnv(hosted)).toMatchObject({
+      backendUrl: "https://api.countrytopics.example",
+      panelOrigin: undefined,
+    });
+    expect(() =>
+      readServerEnv({ ...hosted, BACKEND_URL: "http://localhost:3002" }),
+    ).toThrow(/BACKEND_URL must not point at this machine/);
+    expect(() =>
+      readServerEnv({
+        ...hosted,
+        BACKEND_URL: "http://api.countrytopics.example",
+      }),
+    ).toThrow(/BACKEND_URL must use https/);
   });
 
   it("uses a replica only when it differs from the primary", () => {

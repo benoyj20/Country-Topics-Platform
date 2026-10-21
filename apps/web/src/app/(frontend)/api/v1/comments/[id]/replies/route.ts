@@ -1,3 +1,4 @@
+import { canonicalRedirect } from "@/api/redirect";
 import { apiError } from "@/api/json";
 import { commentIdSchema, parseListParams } from "@/comments/requests";
 import {
@@ -33,7 +34,7 @@ export async function GET(
   }
   if (canonical.toString() !== url.searchParams.toString()) {
     url.search = canonical.toString();
-    return Response.redirect(url, 308);
+    return canonicalRedirect(url);
   }
   try {
     const page = commentIdSchema.safeParse(id).success

@@ -1,5 +1,6 @@
 import { InvalidCursorError } from "@countrytopics/search/topic-search";
 
+import { canonicalRedirect } from "@/api/redirect";
 import { browseTopics } from "@/public/browse";
 import { browseSearchParams, parseBrowseQuery } from "@/public/browse-query";
 
@@ -41,7 +42,7 @@ export async function GET(request: Request): Promise<Response> {
   if (cursor) params.set("cursor", cursor);
   if (canonical.toString() !== params.toString()) {
     url.search = canonical.toString();
-    return Response.redirect(url, 308);
+    return canonicalRedirect(url);
   }
   try {
     const result = await browseTopics(query, cursor);

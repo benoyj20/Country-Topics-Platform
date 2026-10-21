@@ -422,17 +422,23 @@ Rules that keep them apart:
 - **Every app knows its environment.** `APP_ENV` is `local`, `staging`, or
   `production`, and each app refuses to start when an address belongs to
   another environment (`@countrytopics/environment`):
-  - local: the site only on `localhost` or a quick-tunnel demo address;
+  - local: the site only on this machine (`localhost`, a private network
+    address) or a quick-tunnel demo address, and every service (database,
+    Valkey, storage, email) on this machine or in a container beside it,
+    never a hosted one, so a laptop cannot reach staging's or production's
+    data;
   - staging: the site at an `https://dev.` address;
   - production: the site at any other public `https://` address, never
     staging's;
-  - staging and production: no service (database, Valkey, storage, email)
-    on `localhost`, and every http service over HTTPS.
+  - staging and production: no service on `localhost`, every http service
+    over HTTPS, and every service address naming a single host.
 
   Hostnames are compared label by label, never by suffix, since
   `dev.<domain>` ends with production's domain. `APP_ENV` defaults to
   `local` rather than being required: local accepts only this machine's
-  addresses, so a hosted environment that forgets it cannot start. This
+  addresses and services, so a hosted environment that forgets it cannot
+  start. `APP_ENV` also labels Sentry's reports (`development`, `staging`,
+  `production`) unless `SENTRY_ENVIRONMENT` is set. This
   joins the check in `src/env.ts` that refuses Turnstile's test keys
   outside `localhost`.
 
@@ -495,9 +501,8 @@ Free tiers that may help before phase 13, and that nothing depends on:
   (3 MB of compressed code and 10 ms of CPU a request). If it does not, the
   spike is judged locally: Wrangler's dry run reports the compressed size,
   which must fit Workers Paid's 10 MB.
-- **Supabase's free plan.** One free project lets phase 3 run the
-  migrations and the integration tests once through Supabase's pooler.
-  Free projects pause after a week without use, so nothing relies on it.
+- **Supabase is not tried early.** The local environment refuses hosted
+  services by design, so Supabase, and its pooler, are first met in phase 13.
 
 **Demos** use Cloudflare's free quick tunnel, which needs no account: it
 gives the local frontend a temporary `trycloudflare.com` address, as for

@@ -17,7 +17,6 @@ const valid = {
 describe("readServerEnv", () => {
   it("reads a minimal valid configuration with safe defaults", () => {
     expect(readServerEnv(valid)).toEqual({
-      environment: "local",
       databaseUrl: DATABASE_URL,
       databaseReplicaUrl: undefined,
       payloadSecret: valid.PAYLOAD_SECRET,
@@ -131,20 +130,21 @@ describe("readServerEnv", () => {
       REDIS_URL: "redis://redis:6379",
       S3_ENDPOINT: "https://storage.example.org",
     };
-    expect(
-      readServerEnv({
-        ...hosted,
-        APP_ENV: "production",
-        SITE_URL: "https://countrytopics.example",
-      }).environment,
-    ).toBe("production");
-    expect(
+    const production = readServerEnv({
+      ...hosted,
+      APP_ENV: "production",
+      SITE_URL: "https://countrytopics.example",
+      SENTRY_DSN: "https://key@o1.ingest.us.sentry.io/2",
+    });
+    // Errors are labelled with the environment unless SENTRY_ENVIRONMENT says otherwise.
+    expect(production.errorReporting?.environment).toBe("production");
+    expect(() =>
       readServerEnv({
         ...hosted,
         APP_ENV: "staging",
         SITE_URL: "https://dev.countrytopics.example",
-      }).environment,
-    ).toBe("staging");
+      }),
+    ).not.toThrow();
     // A demo of the local site through a quick tunnel.
     expect(
       readServerEnv({
@@ -155,7 +155,13 @@ describe("readServerEnv", () => {
 
     expect(() =>
       readServerEnv({ ...valid, SITE_URL: "https://countrytopics.example" }),
-    ).toThrow(/SITE_URL must be localhost or a quick-tunnel address/);
+    ).toThrow(/SITE_URL must be this machine/);
+    expect(() =>
+      readServerEnv({
+        ...valid,
+        DATABASE_URL: "postgres://app:pw@db.project.supabase.co:5432/postgres",
+      }),
+    ).toThrow(/DATABASE_URL must be a service on this machine/);
     expect(() =>
       readServerEnv({
         ...hosted,
@@ -178,8 +184,15 @@ describe("readServerEnv", () => {
         S3_ENDPOINT: "http://storage:8333",
       }),
     ).toThrow(/S3_ENDPOINT must use https/);
-    expect(() => readServerEnv({ ...valid, APP_ENV: "prod" })).toThrow(
-      /APP_ENV must be one of/,
+    // A mistyped APP_ENV is reported alone, not with every address.
+    expect(() =>
+      readServerEnv({
+        ...hosted,
+        APP_ENV: "prod",
+        SITE_URL: "https://countrytopics.example",
+      }),
+    ).toThrow(
+      /configuration:\n- APP_ENV must be one of: local, staging, production$/,
     );
   });
 

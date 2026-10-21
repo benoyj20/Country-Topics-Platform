@@ -13,7 +13,10 @@ export const ERROR_REPORTING_DEFAULTS = {
   maxBreadcrumbs: 20,
 } as const;
 
-/** SENTRY_ENVIRONMENT when unset: errors from development, not the pilot. */
+/**
+ * SENTRY_ENVIRONMENT when unset and the caller names no default: errors
+ * from development. The apps pass the default for their APP_ENV.
+ */
 export const DEFAULT_ERROR_ENVIRONMENT = "development";
 const ENVIRONMENT_PATTERN = /^[a-z0-9-]{1,64}$/;
 
@@ -42,10 +45,10 @@ export type ErrorReportingConfig = { dsn: SentryDsn; environment: string };
 export function readErrorReporting(
   env: Record<string, string | undefined>,
   problems: string[],
+  defaultEnvironment: string = DEFAULT_ERROR_ENVIRONMENT,
 ): ErrorReportingConfig | undefined {
   const value = env.SENTRY_DSN?.trim() ?? "";
-  const environment =
-    env.SENTRY_ENVIRONMENT?.trim() || DEFAULT_ERROR_ENVIRONMENT;
+  const environment = env.SENTRY_ENVIRONMENT?.trim() || defaultEnvironment;
   if (!ENVIRONMENT_PATTERN.test(environment)) {
     problems.push(
       "SENTRY_ENVIRONMENT must be lowercase letters, digits, and hyphens, such as pilot",

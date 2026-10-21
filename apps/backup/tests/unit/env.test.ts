@@ -4,10 +4,10 @@ import { describe, it } from "node:test";
 import { readBackupEnv } from "../../src/env.ts";
 import { libpqEnv, withDatabase } from "../../src/postgres.ts";
 
-// A made-up server; the URL is built from parts so the password's
-// encoding is tested.
+// The Compose database, as the backup container reaches it; the URL is
+// built from parts so the password's encoding is tested.
 const databaseUrl = new URL(
-  "postgres://db.example:5433/countrytopics?sslmode=disable",
+  "postgres://postgres:5433/countrytopics?sslmode=disable",
 );
 databaseUrl.username = "user";
 databaseUrl.password = "TEST@pass";
@@ -21,6 +21,14 @@ const valid = {
   BACKUP_S3_BUCKET: "countrytopics-backups",
 };
 
+// A hosted environment's settings: a managed database and storage.
+const hosted = {
+  ...valid,
+  APP_ENV: "production",
+  DATABASE_URL: "postgres://user:pw@db.example.org:5432/countrytopics",
+  S3_ENDPOINT: "https://files.example",
+};
+
 describe("readBackupEnv", () => {
   it("uses the site's storage settings for backups unless told otherwise", () => {
     const env = readBackupEnv(valid);
@@ -29,7 +37,7 @@ describe("readBackupEnv", () => {
       bucket: "countrytopics-backups",
     });
     const elsewhere = readBackupEnv({
-      ...valid,
+      ...hosted,
       BACKUP_S3_ENDPOINT: "https://backups.example",
       BACKUP_S3_ACCESS_KEY_ID: "other",
       BACKUP_S3_SECRET_ACCESS_KEY: "other-secret",
@@ -38,19 +46,17 @@ describe("readBackupEnv", () => {
     assert.equal(elsewhere.backups.accessKeyId, "other");
   });
 
-  it("refuses local storage when it backs up a hosted environment", () => {
-    assert.equal(readBackupEnv(valid).environment, "local");
+  it("refuses another environment's database or storage", () => {
+    assert.doesNotThrow(() => readBackupEnv(hosted));
     assert.throws(
-      () => readBackupEnv({ ...valid, APP_ENV: "production" }),
+      () => readBackupEnv({ ...hosted, S3_ENDPOINT: valid.S3_ENDPOINT }),
       /S3_ENDPOINT must use https/,
     );
-    assert.equal(
-      readBackupEnv({
-        ...valid,
-        APP_ENV: "production",
-        S3_ENDPOINT: "https://account.r2.cloudflarestorage.com",
-      }).environment,
-      "production",
+    // Without APP_ENV, a hosted database is refused: local backs up only
+    // this machine's containers.
+    assert.throws(
+      () => readBackupEnv({ ...hosted, APP_ENV: undefined }),
+      /DATABASE_URL must be a service on this machine or in its containers/,
     );
   });
 
@@ -82,7 +88,7 @@ describe("readBackupEnv", () => {
 describe("connection settings for the PostgreSQL tools", () => {
   it("pass the password in the environment, decoded", () => {
     assert.deepEqual(libpqEnv(valid.DATABASE_URL), {
-      PGHOST: "db.example",
+      PGHOST: "postgres",
       PGPORT: "5433",
       PGUSER: "user",
       PGPASSWORD: "TEST@pass",

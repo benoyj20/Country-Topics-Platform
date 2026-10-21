@@ -8,14 +8,11 @@ export const APP_ENVIRONMENTS = ["local", "staging", "production"] as const;
 export type AppEnvironment = (typeof APP_ENVIRONMENTS)[number];
 
 /**
- * APP_ENV when unset. Local accepts only this machine's addresses, so a
- * hosted environment that forgets APP_ENV refuses to start rather than run
- * with local rules.
+ * APP_ENV when unset. Local accepts only this machine's addresses and its
+ * containers' (see checkServiceAddress), so a hosted process that forgets
+ * APP_ENV refuses to start rather than run with local rules.
  */
 export const DEFAULT_APP_ENVIRONMENT: AppEnvironment = "local";
-
-// URL.hostname keeps the brackets around an IPv6 address.
-const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 /**
  * Cloudflare's quick tunnels: the free, temporary addresses that show a
@@ -27,26 +24,102 @@ const QUICK_TUNNEL_DOMAIN = "trycloudflare.com";
 /** Staging lives at dev.<domain>, production at <domain> (ADR 0014). */
 const STAGING_LABEL = "dev";
 
+/** How Docker names the machine it runs on, from inside a container. */
+const DOCKER_HOST_NAME = "host.docker.internal";
+
+/** Sentry's label for each environment; local keeps ADR 0012's label. */
+const ERROR_ENVIRONMENTS: Record<AppEnvironment, string> = {
+  local: "development",
+  staging: "staging",
+  production: "production",
+};
+
 type Env = Record<string, string | undefined>;
 
 function isAppEnvironment(value: string): value is AppEnvironment {
   return (APP_ENVIRONMENTS as readonly string[]).includes(value);
 }
 
-/** APP_ENV: `local` (the default), `staging`, or `production`. */
+/**
+ * APP_ENV: `local` (the default), `staging`, or `production`. Undefined for
+ * any other value, after a problem is added, so callers skip the address
+ * checks instead of reporting them under the wrong environment's rules.
+ */
 export function readAppEnvironment(
   env: Env,
   problems: string[],
-): AppEnvironment {
+): AppEnvironment | undefined {
   const value = env.APP_ENV?.trim().toLowerCase() || DEFAULT_APP_ENVIRONMENT;
   if (isAppEnvironment(value)) return value;
   problems.push(`APP_ENV must be one of: ${APP_ENVIRONMENTS.join(", ")}`);
-  return DEFAULT_APP_ENVIRONMENT;
+  return undefined;
 }
 
-/** Whether `hostname`, as URL.hostname gives it, is this machine. */
+/** The Sentry environment to use when SENTRY_ENVIRONMENT is unset. */
+export function errorEnvironmentFor(
+  environment: AppEnvironment | undefined,
+): string {
+  return ERROR_ENVIRONMENTS[environment ?? DEFAULT_APP_ENVIRONMENT];
+}
+
+/**
+ * SITE_URL, the app's public address, as its origin (no trailing slash).
+ * A path is refused: the site lives at the root of its host.
+ */
+export function readSiteUrl(env: Env, problems: string[]): string {
+  const value = env.SITE_URL?.trim() ?? "";
+  if (URL.canParse(value)) {
+    const url = new URL(value);
+    if (
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      url.pathname === "/"
+    ) {
+      return url.origin;
+    }
+  }
+  problems.push(
+    "SITE_URL must be an http(s) origin, such as http://localhost:3000",
+  );
+  return value;
+}
+
+/**
+ * A hostname as URL gives it, lowercased and without a trailing dot. URL
+ * normalises http(s) hosts itself, but not those of postgres://, redis://,
+ * or smtp:// addresses.
+ */
+function normalisedHostname(url: URL): string {
+  return url.hostname.toLowerCase().replace(/\.$/, "");
+}
+
+/** Whether `hostname` (normalised) is this machine. */
 export function isLoopbackHostname(hostname: string): boolean {
-  return LOOPBACK_HOSTNAMES.has(hostname);
+  return (
+    hostname === "localhost" ||
+    hostname.endsWith(".localhost") ||
+    // 127.0.0.0/8, also in shortened forms such as 127.1, which URL leaves
+    // as written outside http(s).
+    /^127(\.\d+){0,3}$/.test(hostname) ||
+    hostname === "0.0.0.0" ||
+    // URL keeps the brackets around an IPv6 address.
+    hostname === "[::1]" ||
+    hostname === "[0:0:0:0:0:0:0:1]"
+  );
+}
+
+/** A private-network IPv4 address, such as a phone test over the LAN. */
+function isPrivateNetworkAddress(hostname: string): boolean {
+  const octets = hostname.split(".").map(Number);
+  if (
+    octets.length !== 4 ||
+    octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)
+  ) {
+    return false;
+  }
+  const [a, b] = octets as [number, number, number, number];
+  return (
+    a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168)
+  );
 }
 
 function isQuickTunnelHostname(hostname: string): boolean {
@@ -55,46 +128,45 @@ function isQuickTunnelHostname(hostname: string): boolean {
   return Boolean(label) && rest.join(".") === QUICK_TUNNEL_DOMAIN;
 }
 
-function parsedUrl(value: string): URL | undefined {
-  return URL.canParse(value) ? new URL(value) : undefined;
-}
-
 /**
  * Adds a problem when `value`, the app's own public address (SITE_URL),
  * belongs to another environment:
- * - local: this machine, or a quick tunnel for a demo;
+ * - local: this machine, a private network address, or a quick tunnel for
+ *   a demo;
  * - staging: HTTPS at a `dev.` host;
  * - production: HTTPS at any other public host.
  * Hosts are compared label by label, never by suffix, since staging's
- * address ends with production's. An unparsable value is left for the
- * caller's own check to report.
+ * address ends with production's. Nothing is checked for an unknown
+ * environment or an unparsable value, which their own checks report.
  */
 export function checkSiteAddress(
-  environment: AppEnvironment,
+  environment: AppEnvironment | undefined,
   name: string,
   value: string,
   problems: string[],
 ): void {
-  const url = parsedUrl(value);
-  if (!url) return;
-  const { hostname } = url;
-  const local = isLoopbackHostname(hostname) || isQuickTunnelHostname(hostname);
-  const staging = hostname.split(".")[0] === STAGING_LABEL;
+  if (!environment || !URL.canParse(value)) return;
+  const url = new URL(value);
+  const hostname = normalisedHostname(url);
+  const onThisMachine =
+    isLoopbackHostname(hostname) || isPrivateNetworkAddress(hostname);
+  const quickTunnel = isQuickTunnelHostname(hostname);
 
   if (environment === "local") {
-    if (!local) {
+    if (!onThisMachine && !quickTunnel) {
       problems.push(
-        `${name} must be localhost or a quick-tunnel address (*.${QUICK_TUNNEL_DOMAIN}) when APP_ENV is local`,
+        `${name} must be this machine (localhost or a private network address) or a quick-tunnel address (*.${QUICK_TUNNEL_DOMAIN}) when APP_ENV is local`,
       );
     }
     return;
   }
-  if (url.protocol !== "https:" || local) {
+  if (url.protocol !== "https:" || onThisMachine || quickTunnel) {
     problems.push(
       `${name} must be a public https:// address when APP_ENV is ${environment}`,
     );
     return;
   }
+  const staging = hostname.split(".")[0] === STAGING_LABEL;
   if (environment === "staging" && !staging) {
     problems.push(
       `${name} must be the staging address, dev.<domain>, when APP_ENV is staging`,
@@ -109,20 +181,45 @@ export function checkSiteAddress(
 
 /**
  * Adds a problem when `value`, the address of a service such as the
- * database or storage, cannot belong to a hosted environment. Staging and
- * production never use a service on their own machine's loopback address,
- * and reach any http(s) service over HTTPS. Local may use anything.
+ * database, Valkey, storage, or email, belongs to another environment:
+ * - local: only this machine, or a container beside it, named by a single
+ *   label as Compose names its services (`postgres`, `storage`) or as
+ *   `host.docker.internal`; never a hosted service, so a laptop cannot
+ *   reach staging's or production's data;
+ * - staging and production: never this machine, and HTTPS for any http(s)
+ *   service. An address that cannot be read as one host is refused, so a
+ *   multi-host or host-in-the-query database URL cannot slip past.
+ * Nothing is checked for an unknown environment or an unset value.
  */
 export function checkServiceAddress(
-  environment: AppEnvironment,
+  environment: AppEnvironment | undefined,
   name: string,
   value: string | undefined,
   problems: string[],
 ): void {
-  if (environment === "local" || !value) return;
-  const url = parsedUrl(value);
-  if (!url) return;
-  if (isLoopbackHostname(url.hostname)) {
+  if (!environment || !value) return;
+  const url = URL.canParse(value) ? new URL(value) : undefined;
+  const hostname = url ? normalisedHostname(url) : "";
+
+  if (environment === "local") {
+    if (
+      url &&
+      !isLoopbackHostname(hostname) &&
+      !isPrivateNetworkAddress(hostname) &&
+      hostname !== DOCKER_HOST_NAME &&
+      hostname.includes(".")
+    ) {
+      problems.push(
+        `${name} must be a service on this machine or in its containers when APP_ENV is local, never a hosted one`,
+      );
+    }
+    return;
+  }
+  if (!url || !hostname || url.searchParams.has("host")) {
+    problems.push(
+      `${name} must be a URL with a single host when APP_ENV is ${environment}`,
+    );
+  } else if (isLoopbackHostname(hostname)) {
     problems.push(
       `${name} must not point at this machine (localhost) when APP_ENV is ${environment}`,
     );

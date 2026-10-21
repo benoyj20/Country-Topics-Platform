@@ -1,8 +1,9 @@
 import {
-  type AppEnvironment,
   checkServiceAddress,
   checkSiteAddress,
+  errorEnvironmentFor,
   readAppEnvironment,
+  readSiteUrl,
 } from "@countrytopics/environment";
 import { DEFAULT_QUEUE_PREFIX } from "@countrytopics/jobs";
 import {
@@ -14,8 +15,6 @@ import {
 // variable, never its value.
 
 export type WorkerEnv = {
-  /** APP_ENV: which environment this process belongs to (ADR 0014). */
-  environment: AppEnvironment;
   redisUrl: string;
   queuePrefix: string;
   smtpUrl: string;
@@ -86,12 +85,7 @@ export function readWorkerEnv(env: Env = process.env): WorkerEnv {
     problems.push("DATABASE_URL must be a postgres:// connection URL");
   }
 
-  const siteUrl = env.SITE_URL?.trim() ?? "";
-  if (!/^https?:\/\/[^/\s]+\/?$/.test(siteUrl)) {
-    problems.push(
-      "SITE_URL must be an http(s) origin, such as http://localhost:3000",
-    );
-  }
+  const siteUrl = readSiteUrl(env, problems);
 
   const contactEmail = env.CONTACT_EMAIL?.trim() || undefined;
   if (contactEmail && !/^[^@\s]+@[^@\s]+$/.test(contactEmail)) {
@@ -99,7 +93,11 @@ export function readWorkerEnv(env: Env = process.env): WorkerEnv {
   }
 
   const wayback = readWayback(env, problems);
-  const errorReporting = readErrorReporting(env, problems);
+  const errorReporting = readErrorReporting(
+    env,
+    problems,
+    errorEnvironmentFor(environment),
+  );
 
   checkSiteAddress(environment, "SITE_URL", siteUrl, problems);
   checkServiceAddress(environment, "REDIS_URL", redisUrl, problems);
@@ -112,13 +110,12 @@ export function readWorkerEnv(env: Env = process.env): WorkerEnv {
     );
   }
   return {
-    environment,
     redisUrl,
     queuePrefix,
     smtpUrl,
     emailFrom,
     databaseUrl,
-    siteUrl: siteUrl.replace(/\/$/, ""),
+    siteUrl,
     contactEmail,
     googleBooksApiKey: env.GOOGLE_BOOKS_API_KEY?.trim() || undefined,
     youtubeApiKey: env.YOUTUBE_API_KEY?.trim() || undefined,

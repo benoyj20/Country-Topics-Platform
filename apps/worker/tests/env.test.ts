@@ -11,10 +11,19 @@ const valid = {
   SITE_URL: "http://localhost:3000",
 };
 
+// A hosted environment's settings: managed services and a public address.
+const hosted = {
+  ...valid,
+  APP_ENV: "production",
+  REDIS_URL: "redis://redis:6379",
+  SMTP_URL: "smtps://smtp.example.org:465",
+  DATABASE_URL: "postgres://user:pw@db.example.org:5432/countrytopics",
+  SITE_URL: "https://countrytopics.example",
+};
+
 describe("readWorkerEnv", () => {
   it("reads a valid configuration with the default queue prefix", () => {
     assert.deepEqual(readWorkerEnv(valid), {
-      environment: "local",
       redisUrl: valid.REDIS_URL,
       smtpUrl: valid.SMTP_URL,
       emailFrom: valid.EMAIL_FROM,
@@ -43,22 +52,15 @@ describe("readWorkerEnv", () => {
   });
 
   it("refuses to start with another environment's addresses", () => {
-    const hosted = {
-      ...valid,
-      APP_ENV: "production",
-      REDIS_URL: "redis://redis:6379",
-      SMTP_URL: "smtps://smtp.example.org:465",
-      DATABASE_URL: "postgres://user:pw@db.example.org:5432/countrytopics",
-      SITE_URL: "https://countrytopics.example",
-    };
-    assert.equal(readWorkerEnv(hosted).environment, "production");
+    assert.doesNotThrow(() => readWorkerEnv(hosted));
     assert.throws(
       () => readWorkerEnv({ ...hosted, SMTP_URL: valid.SMTP_URL }),
       /SMTP_URL must not point at this machine/,
     );
     assert.throws(
-      () => readWorkerEnv({ ...valid, SITE_URL: "https://countrytopics.example" }),
-      /SITE_URL must be localhost or a quick-tunnel address/,
+      () =>
+        readWorkerEnv({ ...valid, SITE_URL: "https://countrytopics.example" }),
+      /SITE_URL must be this machine/,
     );
   });
 
@@ -71,7 +73,7 @@ describe("readWorkerEnv", () => {
 
   it("accepts TLS URLs", () => {
     const env = readWorkerEnv({
-      ...valid,
+      ...hosted,
       REDIS_URL: "rediss://cache.example:6380",
       SMTP_URL: "smtps://user:pw@smtp.example:465",
     });

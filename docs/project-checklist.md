@@ -1200,10 +1200,20 @@ and 31 GB), 2026-10-18 and 2026-10-19.
 - [x] `APP_ENV` (`local`, `staging`, or `production`; `local` when unset) in
   the site, the worker, and the backup tool, through the new
   `@countrytopics/environment` package. Each refuses to start with another
-  environment's addresses: local only on `localhost` or a quick-tunnel
-  demo address, staging only at `https://dev.`, production at any other
-  public `https://` address; hosted environments never use a service on
-  `localhost` or over plain http (2026-10-21).
+  environment's addresses: local only on this machine or a quick-tunnel
+  demo address, with services only on this machine or in its containers;
+  staging only at `https://dev.`; production at any other public
+  `https://` address; hosted environments never use a service on
+  `localhost` or over plain http. `APP_ENV` labels Sentry's reports when
+  `SENTRY_ENVIRONMENT` is empty (2026-10-21).
+- [x] The code review before the first push found nine issues, all fixed:
+  a backup that forgot `APP_ENV` would have started under local rules,
+  and local checked none of its services, so a laptop could reach a
+  hosted database; loopback names such as `LOCALHOST`, `127.1`, and
+  `0.0.0.0`, and multi-host database URLs, slipped past; a mistyped
+  `APP_ENV` was reported with misleading address errors; phone tests over
+  the local network were refused; the Turnstile message did not say how to
+  run a demo; and the site address was read twice, differently.
 - [x] pgvector dropped: Compose and CI run `postgres:17-bookworm`, the
   Debian release the pgvector image was built on, so the existing data
   volume opened unchanged. The migration `20261021_165743_drop_vector_extension`

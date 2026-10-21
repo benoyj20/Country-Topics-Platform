@@ -1,6 +1,6 @@
 import {
-  type AppEnvironment,
   checkServiceAddress,
+  errorEnvironmentFor,
   readAppEnvironment,
 } from "@countrytopics/environment";
 import {
@@ -21,8 +21,6 @@ export type S3Location = {
 };
 
 export type BackupEnv = {
-  /** APP_ENV: which environment this process belongs to (ADR 0014). */
-  environment: AppEnvironment;
   /** The database to back up: the site's primary (DATABASE_URL). */
   databaseUrl: string;
   /** Where uploads live (the site's S3_* settings). */
@@ -98,7 +96,11 @@ export function readBackupEnv(env: Env = process.env): BackupEnv {
   }
   const files = readLocation(env, "S3_", undefined, problems);
   const backups = readLocation(env, "BACKUP_S3_", files, problems);
-  const errorReporting = readErrorReporting(env, problems);
+  const errorReporting = readErrorReporting(
+    env,
+    problems,
+    errorEnvironmentFor(environment),
+  );
   checkServiceAddress(environment, "DATABASE_URL", databaseUrl, problems);
   checkServiceAddress(environment, "S3_ENDPOINT", files.endpoint, problems);
   // Unset, the backup endpoint is the site's, which is checked above.
@@ -124,5 +126,5 @@ export function readBackupEnv(env: Env = process.env): BackupEnv {
       `Invalid backup configuration:\n- ${problems.join("\n- ")}`,
     );
   }
-  return { environment, databaseUrl, files, backups, errorReporting };
+  return { databaseUrl, files, backups, errorReporting };
 }

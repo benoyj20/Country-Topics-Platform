@@ -15,8 +15,14 @@ export const metadata: Metadata = {
 
 export default function TopicsPage() {
   return (
-    <div className="stack">
-      <h1>Topics</h1>
+    <div className="stack wide">
+      <header className="stack">
+        <h1>Topics</h1>
+        <p className="lede">
+          Search and filter every topic by country, category, tag, person, and
+          evidence.
+        </p>
+      </header>
       <noscript>
         <p className="notice">
           Browsing and search need JavaScript. Each country&apos;s page lists

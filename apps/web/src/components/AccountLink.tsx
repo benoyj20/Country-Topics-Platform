@@ -3,6 +3,7 @@
 import Link from "next/link";
 
 import { authClient } from "@/auth/client";
+import { NavLink } from "@/components/NavLink";
 
 /**
  * "Sign in" or "Your account", from the session the browser asks for after
@@ -12,10 +13,20 @@ import { authClient } from "@/auth/client";
  */
 export function AccountLink() {
   const { data, isPending } = authClient.useSession();
-  if (isPending) return null;
+  // Holds the link's place, so the header does not shift when it appears.
+  if (isPending)
+    return (
+      <span className="nav-placeholder" aria-hidden="true">
+        <span className="nav-long">Your </span>account
+      </span>
+    );
   return data ? (
-    <Link href="/account">Your account</Link>
+    <NavLink href="/account">
+      <span className="nav-long">Your </span>account
+    </NavLink>
   ) : (
-    <Link href="/sign-in">Sign in</Link>
+    <Link href="/sign-in" className="nav-cta">
+      Sign in
+    </Link>
   );
 }

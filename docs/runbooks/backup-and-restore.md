@@ -67,6 +67,14 @@ restores into it, and compares every table's row count with the manifest; any
 difference stops it with the tables named. Last, it copies the backup's own
 uploads into `FILES_BUCKET`.
 
+Backups taken before 2026-10-21, when the split's phase 0 dropped pgvector
+(ADR 0014), still list that extension. The database now runs the plain
+`postgres:17-bookworm` image, which lacks it, so their restore stops at
+`CREATE EXTENSION IF NOT EXISTS vector` and leaves the new database half
+made (drop it as below). Restore one of them on a server that has pgvector,
+such as a temporary `pgvector/pgvector:pg17` container, or use a newer
+backup.
+
 To look at the restored site, start a copy against it:
 
 ```sh

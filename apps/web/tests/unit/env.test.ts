@@ -17,6 +17,7 @@ const valid = {
 describe("readServerEnv", () => {
   it("reads a minimal valid configuration with safe defaults", () => {
     expect(readServerEnv(valid)).toEqual({
+      environment: "local",
       databaseUrl: DATABASE_URL,
       databaseReplicaUrl: undefined,
       payloadSecret: valid.PAYLOAD_SECRET,
@@ -118,9 +119,68 @@ describe("readServerEnv", () => {
       readServerEnv({
         ...valid,
         ...testKeys,
-        SITE_URL: "https://countrytopics.example",
+        SITE_URL: "https://name.trycloudflare.com",
       }),
     ).toThrow(/test keys/);
+  });
+
+  it("refuses to start with another environment's addresses", () => {
+    const hosted = {
+      ...valid,
+      DATABASE_URL: "postgres://app:pw@db.example.org:5432/countrytopics",
+      REDIS_URL: "redis://redis:6379",
+      S3_ENDPOINT: "https://storage.example.org",
+    };
+    expect(
+      readServerEnv({
+        ...hosted,
+        APP_ENV: "production",
+        SITE_URL: "https://countrytopics.example",
+      }).environment,
+    ).toBe("production");
+    expect(
+      readServerEnv({
+        ...hosted,
+        APP_ENV: "staging",
+        SITE_URL: "https://dev.countrytopics.example",
+      }).environment,
+    ).toBe("staging");
+    // A demo of the local site through a quick tunnel.
+    expect(
+      readServerEnv({
+        ...valid,
+        SITE_URL: "https://premier-trying-strike-amd.trycloudflare.com",
+      }).siteUrl,
+    ).toBe("https://premier-trying-strike-amd.trycloudflare.com");
+
+    expect(() =>
+      readServerEnv({ ...valid, SITE_URL: "https://countrytopics.example" }),
+    ).toThrow(/SITE_URL must be localhost or a quick-tunnel address/);
+    expect(() =>
+      readServerEnv({
+        ...hosted,
+        APP_ENV: "production",
+        SITE_URL: "https://dev.countrytopics.example",
+      }),
+    ).toThrow(/SITE_URL is a staging address/);
+    expect(() =>
+      readServerEnv({
+        ...valid,
+        APP_ENV: "production",
+        SITE_URL: "https://countrytopics.example",
+      }),
+    ).toThrow(/DATABASE_URL must not point at this machine/);
+    expect(() =>
+      readServerEnv({
+        ...hosted,
+        APP_ENV: "staging",
+        SITE_URL: "https://dev.countrytopics.example",
+        S3_ENDPOINT: "http://storage:8333",
+      }),
+    ).toThrow(/S3_ENDPOINT must use https/);
+    expect(() => readServerEnv({ ...valid, APP_ENV: "prod" })).toThrow(
+      /APP_ENV must be one of/,
+    );
   });
 
   it("uses a replica only when it differs from the primary", () => {
@@ -161,10 +221,10 @@ describe("readServerEnv", () => {
 
   it("normalises the site URL to its origin and rejects paths", () => {
     expect(
-      readServerEnv({ ...valid, SITE_URL: "https://topics.example/" }).siteUrl,
-    ).toBe("https://topics.example");
+      readServerEnv({ ...valid, SITE_URL: "http://localhost:3000/" }).siteUrl,
+    ).toBe("http://localhost:3000");
     expect(() =>
-      readServerEnv({ ...valid, SITE_URL: "https://topics.example/app" }),
+      readServerEnv({ ...valid, SITE_URL: "http://localhost:3000/app" }),
     ).toThrow(/SITE_URL/);
   });
 

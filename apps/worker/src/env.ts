@@ -1,3 +1,9 @@
+import {
+  type AppEnvironment,
+  checkServiceAddress,
+  checkSiteAddress,
+  readAppEnvironment,
+} from "@countrytopics/environment";
 import { DEFAULT_QUEUE_PREFIX } from "@countrytopics/jobs";
 import {
   type ErrorReportingConfig,
@@ -8,6 +14,8 @@ import {
 // variable, never its value.
 
 export type WorkerEnv = {
+  /** APP_ENV: which environment this process belongs to (ADR 0014). */
+  environment: AppEnvironment;
   redisUrl: string;
   queuePrefix: string;
   smtpUrl: string;
@@ -47,6 +55,7 @@ function readWayback(env: Env, problems: string[]): WorkerEnv["wayback"] {
 
 export function readWorkerEnv(env: Env = process.env): WorkerEnv {
   const problems: string[] = [];
+  const environment = readAppEnvironment(env, problems);
 
   const redisUrl = env.REDIS_URL?.trim() ?? "";
   if (!/^rediss?:\/\//.test(redisUrl)) {
@@ -92,12 +101,18 @@ export function readWorkerEnv(env: Env = process.env): WorkerEnv {
   const wayback = readWayback(env, problems);
   const errorReporting = readErrorReporting(env, problems);
 
+  checkSiteAddress(environment, "SITE_URL", siteUrl, problems);
+  checkServiceAddress(environment, "REDIS_URL", redisUrl, problems);
+  checkServiceAddress(environment, "SMTP_URL", smtpUrl, problems);
+  checkServiceAddress(environment, "DATABASE_URL", databaseUrl, problems);
+
   if (problems.length > 0) {
     throw new Error(
       `Invalid worker configuration:\n- ${problems.join("\n- ")}`,
     );
   }
   return {
+    environment,
     redisUrl,
     queuePrefix,
     smtpUrl,

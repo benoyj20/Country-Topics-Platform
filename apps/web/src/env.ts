@@ -1,4 +1,11 @@
 import { normalizeEmail } from "@countrytopics/domain";
+import {
+  type AppEnvironment,
+  checkServiceAddress,
+  checkSiteAddress,
+  isLoopbackHostname,
+  readAppEnvironment,
+} from "@countrytopics/environment";
 import { DEFAULT_QUEUE_PREFIX } from "@countrytopics/jobs";
 import {
   type ErrorReportingConfig,
@@ -11,6 +18,8 @@ import { isTurnstileTestSecret } from "@/auth/turnstile-shared";
 // for scale"). Errors name the variable, never its value.
 
 export type ServerEnv = {
+  /** APP_ENV: which environment this process belongs to (ADR 0014). */
+  environment: AppEnvironment;
   databaseUrl: string;
   /** Unset when reads should use the primary database. */
   databaseReplicaUrl?: string;
@@ -140,8 +149,6 @@ function readInviteOnly(env: Env, problems: string[]): boolean {
   return true;
 }
 
-const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1"]);
-
 function readTurnstile(
   env: Env,
   siteUrl: string,
@@ -161,7 +168,7 @@ function readTurnstile(
   if (
     isTurnstileTestSecret(secretKey) &&
     URL.canParse(siteUrl) &&
-    !LOCAL_HOSTNAMES.has(new URL(siteUrl).hostname)
+    !isLoopbackHostname(new URL(siteUrl).hostname)
   ) {
     problems.push(
       "TURNSTILE_SECRET_KEY is one of Cloudflare's test keys, which work only when SITE_URL is localhost",
@@ -202,6 +209,7 @@ function readStorage(env: Env, problems: string[]): StorageEnv {
 
 export function readServerEnv(env: Env = process.env): ServerEnv {
   const problems: string[] = [];
+  const environment = readAppEnvironment(env, problems);
 
   const databaseUrl = env.DATABASE_URL?.trim() ?? "";
   if (!POSTGRES_URL_PATTERN.test(databaseUrl)) {
@@ -246,6 +254,13 @@ export function readServerEnv(env: Env = process.env): ServerEnv {
   const clientIpHeader = readClientIpHeader(env, problems);
   const errorReporting = readErrorReporting(env, problems);
 
+  checkSiteAddress(environment, "SITE_URL", siteUrl, problems);
+  checkServiceAddress(environment, "DATABASE_URL", databaseUrl, problems);
+  checkServiceAddress(environment, "DATABASE_REPLICA_URL", replicaUrl, problems);
+  checkServiceAddress(environment, "REDIS_URL", redisUrl, problems);
+  checkServiceAddress(environment, "PAGE_CACHE_URL", pageCacheUrl, problems);
+  checkServiceAddress(environment, "S3_ENDPOINT", storage.endpoint, problems);
+
   const contactEmail = env.CONTACT_EMAIL?.trim() || undefined;
   if (contactEmail && !/^[^@\s]+@[^@\s]+$/.test(contactEmail)) {
     problems.push("CONTACT_EMAIL must be empty or an email address");
@@ -265,6 +280,7 @@ export function readServerEnv(env: Env = process.env): ServerEnv {
   }
 
   return {
+    environment,
     databaseUrl,
     // Locally the replica URL points at the primary; treat that as "no replica"
     // so Payload does not open a second pool to the same database.

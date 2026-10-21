@@ -16,6 +16,7 @@ import * as migration_20261017_090000_search_topics from './20261017_090000_sear
 import * as migration_20261017_193831_comments from './20261017_193831_comments';
 import * as migration_20261017_220610_comment_moderation from './20261017_220610_comment_moderation';
 import * as migration_20261018_011503_account_deletion_feedback from './20261018_011503_account_deletion_feedback';
+import * as migration_20261021_165743_drop_vector_extension from './20261021_165743_drop_vector_extension';
 
 export const migrations = [
   {
@@ -106,6 +107,11 @@ export const migrations = [
   {
     up: migration_20261018_011503_account_deletion_feedback.up,
     down: migration_20261018_011503_account_deletion_feedback.down,
-    name: '20261018_011503_account_deletion_feedback'
+    name: '20261018_011503_account_deletion_feedback',
+  },
+  {
+    up: migration_20261021_165743_drop_vector_extension.up,
+    down: migration_20261021_165743_drop_vector_extension.down,
+    name: '20261021_165743_drop_vector_extension'
   },
 ];

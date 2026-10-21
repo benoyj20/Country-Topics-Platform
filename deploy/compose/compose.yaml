@@ -8,7 +8,7 @@ name: countrytopics
 
 services:
   postgres:
-    image: pgvector/pgvector:pg17
+    image: postgres:17-bookworm
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-countrytopics}
       POSTGRES_USER: ${POSTGRES_USER:-countrytopics}
@@ -105,6 +105,9 @@ services:
     # Passes stop signals on, so Ctrl+C ends make backup and make restore.
     init: true
     environment:
+      # Which environment it backs up (ADR 0014); a hosted one refuses local
+      # services.
+      APP_ENV: ${APP_ENV:-local}
       # The database and uploads as containers reach them: the Compose
       # services unless CONTAINER_* names others (such as managed ones).
       # The Compose database's password comes in PGPASSWORD, outside the URL.
@@ -149,6 +152,8 @@ services:
       - path: ../../.env
         required: false
     environment: &scale-environment
+      # Always local: it runs on this machine at localhost:8080.
+      APP_ENV: local
       # Its own database, never CONTAINER_DATABASE_URL, which names the
       # real one for backups.
       DATABASE_URL: ${SCALE_DATABASE_URL:-postgres://${POSTGRES_USER:-countrytopics}@postgres:5432/countrytopics_rehearsal?sslmode=disable}

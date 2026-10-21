@@ -419,14 +419,23 @@ Rules that keep them apart:
   `<domain>` (Sign-in and API calls), so browsers do not send them to
   `dev.<domain>`, and staging's are host-only on `dev.<domain>`. Nothing in
   either environment sets a cookie for the whole domain.
-- **Every app knows its environment.** `APP_ENV` (`local`, `staging`, or
-  `production`) is required, and each app refuses to start when an address
-  belongs to another environment: production with a `localhost` or staging
-  address, staging with production's domain, local with anything public.
-  Hostnames are compared exactly, never by suffix, since `dev.<domain>`
-  ends with production's domain.
-  This extends the check in `src/env.ts` that refuses Turnstile's test keys
+- **Every app knows its environment.** `APP_ENV` is `local`, `staging`, or
+  `production`, and each app refuses to start when an address belongs to
+  another environment (`@countrytopics/environment`):
+  - local: the site only on `localhost` or a quick-tunnel demo address;
+  - staging: the site at an `https://dev.` address;
+  - production: the site at any other public `https://` address, never
+    staging's;
+  - staging and production: no service (database, Valkey, storage, email)
+    on `localhost`, and every http service over HTTPS.
+
+  Hostnames are compared label by label, never by suffix, since
+  `dev.<domain>` ends with production's domain. `APP_ENV` defaults to
+  `local` rather than being required: local accepts only this machine's
+  addresses, so a hosted environment that forgets it cannot start. This
+  joins the check in `src/env.ts` that refuses Turnstile's test keys
   outside `localhost`.
+
 - **Staging is closed to the public from its first day.** Cloudflare
   Access covers `dev.<domain>`, except `/api/revalidate`, which checks its
   own signature, and the backend's Tunnel host, `api-dev.<domain>`. The
@@ -512,7 +521,7 @@ happen only if a launch is decided.
 
 | Phase                         | Work                                                                                                                                                                                                                                                                                                                                                   | Done when                                                                                                                                                                                                                                          | Days                                                               |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| 0. Local environment          | `APP_ENV` and the start-up checks; `postgres:17` without pgvector, in Compose and CI; the local workerd preview; the environments table kept as the target for phase 13                                                                                                                                                                                | Each app refuses another environment's addresses; CI and Compose run the same database image                                                                                                                                                       | 2–3                                                                |
+| 0. Local environment          | `APP_ENV` and the start-up checks; `postgres:17-bookworm` without pgvector, in Compose and CI; the migration that drops the extension; the environments table kept as the target for phase 13                                                                                                                                                          | Each app refuses another environment's addresses; CI and Compose run the same database image                                                                                                                                                       | 2–3                                                                |
 | 1. Site spike                 | A throwaway OpenNext build of the topic page, run in the local workerd preview, and on `workers.dev` if it fits the free plan                                                                                                                                                                                                                          | The page renders its rich text in the Workers runtime; its compressed size fits Workers Paid's 10 MB; `revalidateTag` purges it; fonts load; Sentry reports                                                                                        | 2–3                                                                |
 | 2. Admin spike                | A throwaway `/admin` page in the same build that edits one topic through the REST API: the Lexical body, one relation, saving a draft, publishing                                                                                                                                                                                                      | The saved JSON renders unchanged on the site; the Worker with the admin in it still fits; public pages load none of the admin's scripts; a refused publish shows its error                                                                         | 3–4                                                                |
 | 3. Contracts and page data    | `packages/contracts`; the four `/api/v1/pages/*` endpoints; integration tests                                                                                                                                                                                                                                                                          | Each endpoint returns exactly what the page builds today; drafts and archived items answer as the pages do                                                                                                                                         | 3–4                                                                |

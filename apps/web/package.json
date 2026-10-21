@@ -21,6 +21,7 @@
     "@better-auth/utils": "0.4.2",
     "@countrytopics/domain": "workspace:*",
     "@countrytopics/jobs": "workspace:*",
+    "@countrytopics/environment": "workspace:*",
     "@countrytopics/observability": "workspace:*",
     "@countrytopics/search": "workspace:*",
     "@countrytopics/sources": "workspace:*",

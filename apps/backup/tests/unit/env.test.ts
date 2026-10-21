@@ -38,6 +38,22 @@ describe("readBackupEnv", () => {
     assert.equal(elsewhere.backups.accessKeyId, "other");
   });
 
+  it("refuses local storage when it backs up a hosted environment", () => {
+    assert.equal(readBackupEnv(valid).environment, "local");
+    assert.throws(
+      () => readBackupEnv({ ...valid, APP_ENV: "production" }),
+      /S3_ENDPOINT must use https/,
+    );
+    assert.equal(
+      readBackupEnv({
+        ...valid,
+        APP_ENV: "production",
+        S3_ENDPOINT: "https://account.r2.cloudflarestorage.com",
+      }).environment,
+      "production",
+    );
+  });
+
   it("never sends the site's keys to another backup service", () => {
     assert.throws(
       () =>

@@ -14,6 +14,7 @@ const valid = {
 describe("readWorkerEnv", () => {
   it("reads a valid configuration with the default queue prefix", () => {
     assert.deepEqual(readWorkerEnv(valid), {
+      environment: "local",
       redisUrl: valid.REDIS_URL,
       smtpUrl: valid.SMTP_URL,
       emailFrom: valid.EMAIL_FROM,
@@ -38,6 +39,26 @@ describe("readWorkerEnv", () => {
     assert.throws(
       () => readWorkerEnv({ ...valid, SENTRY_DSN: "not a dsn" }),
       /SENTRY_DSN must be empty or the project's DSN/,
+    );
+  });
+
+  it("refuses to start with another environment's addresses", () => {
+    const hosted = {
+      ...valid,
+      APP_ENV: "production",
+      REDIS_URL: "redis://redis:6379",
+      SMTP_URL: "smtps://smtp.example.org:465",
+      DATABASE_URL: "postgres://user:pw@db.example.org:5432/countrytopics",
+      SITE_URL: "https://countrytopics.example",
+    };
+    assert.equal(readWorkerEnv(hosted).environment, "production");
+    assert.throws(
+      () => readWorkerEnv({ ...hosted, SMTP_URL: valid.SMTP_URL }),
+      /SMTP_URL must not point at this machine/,
+    );
+    assert.throws(
+      () => readWorkerEnv({ ...valid, SITE_URL: "https://countrytopics.example" }),
+      /SITE_URL must be localhost or a quick-tunnel address/,
     );
   });
 

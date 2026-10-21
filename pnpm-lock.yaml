@@ -13,6 +13,9 @@ importers:
       '@aws-sdk/client-s3':
         specifier: 3.1152.0
         version: 3.1152.0
+      '@countrytopics/environment':
+        specifier: workspace:*
+        version: link:../../packages/environment
       '@countrytopics/observability':
         specifier: workspace:*
         version: link:../../packages/observability
@@ -47,6 +50,9 @@ importers:
       '@countrytopics/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@countrytopics/environment':
+        specifier: workspace:*
+        version: link:../../packages/environment
       '@countrytopics/jobs':
         specifier: workspace:*
         version: link:../../packages/jobs
@@ -150,6 +156,9 @@ importers:
       '@countrytopics/email':
         specifier: workspace:*
         version: link:../../packages/email
+      '@countrytopics/environment':
+        specifier: workspace:*
+        version: link:../../packages/environment
       '@countrytopics/jobs':
         specifier: workspace:*
         version: link:../../packages/jobs
@@ -218,6 +227,24 @@ importers:
       '@types/nodemailer':
         specifier: 8.0.2
         version: 8.0.2
+      eslint:
+        specifier: 9.39.5
+        version: 9.39.5
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      typescript-eslint:
+        specifier: 8.71.2
+        version: 8.71.2(eslint@9.39.5)(typescript@5.9.3)
+
+  packages/environment:
+    devDependencies:
+      '@eslint/js':
+        specifier: 9.39.5
+        version: 9.39.5
+      '@types/node':
+        specifier: 22.20.5
+        version: 22.20.5
       eslint:
         specifier: 9.39.5
         version: 9.39.5

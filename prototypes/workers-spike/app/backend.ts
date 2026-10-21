@@ -1,7 +1,7 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import type { ComponentProps } from "react";
 
-import type { TopicBody } from "./TopicBody";
+import type { TopicBody } from "./(site)/TopicBody";
 
 /**
  * The tags apps/web gives the topic page's data (public-cache.ts's

@@ -1,4 +1,4 @@
-# The Workers spike (ADR 0014, phase 1), built and previewed on Linux: on
+# The Workers spike (ADR 0014, phases 1 and 2), built and previewed on Linux: on
 # Windows, OpenNext's build needs symbolic links that only Developer Mode
 # allows. workerd needs glibc, so this is Debian, not Alpine. Throwaway.
 # Built from the repository root:

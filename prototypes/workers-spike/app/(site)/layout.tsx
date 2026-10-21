@@ -4,8 +4,10 @@ import type { ReactNode } from "react";
 
 import "./styles.css";
 
-// The site's fonts and styles (apps/web), to see that next/font's files are
-// served from the Worker's static assets.
+// The site's root layout, with its fonts and styles (apps/web), to see that
+// next/font's files are served from the Worker's static assets. The admin
+// has its own root layout ((admin)/admin/layout.tsx), so neither loads the
+// other's styles or scripts (ADR 0014).
 const sans = Inter({
   subsets: ["latin", "latin-ext"],
   variable: "--font-inter",

@@ -1261,3 +1261,47 @@ and 31 GB), 2026-10-18 and 2026-10-19.
   published. Remove the pin with the spike.
 - [ ] Not done: a deploy to `workers.dev`, which needs a Cloudflare
   account; it would also measure the free plan's 10 ms of CPU a request.
+
+### The split, phase 2: the admin spike (ADR 0014)
+
+- [x] The spike has two route groups, each with its own root layout:
+  `(site)` and `(admin)/admin`. The admin's topic editor edits the title,
+  the summary, the countries, the body (Lexical, loaded in the browser
+  only), and the change note through Payload's REST API on the real local
+  backend, by way of a stand-in for phase 4's pass-through. It saves drafts,
+  publishes, and shows refusals beside their fields (2026-10-21).
+- [x] Every check passed (ADR 0014, "Phase 2 results"):
+  - The editor writes what Payload's editor writes, checked against
+    Payload's own node classes for every node and format, the TEST fixture,
+    and all 29 local topic bodies, also after showing them on a page.
+  - A TEST topic edited in headless Chrome was stored exactly as sent and
+    rendered by apps/web's topic page.
+  - Both refusals, the empty body and the missing change note, showed
+    beside their fields.
+  - The Worker is 1.21 MB compressed, with 30–60 ms of start-up CPU.
+  - The public pages load none of the admin's files, and the admin none of
+    the site's styles; admin pages are sent with `no-store`.
+- [x] Found in the spike:
+  - The phase 1 TEST fixture lacked the paragraphs' `textStyle`, so it was
+    not quite what Payload writes; it is regenerated through Payload's
+    nodes.
+  - Payload's renderer numbers list items by `value` and ignores the
+    list's `start`.
+- [x] The code review before the first push found ten issues, all fixed:
+  - Linking text across an existing link moved the text after it into the
+    new link, out of order; links and rules pasted from a web page became
+    plain text, where Payload's editor keeps them. Both are tested now,
+    with unlinking.
+  - Failures were reported wrongly: a save's answer was cast unchecked
+    inside a catch-all, so a save that worked could read "could not be
+    reached"; the pass-through and the New TEST topic button did not catch
+    a backend that was down; and the admin pages crashed with Next.js's
+    generic error instead of saying to start apps/web.
+  - The pass-through compared a write's origin with the request's own URL,
+    which a tunnel changes; it compares with the site's configured address
+    now.
+  - The editor copied the whole body on every keystroke, and the gate ran
+    before the page's reads instead of with them.
+- [x] The local database has a TEST admin, `test-admin-spike@example.test`,
+  invited for the checks, and one TEST topic, "TEST admin spike topic
+  (phase 2)". Neither is real.

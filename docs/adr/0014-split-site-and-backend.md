@@ -595,6 +595,48 @@ The developer decided (2026-10-20) to build the split from the beginning,
 and later (2026-10-21) that there is no pilot for now: the split is built
 locally and shown as a demo, and phases 13 and 14 wait for a launch.
 
+### Phase 2 results (2026-10-21)
+
+The admin spike (`prototypes/workers-spike/app/(admin)`) passed every
+check. It ran in workerd against the real local backend (apps/web), as a
+TEST admin signed in by email link and authenticator:
+
+| Check                        | Result                                                                                                                                                                                                                                                                                                                                                                    |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The saved JSON               | The editor writes what Payload's editor writes. This was checked against Payload's own node classes for a body with every node and format apps/web allows, the TEST fixture, and all 29 topic bodies and versions in the local database, both read and written back and again after the editor showed them on a page. Edits made in a browser were stored exactly as sent |
+| It renders unchanged         | apps/web's topic page rendered the TEST topic's headings, formats, external and internal links, nested and numbered lists, quote, and rule                                                                                                                                                                                                                                |
+| One relation, draft, publish | The countries, a draft save, and two publishes, through Payload's REST API with the staff member's cookie. The access rules, the workflow, the change log, the versions, and the audit log ran as they do for Payload's panel                                                                                                                                             |
+| A refused publish            | Publishing an empty body was refused on Body ("Write the topic before publishing."), and publishing again without a change note on Change note; each message showed beside its field                                                                                                                                                                                      |
+| Size                         | 1.21 MB compressed (5.9 MB raw), 38 KB more than phase 1: the editor itself ships as static files                                                                                                                                                                                                                                                                         |
+| Start-up                     | 30–60 ms of CPU locally across three runs, as in phase 1                                                                                                                                                                                                                                                                                                                  |
+| Public pages load no admin   | The public pages load none of the admin's three scripts or its stylesheet (285 KB, 92 KB gzipped), and the admin loads none of the site's styles. The Lexical chunk (261 KB) loads only on the editor page, once it has opened                                                                                                                                            |
+| Never cached                 | Admin pages are sent with `private, no-cache, no-store`                                                                                                                                                                                                                                                                                                                   |
+
+What it changes for the later phases:
+
+- **Only three of the editor's nodes are Payload's own.** Payload's editor
+  uses Lexical's heading, quote, and list nodes as they are; the link,
+  autolink, and horizontal rule are its own classes. The admin mirrors
+  those three (`body-nodes.ts`), because importing them from
+  `@payloadcms/richtext-lexical` would bring Payload's admin UI into the
+  browser. Lexical stays at the version Payload uses (0.50.0 with Payload
+  3.90.2), and the body test (`tests/body-json.test.ts`) runs whenever
+  either is upgraded. Phase 8 moves the nodes and the test into the
+  frontend.
+- **"Unchanged" means what Payload's editor would save.** 19 of the 29
+  local bodies lack the paragraphs' `textStyle`, which Lexical now adds.
+  Payload's editor would add it on their next save too, and the renderer
+  ignores it.
+- **Payload's renderer ignores a numbered list's `start`.** It numbers
+  each item through its `value`, so a list still counts from the right
+  number.
+- **The stand-in pass-through rewrites a write's origin** to the backend's
+  own address, after checking the browser's origin against the frontend's.
+  Phase 4's signed pass-through replaces it.
+- **An unknown address gets Next.js's plain 404,** as apps/web does today,
+  because the two route groups have separate root layouts. Phase 5 adds
+  `global-not-found`.
+
 ## Consequences
 
 **Gains:**

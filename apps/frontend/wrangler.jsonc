@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "countrytopics-frontend",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-09-15",
+  // A hosted frontend adds global_fetch_strictly_public, as its backend is
+  // a public Tunnel address; the local preview reaches the backend on this
+  // machine, which that flag would refuse.
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
+  "services": [
+    { "binding": "WORKER_SELF_REFERENCE", "service": "countrytopics-frontend" },
+  ],
+  // The local preview's settings. FORWARDING_KEY is a secret: locally in
+  // .dev.vars, which is never committed; deployed, a Wrangler secret.
+  "vars": {
+    "APP_ENV": "local",
+    "SITE_URL": "http://localhost:8788",
+    "BACKEND_URL": "http://host.docker.internal:3002",
+  },
+}

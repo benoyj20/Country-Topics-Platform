@@ -3,9 +3,8 @@
 // answers from Valkey after the first render.
 //   make load-test TEST=cached
 import { check, sleep } from "k6";
-import http from "k6/http";
 
-import { BASE, PAUSE_S, pick, stages, topicSlugs } from "./common.js";
+import { BASE, get, PAUSE_S, pick, stages, topicSlugs } from "./common.js";
 
 const COUNTRIES = ["kenya", "ghana", "portugal", "tanzania", "malta"];
 
@@ -34,7 +33,7 @@ export default function ({ slugs }) {
     ["countries", `/countries/${pick(COUNTRIES)}`],
   ];
   for (const [page, path] of pages) {
-    const response = http.get(`${BASE}${path}`, { tags: { page } });
+    const response = get(`${BASE}${path}`, { tags: { page } });
     check(response, { "answered 200": (r) => r.status === 200 });
   }
   sleep(PAUSE_S);

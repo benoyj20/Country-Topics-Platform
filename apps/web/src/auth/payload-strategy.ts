@@ -17,10 +17,14 @@ export const betterAuthStrategy: AuthStrategy = {
   name: "better-auth",
   authenticate: async ({ headers, payload, req }) => {
     const method = req?.method?.toUpperCase();
+    const { siteUrl, panelOrigin } = serverEnv();
+    // Writes come from the site, or locally from Payload's panel at the
+    // backend's own address (ADR 0014).
     if (
       method &&
       !SAFE_METHODS.has(method) &&
-      !isSameOriginWrite(headers, serverEnv().siteUrl)
+      !isSameOriginWrite(headers, siteUrl) &&
+      !(panelOrigin && isSameOriginWrite(headers, panelOrigin))
     ) {
       return { user: null };
     }

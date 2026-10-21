@@ -8,6 +8,7 @@ import {
   normalizeCommentBody,
 } from "@countrytopics/domain";
 
+import { canonicalRedirect } from "@/api/redirect";
 import { apiError, NO_STORE, readJsonBody } from "@/api/json";
 import { rateLimited, refundRateLimited, writingMember } from "@/api/member";
 import {
@@ -61,7 +62,7 @@ export async function GET(request: Request, { params }: Context) {
   }
   if (canonical.toString() !== url.searchParams.toString()) {
     url.search = canonical.toString();
-    return Response.redirect(url, 308);
+    return canonicalRedirect(url);
   }
   try {
     const topic = isSlug(slug)

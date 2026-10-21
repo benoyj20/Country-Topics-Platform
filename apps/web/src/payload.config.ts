@@ -26,6 +26,7 @@ import { Videos } from "./collections/Videos";
 import { editor } from "./editor";
 import { reportPayloadError } from "./error-reporting/server";
 import { serverEnv } from "./env";
+import { withStaffWriteLimit } from "./staff-write-limit";
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 const env = serverEnv();
@@ -64,7 +65,9 @@ export default buildConfig({
     Invitations,
     Feedback,
     AuditLog,
-  ],
+    // Payload's own collections (preferences, document locks), which its
+    // panel writes as staff work, are left out.
+  ].map(withStaffWriteLimit),
   editor,
   // Unexpected failures in the admin panel's API reach error reporting.
   hooks: { afterError: [({ error }) => reportPayloadError(error)] },
@@ -94,9 +97,12 @@ export default buildConfig({
     abortOnLimit: true,
     responseOnLimit: "Files can be at most 20 MB.",
   },
-  serverURL: env.siteUrl,
+  // Payload's panel calls its API at serverURL: locally that is the
+  // backend's own address, where the panel is used until ADR 0014's phase
+  // 12. Everything else reaches the API through the frontend, same-origin.
+  serverURL: env.panelOrigin ?? env.siteUrl,
   cors: [env.siteUrl],
-  csrf: [env.siteUrl],
+  csrf: [env.siteUrl, ...(env.panelOrigin ? [env.panelOrigin] : [])],
   db: postgresAdapter({
     // Fail fast instead of waiting for the OS TCP timeout when the database is
     // unreachable.

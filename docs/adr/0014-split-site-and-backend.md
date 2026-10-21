@@ -294,7 +294,7 @@ to cover another host. That is what lets staging live at `dev.<domain>`
   and Payload's `csrf` keep checking against `SITE_URL`, as today.
 - **Payload's panel during the move, locally only.** Until phase 12
   removes it, staff use Payload's panel at the backend's own address,
-  `localhost:3001/admin`. Browsers do not tie cookies to a port, so the
+  `localhost:3002/admin`. Browsers do not tie cookies to a port, so the
   same sign-in works there. While the panel exists, and only with
   `APP_ENV=local`, the backend also accepts its own address as an origin
   and unsigned requests from its own panel. No hosted environment exists
@@ -404,7 +404,7 @@ or cookies.
 
 | Service           | Local (each developer's machine)                                                              | Staging (hosted, for testing)                                                        | Production                                                             |
 | ----------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| Addresses         | `localhost:3000`, `/admin`; the backend on `localhost:3001`, reached through the pass-through | `dev.<domain>`, `dev.<domain>/admin`; the backend's Tunnel host `api-dev.<domain>`   | `<domain>`, `<domain>/admin`; the backend's Tunnel host `api.<domain>` |
+| Addresses         | `localhost:3000`, `/admin`; the backend on `localhost:3002`, reached through the pass-through | `dev.<domain>`, `dev.<domain>/admin`; the backend's Tunnel host `api-dev.<domain>`   | `<domain>`, `<domain>/admin`; the backend's Tunnel host `api.<domain>` |
 | Frontend          | `next dev`                                                                                    | Its own Worker (`frontend-staging`), R2 bucket, and D1 database                      | Its own Worker, R2 bucket, and D1 database                             |
 | Backend           | Docker Compose                                                                                | Its own small Hetzner server and Tunnel                                              | Its own Hetzner server and Tunnel                                      |
 | Database          | PostgreSQL 17 in Docker                                                                       | Its own Supabase project, in a separate Supabase organisation                        | Its own Supabase project                                               |
@@ -467,7 +467,7 @@ Rules that keep them apart:
   Cloudflare deploy token for staging cannot touch production's Worker.
 - **Local runs the same pass-through.** `next dev` serves the frontend on
   `localhost:3000` and passes `/api` and `/files` to the backend on
-  `localhost:3001` with the same signed route, so sign-in, cookies, and
+  `localhost:3002` with the same signed route, so sign-in, cookies, and
   redirects behave as in production.
 
 Staging costs about $10–30 a month (a small Hetzner server and Supabase's
@@ -489,7 +489,7 @@ same interface, so moving to the real one is a change of configuration:
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
 | Cloudflare Workers       | `opennextjs-cloudflare preview`, which runs the frontend in workerd, the Workers runtime, with Wrangler's local R2, D1, and Durable Objects | The Worker's bindings                  |
 | Hetzner server           | Docker Compose                                                                                                                              | The same container images              |
-| Cloudflare Tunnel        | A direct connection to `localhost:3001`                                                                                                     | The pass-through's backend address     |
+| Cloudflare Tunnel        | A direct connection to `localhost:3002`                                                                                                     | The pass-through's backend address     |
 | Supabase                 | PostgreSQL 17 in Docker                                                                                                                     | `DATABASE_URL`                         |
 | R2 for uploads           | SeaweedFS                                                                                                                                   | The S3 API                             |
 | Backblaze B2 for backups | A second SeaweedFS bucket                                                                                                                   | The S3 API                             |
@@ -672,6 +672,59 @@ and purges it by tag, and a cache between the two could not be purged.
   and Payload's generated types for the REST API in phase 7, with the
   admin's lists. The licence list moved into `@countrytopics/domain`, so
   the contracts depend on no app.
+
+### Phase 4 results (2026-10-21)
+
+Browsers now reach the backend only through the frontend. `apps/frontend`
+passes each request on, signed (`packages/forwarding`), and the backend's
+`proxy.ts` refuses anything unsigned. Locally the frontend runs on
+`localhost:3000` (`next dev`) and the backend on `localhost:3002`, as 3001
+was taken on the developer's machine. Checked through the frontend, with
+TEST accounts:
+
+| Check                      | Result                                                                                                                                                                                                                                                      |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sign-in and member actions | An email link signed members in, then they commented, voted, reported, exported their data, and deleted their accounts. A staff member passed the authenticator check and saved a draft through Payload's REST API; no one else could                       |
+| Sign-in's redirects        | The email link's redirect reached the browser with its cookie, in `next dev` and in workerd, the Workers runtime                                                                                                                                            |
+| `__Host-` cookies          | Every cookie set is `__Host-countrytopics.*`, `Secure`, `Path=/`, with no `Domain`. Chrome keeps them on `http://localhost`, which browsers treat as secure; on another plain-http address, such as a phone test over the network, cookies have plain names |
+| Unsigned requests          | Refused (401) for pages, `/api/v1`, `/api/auth`, Payload's REST API, and `/files`, as were forged, expired, and misdirected signatures. Only `/api/v1/health` and, locally, Payload's panel answer without one                                              |
+| Payload's panel, locally   | It works at `localhost:3002/admin`, including saving, with no signature                                                                                                                                                                                     |
+| The site's pages           | Their scripts load, they hydrate, and client-side navigation works, through the frontend                                                                                                                                                                    |
+| The scale rehearsal        | `make scale-check` and both load tests pass, signing their requests; the load tests had no failures                                                                                                                                                         |
+| Size                       | The frontend Worker is 936 KB compressed                                                                                                                                                                                                                    |
+
+How it works, where the plan left details open:
+
+- **The signature** is an HMAC-SHA256 over the method, the path and query,
+  the visitor's address, and a timestamp, sent in
+  `x-countrytopics-timestamp`, `-client-address`, and `-signature`, and
+  checked within 5 minutes either way. `FORWARDING_KEY`, at least 32
+  characters, is read by both apps; `make env` generates it locally.
+- **The visitor's address** comes only from a signed request: the backend
+  lets a request reach its routes only with a signature that checks, or
+  with no signature headers at all. `CLIENT_IP_HEADER` (ADRs 0010, 0012, and 0013) is gone. Locally everyone is `127.0.0.1`.
+- **Requests pass on unchanged.** The backend's proxy rewrites no headers,
+  since Next.js leaves its router headers out of headers a proxy rewrites.
+- **The signed path is the one the backend's proxy sees.** Next.js removes
+  its `_rsc` parameter from every request's URL, which re-encodes the query,
+  so both sides compute it that way (`signedPathAndQuery`). The backend also
+  turns off Next.js's `_rsc` check (`validateRSCRequestHeaders`): the
+  frontend makes it on every browser request, then drops the `Next-Url`
+  header, so on the backend it would always fail. Both go with the
+  backend's pages in phase 12.
+- **Until phase 5 the frontend passes on every path**, pages included,
+  except `/admin` and `/api/revalidate`. The backend's pages name their
+  build files under `/_backend/_next` (`assetPrefix`), which the frontend
+  passes on through a Next.js rewrite, the only way to carry the
+  development server's live-reload websocket. Phase 5 narrows the
+  pass-through to `/api` and `/files`.
+- **Staff writes through Payload's REST API are limited** to 60 a minute
+  and 2,000 a day per person, and writes by filter, which can change many
+  records at once, to 5 a minute and 50 a day. Each request counts once,
+  whatever it changes in turn.
+- **Locally, Payload's `serverURL` is the backend's own address**, so its
+  panel calls its API there; public pages link files at `/files/:id`, on
+  the site.
 
 ## Consequences
 

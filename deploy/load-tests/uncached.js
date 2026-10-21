@@ -4,9 +4,8 @@
 // them, so they show what the queries cost.
 //   make load-test TEST=uncached
 import { check, sleep } from "k6";
-import http from "k6/http";
 
-import { BASE, PAUSE_S, pick, stages, topicSlugs } from "./common.js";
+import { BASE, get, PAUSE_S, pick, stages, topicSlugs } from "./common.js";
 
 const WORDS = ["water", "transport", "schools", "budget", "energy", "housing"];
 const COUNTRIES = ["kenya", "ghana", "portugal", "tanzania", "malta"];
@@ -29,14 +28,14 @@ export function setup() {
 }
 
 export default function ({ slugs }) {
-  const search = http.get(`${BASE}/api/v1/topics?q=${pick(WORDS)}`, {
+  const search = get(`${BASE}/api/v1/topics?q=${pick(WORDS)}`, {
     tags: { request: "search" },
   });
-  const browse = http.get(
+  const browse = get(
     `${BASE}/api/v1/topics?country=${pick(COUNTRIES)}${pick(SORTS)}`,
     { tags: { request: "browse" } },
   );
-  const comments = http.get(`${BASE}/api/v1/topics/${pick(slugs)}/comments`, {
+  const comments = get(`${BASE}/api/v1/topics/${pick(slugs)}/comments`, {
     tags: { request: "comments" },
   });
   for (const response of [search, browse, comments]) {

@@ -37,6 +37,18 @@ export const RATE_LIMITS = {
     { max: 20, windowS: DAY_S },
   ],
   "data-export": [{ max: 10, windowS: DAY_S }],
+  // ADR 0014: writes through Payload's REST API, per person; a staff
+  // member saving by hand stays well under them.
+  "staff-write": [
+    { max: 60, windowS: MINUTE_S },
+    { max: 2_000, windowS: DAY_S },
+  ],
+  // Bulk writes (every record matching a filter) change many records in
+  // one request, so they have a far smaller allowance of their own.
+  "staff-bulk-write": [
+    { max: 5, windowS: MINUTE_S },
+    { max: 50, windowS: DAY_S },
+  ],
   // Browsers' error reports (ADR 0012), per visitor address behind a
   // trusted proxy, else shared; and for the whole site, which caps what
   // can reach the Sentry project's quota.

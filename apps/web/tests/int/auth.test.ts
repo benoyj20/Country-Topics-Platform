@@ -8,6 +8,7 @@ import { MAX_VERIFICATION_FAILURES } from "@/auth/admin-verification";
 import { ensureUserProfile, maySignIn } from "@/auth/accounts";
 import { EMAIL_NOT_VERIFIED_ERROR, getAuth } from "@/auth/auth";
 import { serverEnv } from "@/env";
+import { RATE_LIMITS } from "@/rate-limit";
 
 import {
   authRequest,
@@ -82,6 +83,16 @@ describe("email-link sign-in", () => {
     const opened = await authRequest(link, { method: "GET", jar });
     expect(opened.status).toBe(302);
     expect(redirectTarget(opened)).toBe(`${SITE_URL}/account`);
+    // Every cookie is __Host- (ADR 0014): Secure, for the whole site, and
+    // naming no Domain, so no other host can set or read it.
+    const cookies = opened.headers.getSetCookie();
+    expect(cookies.length).toBeGreaterThan(0);
+    for (const cookie of cookies) {
+      expect(cookie).toMatch(/^__Host-countrytopics\./);
+      expect(cookie).toMatch(/;\s*Secure/i);
+      expect(cookie).toMatch(/;\s*Path=\/(;|$)/i);
+      expect(cookie).not.toMatch(/;\s*Domain=/i);
+    }
 
     // The stranger's request was handled first; no email was queued for it.
     expect(await emailCount(stranger)).toBe(0);
@@ -296,6 +307,66 @@ describe("admin panel access", () => {
     expect(audit.docs[0]?.details).toMatchObject({
       changes: { name: { to: "Genuine" } },
     });
+  });
+});
+
+describe("staff writes through the REST API", () => {
+  it("are held to a person's pace", async () => {
+    const admin = testEmail("write-limit-admin");
+    await payload.create({
+      collection: "users",
+      data: { email: admin, role: "admin" },
+      overrideAccess: true,
+    });
+    const jar = await signInWithEmailLink(admin);
+    const secret = await enableAuthenticator(jar);
+    await authRequest("/admin-verification/verify", {
+      body: { code: await currentCode(secret) },
+      jar,
+    });
+    const [profile] = await profileFor(admin);
+    const path = ["users", String(profile?.id)];
+    const [{ max }] = RATE_LIMITS["staff-write"];
+
+    for (let save = 1; save <= max; save += 1) {
+      const saved = await payloadRest("PATCH", path, jar, {
+        name: `TEST save ${save}`,
+      });
+      expect(saved.status).toBe(200);
+    }
+    const refused = await payloadRest("PATCH", path, jar, {
+      name: "TEST one save too many",
+    });
+    expect(refused.status).toBe(429);
+    expect(JSON.stringify(await refused.json())).toMatch(
+      /Too many saves in a short time/,
+    );
+    expect((await profileFor(admin))[0]?.name).toBe(`TEST save ${max}`);
+
+    // A write by filter may change many records, so it has its own,
+    // smaller allowance.
+    const [{ max: bulkMax }] = RATE_LIMITS["staff-bulk-write"];
+    const filter = `?where[id][equals]=${profile?.id}`;
+    for (let save = 1; save <= bulkMax; save += 1) {
+      const saved = await payloadRest(
+        "PATCH",
+        ["users"],
+        jar,
+        { name: `TEST bulk save ${save}` },
+        SITE_URL,
+        filter,
+      );
+      expect(saved.status).toBe(200);
+    }
+    const bulkRefused = await payloadRest(
+      "PATCH",
+      ["users"],
+      jar,
+      { name: "TEST one bulk save too many" },
+      SITE_URL,
+      filter,
+    );
+    expect(bulkRefused.status).toBe(429);
   });
 });
 

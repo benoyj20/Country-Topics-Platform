@@ -61,6 +61,8 @@ jobs:
       PAYLOAD_SECRET: ci-only-placeholder-value-not-used-anywhere-else
       BETTER_AUTH_SECRET: ci-only-placeholder-value-not-used-anywhere-else
       SITE_URL: http://localhost:3000
+      BACKEND_URL: http://localhost:3002
+      FORWARDING_KEY: ci-only-placeholder-value-not-used-anywhere-else
       REDIS_URL: redis://localhost:6379
       SMTP_URL: smtp://localhost:1025
       TEST_MAILPIT_URL: http://localhost:8025

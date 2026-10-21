@@ -63,11 +63,16 @@ export function errorEnvironmentFor(
 }
 
 /**
- * SITE_URL, the app's public address, as its origin (no trailing slash).
- * A path is refused: the site lives at the root of its host.
+ * The http(s) origin in variable `name`, without a trailing slash. A path
+ * is refused: each app lives at the root of its host.
  */
-export function readSiteUrl(env: Env, problems: string[]): string {
-  const value = env.SITE_URL?.trim() ?? "";
+export function readOrigin(
+  env: Env,
+  name: string,
+  problems: string[],
+  example: string,
+): string {
+  const value = env[name]?.trim() ?? "";
   if (URL.canParse(value)) {
     const url = new URL(value);
     if (
@@ -77,9 +82,49 @@ export function readSiteUrl(env: Env, problems: string[]): string {
       return url.origin;
     }
   }
-  problems.push(
-    "SITE_URL must be an http(s) origin, such as http://localhost:3000",
+  problems.push(`${name} must be an http(s) origin, such as ${example}`);
+  return value;
+}
+
+/** SITE_URL, the app's public address, as its origin. */
+export function readSiteUrl(env: Env, problems: string[]): string {
+  return readOrigin(env, "SITE_URL", problems, "http://localhost:3000");
+}
+
+/**
+ * BACKEND_URL, the backend's own address (ADR 0014), as its origin. The
+ * frontend passes every request there; it must not be the site's.
+ */
+export function readBackendUrl(
+  env: Env,
+  siteUrl: string,
+  problems: string[],
+): string {
+  const backendUrl = readOrigin(
+    env,
+    "BACKEND_URL",
+    problems,
+    "http://localhost:3002",
   );
+  if (backendUrl === siteUrl) {
+    problems.push(
+      "BACKEND_URL must differ from SITE_URL, which is the frontend's address",
+    );
+  }
+  return backendUrl;
+}
+
+/** Secrets and signing keys shorter than this are guessable. */
+export const MIN_SECRET_LENGTH = 32;
+
+/** The secret in variable `name`, trimmed; never echoed in a problem. */
+export function readSecret(env: Env, name: string, problems: string[]): string {
+  const value = env[name]?.trim() ?? "";
+  if (value.length < MIN_SECRET_LENGTH) {
+    problems.push(
+      `${name} must be at least ${MIN_SECRET_LENGTH} characters; leave it empty in .env and run "make env" to generate one`,
+    );
+  }
   return value;
 }
 

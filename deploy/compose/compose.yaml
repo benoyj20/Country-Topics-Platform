@@ -167,8 +167,11 @@ services:
       SITE_URL: http://localhost:${SCALE_HOST_PORT:-8080}
       # Apart from development's queues, limits, and page cache.
       QUEUE_PREFIX: countrytopics-scale
-      # Every request comes through the load balancer, which sets it.
-      CLIENT_IP_HEADER: x-forwarded-for
+      # The rehearsal has no frontend: the load tests and make scale-check
+      # sign their requests as it does (ADR 0014), with this key, which
+      # only the rehearsal uses (check-stateless.mjs has it too).
+      BACKEND_URL: http://lb:8080
+      FORWARDING_KEY: &rehearsal-forwarding-key rehearsal-only-forwarding-key-not-a-secret
       # Google's registered redirect is the development address.
       GOOGLE_CLIENT_ID: ""
       GOOGLE_CLIENT_SECRET: ""
@@ -229,6 +232,7 @@ services:
       - ../load-tests:/scripts:ro
     environment:
       BASE_URL: http://lb:8080
+      FORWARDING_KEY: *rehearsal-forwarding-key
 
 volumes:
   postgres-data:

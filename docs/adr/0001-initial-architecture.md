@@ -1,7 +1,8 @@
 # 0001: Initial architecture and scale-ready rules
 
 - Date: 2026-10-14
-- Status: Accepted
+- Status: Accepted; the one deployable web app and pgvector are superseded
+  by [ADR 0014](0014-split-site-and-backend.md)
 
 ## Context
 

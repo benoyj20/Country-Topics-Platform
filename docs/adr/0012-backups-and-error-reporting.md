@@ -1,7 +1,8 @@
 # 0012: Backups and error reporting
 
 - Date: 2026-10-18
-- Status: Accepted
+- Status: Accepted; the suggestion of R2 for backups is superseded by
+  [ADR 0014](0014-split-site-and-backend.md)
 
 ## Context
 

@@ -1,7 +1,8 @@
 # 0007: Public pages, what they show, and how they are cached
 
 - Date: 2026-10-17
-- Status: Accepted
+- Status: Accepted; the public pages' caching and the thumbnails from
+  YouTube's image server are superseded by [ADR 0014](0014-split-site-and-backend.md)
 
 ## Context
 

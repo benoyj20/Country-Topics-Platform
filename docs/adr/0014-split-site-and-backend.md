@@ -1,7 +1,7 @@
 # 0014: Split one frontend, the site and the admin, from an API-only backend
 
 - Date: 2026-10-20
-- Status: Proposed
+- Status: Accepted (2026-10-21)
 
 ## Context
 
@@ -57,12 +57,12 @@ Constraints of Cloudflare Workers that matter here:
 
 ### Shape
 
-| Part                                      | Runs on                                    | Holds                                                                                                 | Address                                                                                                            |
-| ----------------------------------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `apps/frontend` (new)                     | Cloudflare Workers, one Worker             | The public pages, the member pages, and the staff UI under `/admin`                                   | `https://<domain>`, with the admin at `<domain>/admin`                                                             |
-| `apps/api` (today's `apps/web`, renamed)  | Hetzner (Docker)                           | Payload without its admin panel, sign-in, Payload's REST API, `/api/v1`, page data, `/files`. No HTML | None of its own: reached at `<domain>/api/*` and `<domain>/files/*` through the frontend, then a Cloudflare Tunnel |
-| `apps/worker`, `apps/backup`              | Hetzner (Docker)                           | Unchanged                                                                                             | Not public                                                                                                         |
-| PostgreSQL, two Valkeys, uploads, backups | Supabase / Hetzner / R2 / another provider | Unchanged, except that backups move off R2 (Everything else)                                          | Not public                                                                                                         |
+| Part                                      | Runs on                                | Holds                                                                                                 | Address                                                                                                            |
+| ----------------------------------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `apps/frontend` (new)                     | Cloudflare Workers, one Worker         | The public pages, the member pages, and the staff UI under `/admin`                                   | `https://<domain>`, with the admin at `<domain>/admin`                                                             |
+| `apps/api` (today's `apps/web`, renamed)  | Hetzner (Docker)                       | Payload without its admin panel, sign-in, Payload's REST API, `/api/v1`, page data, `/files`. No HTML | None of its own: reached at `<domain>/api/*` and `<domain>/files/*` through the frontend, then a Cloudflare Tunnel |
+| `apps/worker`, `apps/backup`              | Hetzner (Docker)                       | Unchanged                                                                                             | Not public                                                                                                         |
+| PostgreSQL, two Valkeys, uploads, backups | Supabase / Hetzner / R2 / Backblaze B2 | Unchanged, except that backups go to Backblaze B2 (Everything else)                                   | Not public                                                                                                         |
 
 The frontend imports nothing from Payload, `pg`, ioredis, or
 `@countrytopics/jobs`, and holds no database, queue, or service credentials.
@@ -105,7 +105,7 @@ flowchart LR
   end
 
   db[("Supabase<br/>PostgreSQL")]
-  offsite[("Backups: another<br/>provider, US region")]
+  offsite[("Backups: Backblaze B2,<br/>US East")]
   resend["Resend: email"]
 
   visitor -- "pages" --> site
@@ -166,6 +166,9 @@ packages/
   refuse anyone without a staff role and a recent authenticator check. With
   the admin panel gone, the REST API also gets rate limits for staff writes,
   and `/api/<collection>` reads open to the public only where they are today.
+- **No GraphQL.** Payload's GraphQL API stays turned off
+  (`graphQL: { disable: true }`, as now); REST covers the site and the
+  admin.
 - **The page-data endpoints** replace the site's direct reads, served
   through the existing `cached()` loaders so Valkey still absorbs repeated
   reads:
@@ -210,7 +213,7 @@ use in Payload's admin panel today, on Payload's REST API (`?depth=`,
 - **Errors from the API**, such as a refused publish because a reference is
   unconfirmed, shown beside the field they name, as Payload's panel does.
 - **Everything else Payload's panel does today**, because the developer
-  decided the pilot's admin must match it in full (2026-10-20):
+  decided the new admin must match it in full (2026-10-20):
   - bulk actions on lists (select many, then publish, archive, or delete
     where the access rules allow);
   - autosave of drafts while editing;
@@ -286,21 +289,13 @@ to cover another host. That is what lets staging live at `dev.<domain>`
   session cookie has the prefix.
 - **No CORS.** Every browser call is same-origin, so `isSameOriginWrite`
   and Payload's `csrf` keep checking against `SITE_URL`, as today.
-- **Payload's panel during the move, on staging only.** From phase 4 to
-  phase 12, staff still edit staging's content in Payload's panel:
-  - Its route (Payload's `routes.admin` and the `app/(payload)/admin`
-    folder) moves to `/cms`, and the pass-through forwards `/cms` like
-    `/api`.
-  - Its scripts and styles would load from `/_next`, which the frontend
-    answers itself, so the backend gets `assetPrefix: "/cms-assets"`, which
-    the pass-through also forwards.
-  - Phase 4 confirms that the panel loads this way. If it does not, staff
-    use the panel on staging's Tunnel host, behind Cloudflare Access, until
-    phase 12.
-
-  Phase 12 removes the panel, the route, and the prefix. Production starts
-  after phase 12, so it never has the panel.
-
+- **Payload's panel during the move, locally only.** Until phase 12
+  removes it, staff use Payload's panel at the backend's own address,
+  `localhost:3001/admin`. Browsers do not tie cookies to a port, so the
+  same sign-in works there. While the panel exists, and only with
+  `APP_ENV=local`, the backend also accepts its own address as an origin
+  and unsigned requests from its own panel. No hosted environment exists
+  before phase 13 (Until a launch), so none ever has the panel.
 - **Member pages** (account, notifications, feedback, the sign-in redirect)
   are rendered by the frontend per request, sending the visitor's cookie to
   the backend. They are never cached.
@@ -334,9 +329,9 @@ to cover another host. That is what lets staging live at `dev.<domain>`
   - R2 buckets and the D1 database created with Cloudflare's eastern North
     America location hint (`enam`), which Cloudflare follows on a
     best-effort basis; they hold staff uploads and cached public pages;
-  - backups on another provider's US storage, not R2, so that one account
-    or outage cannot take the uploads and every backup together, as ADR
-    0012 requires (the provider is chosen in phase 13);
+  - backups on Backblaze B2 in its US East region, not R2, so that one
+    account or outage cannot take the uploads and every backup together, as
+    ADR 0012 requires;
   - Resend sending from its US region, and Sentry's US region, as now.
 
   Cloudflare's edge, outside the US too, may hold copies of responses that
@@ -355,6 +350,37 @@ to cover another host. That is what lets staging live at `dev.<domain>`
   `@countrytopics/observability`. Browser reports still go through the
   backend's `/api/v1/errors`.
 - **Turnstile:** the widget is on the site; the backend checks the token.
+- **Video thumbnails come from the site.** Today the snippet player loads
+  each thumbnail from YouTube's image server (`i.ytimg.com`) when a topic
+  page opens, so visitors' browsers contact Google before anyone presses
+  play. Instead:
+  - A frontend route, `/thumbnails/:youtubeId`, fetches the thumbnail from
+    `i.ytimg.com` on the visitor's behalf, with no cookies and none of the
+    visitor's headers. It accepts only a valid 11-character video ID and
+    fetches only that fixed address, so it cannot be used to reach anywhere
+    else.
+  - Cloudflare's edge keeps each image for a day (`max-age=86400`). Nothing
+    is stored in R2, in the database, or in backups, so a changed or
+    removed thumbnail disappears within a day, and the worker, the media
+    model, and `/files` do not change.
+  - The public pages and the admin's snippet editor both use the route, so
+    neither loads an image from Google. YouTube is contacted directly only
+    when someone presses play.
+  - Phase 5 checks that YouTube's terms allow thumbnails passed through
+    this way. If they do not, the player shows a neutral placeholder until
+    it is clicked, the developer's second choice.
+- **No pgvector.** It was installed (the `pgvector/pgvector:pg17` image)
+  but nothing uses it: search is Postgres full-text. In phase 0:
+  - Compose and CI's integration tests both move to the plain `postgres:17`
+    image, so tests run on the same database as local and production.
+  - A migration runs `DROP EXTENSION IF EXISTS vector`, so a local database
+    that once loaded it no longer writes `CREATE EXTENSION vector` into its
+    backups, which would then fail to restore without it.
+  - README.md and the checklist stop mentioning pgvector.
+
+  Supabase's projects are created without the extension. It comes back only
+  with semantic search.
+
 - **Design:** the site and the admin share the tokens and fonts from PR
   #18, in the frontend. PR #18 is merged before phase 5, whose checks
   compare against its screenshots.
@@ -368,7 +394,8 @@ phase, so that nothing first meets the pass-through, its signatures, or
 the Workers runtime in production.
 
 There are three environments on one domain: production at `<domain>` and
-staging at `dev.<domain>` (decided 2026-10-21). Each environment has the
+staging at `dev.<domain>` (decided 2026-10-21); until a launch only the
+local one exists (Until a launch). Each environment has the
 same two apps reached the same way; they share code, never data, secrets,
 or cookies.
 
@@ -381,10 +408,10 @@ or cookies.
 | Email             | Mailpit; nothing leaves the machine                                                           | Resend, sending from `dev.<domain>` with its own API key; sends only to an allowlist | Resend, the production domain and key                                  |
 | Sign-in providers | Google's and Turnstile's test settings                                                        | Their own Google client and Turnstile widget                                         | Their own Google client and Turnstile widget                           |
 | Error reports     | Off                                                                                           | Sentry, `environment: staging`                                                       | Sentry, `environment: production`                                      |
-| Backups           | None                                                                                          | Its own bucket on the backup provider                                                | Its own bucket on the backup provider                                  |
+| Backups           | None                                                                                          | Its own Backblaze B2 bucket                                                          | Its own Backblaze B2 bucket                                            |
 | Secrets           | `.env` (never committed)                                                                      | GitHub environment `staging`                                                         | GitHub environment `production`, with an approval                      |
 | Data              | Synthetic                                                                                     | Synthetic only                                                                       | Real; never copied to another environment                              |
-| Who can open it   | The developer                                                                                 | Staff and named testers, through Cloudflare Access on `dev.<domain>`                 | Invited testers during the pilot                                       |
+| Who can open it   | The developer                                                                                 | Staff and named testers, through Cloudflare Access on `dev.<domain>`                 | The public, if the platform launches                                   |
 
 Rules that keep them apart:
 
@@ -400,13 +427,12 @@ Rules that keep them apart:
   ends with production's domain.
   This extends the check in `src/env.ts` that refuses Turnstile's test keys
   outside `localhost`.
-- **Staging is closed to the public from phase 0.** Cloudflare Access
-  covers `dev.<domain>`, except `/api/revalidate`, which checks its own
-  signature. It also covers the backend's Tunnel host, `api-dev.<domain>`,
-  so the staging backend is closed before phase 4 adds the signatures.
-  The staging frontend passes Access with a service token that exists only
-  in staging. Production's backend opens in phase 13, after the signatures
-  exist, and has no Access.
+- **Staging is closed to the public from its first day.** Cloudflare
+  Access covers `dev.<domain>`, except `/api/revalidate`, which checks its
+  own signature, and the backend's Tunnel host, `api-dev.<domain>`. The
+  staging frontend passes Access with a service token that exists only in
+  staging. Both hosted environments start in phase 13, after the
+  signatures exist; production has no Access.
 - **One build, promoted.** A merge to `main` builds the two apps once and
   deploys them to staging, after the database migrations run there. The same
   build reaches production only through a manual promotion with the
@@ -430,64 +456,84 @@ Staging costs about $10–30 a month (a small Hetzner server and Supabase's
 free plan in its own organisation); it needs no domain of its own.
 Cloudflare, Sentry, and Resend use the same accounts as production.
 
-#### Before the domain is bought
+#### Until a launch: local and free
 
-The developer has no domain yet (2026-10-21). Only production (phase 13)
-and staging's real email need one, so phases 0–12 run without it. Because
-browsers only ever talk to the frontend, staging works on temporary
-addresses:
+There is no pilot for now: the developer will show the split to their
+manager as a demo (2026-10-21). Phases 0–12 are therefore built and tested
+on the developer's machine and in CI, using free services only. Hosted
+staging and production, and every paid service and account, wait for
+phases 13 and 14, which happen only if a launch is decided.
 
-- **The frontend** runs at Cloudflare's free address,
-  `frontend-staging.<account>.workers.dev`, with Cloudflare Access turned
-  on for it. `workers.dev` is on the Public Suffix List, so no other
-  `workers.dev` site can read or set its cookies; phase 0 checks this.
-- **The backend** cannot have a Tunnel hostname without a domain on
-  Cloudflare. Until then, Caddy on the staging server serves it over HTTPS,
-  with a Let's Encrypt certificate, at a hostname from a wildcard DNS
-  service that names the server's address (such as `<address>.sslip.io`).
-  The server's firewall admits only Cloudflare's published address ranges.
-  From phase 0 the backend refuses any request without the staging
-  frontend's key: a shared key at first, which phase 4 replaces with the
-  signature.
-- **Email** goes to Mailpit on the staging server, reached only over SSH,
-  so no email leaves staging. Staff read staging's sign-in links there, and
-  named testers sign in with Google.
+Until then each production service has a local stand-in that speaks the
+same interface, so moving to the real one is a change of configuration:
 
-Once the domain is bought, phase 13 moves staging to `dev.<domain>`, with
-its Tunnel at `api-dev.<domain>` and Resend sending from `dev.<domain>`, at
-the same time as it sets up production.
+| Production service       | Local stand-in until phase 13                                                                                                               | Shared interface                       |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| Cloudflare Workers       | `opennextjs-cloudflare preview`, which runs the frontend in workerd, the Workers runtime, with Wrangler's local R2, D1, and Durable Objects | The Worker's bindings                  |
+| Hetzner server           | Docker Compose                                                                                                                              | The same container images              |
+| Cloudflare Tunnel        | A direct connection to `localhost:3001`                                                                                                     | The pass-through's backend address     |
+| Supabase                 | PostgreSQL 17 in Docker                                                                                                                     | `DATABASE_URL`                         |
+| R2 for uploads           | SeaweedFS                                                                                                                                   | The S3 API                             |
+| Backblaze B2 for backups | A second SeaweedFS bucket                                                                                                                   | The S3 API                             |
+| Resend                   | Mailpit                                                                                                                                     | SMTP (`SMTP_URL`; Resend accepts SMTP) |
+| Cloudflare Access        | None needed: nothing is public                                                                                                              | None                                   |
+| Sentry                   | Sentry's free plan, as now                                                                                                                  | The DSN                                |
+
+Free tiers that may help before phase 13, and that nothing depends on:
+
+- **Cloudflare's free plan.** A free account, with no payment, lets the
+  phase 1 spike deploy to `workers.dev` if it fits the free plan's limits
+  (3 MB of compressed code and 10 ms of CPU a request). If it does not, the
+  spike is judged locally: Wrangler's dry run reports the compressed size,
+  which must fit Workers Paid's 10 MB.
+- **Supabase's free plan.** One free project lets phase 3 run the
+  migrations and the integration tests once through Supabase's pooler.
+  Free projects pause after a week without use, so nothing relies on it.
+
+**Demos** use Cloudflare's free quick tunnel, which needs no account: it
+gives the local frontend a temporary `trycloudflare.com` address, as for
+the earlier demo. Because browsers only ever talk to the frontend, the
+tunnel exposes the frontend alone, and the backend stays on the machine.
+The address changes each time the tunnel restarts.
+
+**What is first met in phase 13**, and so carries that phase's risk:
+Hetzner and the Tunnel, Supabase's paid plan, Workers Paid under real
+traffic, Backblaze B2, Resend and the domain, Cloudflare Access, and the
+promotion workflow. Phase 14's load test and restore drill are the first
+runs on the real services.
 
 ## Plan
 
 Each phase ends with its checks passing and is a PR of its own, as AGENTS.md
 asks. Estimates are working days for one developer with Claude. The two
 spikes are go/no-go gates: if one fails, stop and revisit this decision.
-Everything from phase 1 on is deployed to staging as it is built.
+Phases 0–12 run locally and in CI (Until a launch); phases 13 and 14
+happen only if a launch is decided.
 
-| Phase                       | Work                                                                                                                                                                                                                                                                                              | Done when                                                                                                                                                                                                                                   | Days                          |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
-| 0. Environments             | Staging on its temporary addresses (Before the domain is bought): its Worker on `workers.dev`, R2, D1, Supabase project, Hetzner server with Caddy and Mailpit, the firewall, the backend's key, and Cloudflare Access; GitHub environments; `APP_ENV` and the start-up checks                    | A placeholder page and a health check deploy to staging from `main`; each app refuses another environment's addresses                                                                                                                       | 3–4                           |
-| 1. Site spike               | A throwaway OpenNext build of the topic page on staging                                                                                                                                                                                                                                           | The page renders its rich text, fits Workers' limits, `revalidateTag` purges it, fonts load, Sentry reports                                                                                                                                 | 2–3                           |
-| 2. Admin spike              | A throwaway `/admin` page in the same build that edits one topic through the REST API: the Lexical body, one relation, saving a draft, publishing                                                                                                                                                 | The saved JSON renders unchanged on the site; the Worker with the admin in it still fits; public pages load none of the admin's scripts; a refused publish shows its error                                                                  | 3–4                           |
-| 3. Contracts and page data  | `packages/contracts`; the four `/api/v1/pages/*` endpoints; integration tests                                                                                                                                                                                                                     | Each endpoint returns exactly what the page builds today; drafts and archived items answer as the pages do                                                                                                                                  | 3–4                           |
-| 4. API through the frontend | The pass-through for `/api`, `/files`, and staging's `/cms` with its assets; request signatures and the visitor's address; redirects built from `SITE_URL`; `__Host-` cookies; staff write limits; `/security-guidance` review                                                                    | Sign-in, comments, votes, reports, account deletion, export, and a staff edit work at `<domain>`; an unsigned request to the backend is refused; sign-in's redirects keep their cookies; every session cookie is `__Host-` with no `Domain` | 3–4                           |
-| 5. `apps/frontend`          | Move the public pages and components; the API client; member pages with the forwarded cookie; the admin route group and its gate                                                                                                                                                                  | Every page matches PR #18's screenshots and passes the whole-site audit                                                                                                                                                                     | 5–7                           |
-| 6. Purges                   | The `purge` job, `POST /api/revalidate`, signature checks                                                                                                                                                                                                                                         | Publishing changes the site within seconds; a forged or old purge is refused; a failed one retries                                                                                                                                          | 2                             |
-| 7. Admin shell and lists    | Sign-in and the authenticator gate, navigation, list views for the 17 collections                                                                                                                                                                                                                 | Staff can find any record as fast as in Payload's panel                                                                                                                                                                                     | 5–7                           |
-| 8. Topic editor             | Body, links, people, evidence, references, workflow, change notes, versions, field errors                                                                                                                                                                                                         | An editor publishes a real topic end to end; every refusal Payload's panel showed is shown                                                                                                                                                  | 8–12                          |
-| 9. Other editors            | Countries, categories, tags, individuals, references, media, snippets, videos, link archives                                                                                                                                                                                                      | Each record type can be created, edited, and checked as today                                                                                                                                                                               | 6–9                           |
-| 10. Moderation and people   | Comments, reports, feedback, invitations, users and roles, audit log                                                                                                                                                                                                                              | The moderation manual tests from weeks 9 and 10 pass in the new admin                                                                                                                                                                       | 4–6                           |
-| 11. Admin parity            | Bulk actions, autosave, live preview, version comparison, document locking, duplicating, list columns and remembered filters, inline creation of related records, multi-file uploads with a focal point, the dashboard                                                                            | Every feature staff use in Payload's panel today has its counterpart; Payload's panel can be removed without loss                                                                                                                           | 10–15                         |
-| 12. Backend clean-up        | Remove Payload's admin panel (`/cms`, its assets prefix) and the public pages from the backend; rename `apps/web` to `apps/api`; update AGENTS.md and the docs that ADR 0014 supersedes                                                                                                           | The backend answers no HTML; the import lint rules pass                                                                                                                                                                                     | 2–3                           |
-| 13. Production              | The domain bought; production's Worker, R2, D1, Supabase project, Hetzner server, and Tunnel; staging moved to `dev.<domain>` with its Tunnel and Resend; the backup provider's US bucket; the promotion workflow; Compose, the rehearsal, and runbooks, including the ownership-transfer runbook | A build promoted from staging serves production, with production's migrations run first; staging serves `dev.<domain>`                                                                                                                      | 3–4                           |
-| 14. Verification            | Load test through Workers and the Tunnel; `make scale-check`; restore drill; every manual test so far, in the new admin                                                                                                                                                                           | 500 simultaneous visitors with no failures and a 95th percentile under 500 ms for uncached pages                                                                                                                                            | 3–4                           |
-| **Total**                   |                                                                                                                                                                                                                                                                                                   |                                                                                                                                                                                                                                             | **62–88 (about 12–18 weeks)** |
+| Phase                         | Work                                                                                                                                                                                                                                                                                                                                                   | Done when                                                                                                                                                                                                                                          | Days                                                               |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| 0. Local environment          | `APP_ENV` and the start-up checks; `postgres:17` without pgvector, in Compose and CI; the local workerd preview; the environments table kept as the target for phase 13                                                                                                                                                                                | Each app refuses another environment's addresses; CI and Compose run the same database image                                                                                                                                                       | 2–3                                                                |
+| 1. Site spike                 | A throwaway OpenNext build of the topic page, run in the local workerd preview, and on `workers.dev` if it fits the free plan                                                                                                                                                                                                                          | The page renders its rich text in the Workers runtime; its compressed size fits Workers Paid's 10 MB; `revalidateTag` purges it; fonts load; Sentry reports                                                                                        | 2–3                                                                |
+| 2. Admin spike                | A throwaway `/admin` page in the same build that edits one topic through the REST API: the Lexical body, one relation, saving a draft, publishing                                                                                                                                                                                                      | The saved JSON renders unchanged on the site; the Worker with the admin in it still fits; public pages load none of the admin's scripts; a refused publish shows its error                                                                         | 3–4                                                                |
+| 3. Contracts and page data    | `packages/contracts`; the four `/api/v1/pages/*` endpoints; integration tests                                                                                                                                                                                                                                                                          | Each endpoint returns exactly what the page builds today; drafts and archived items answer as the pages do                                                                                                                                         | 3–4                                                                |
+| 4. API through the frontend   | The pass-through for `/api` and `/files`; request signatures and the visitor's address; redirects built from `SITE_URL`; `__Host-` cookies; the local-only allowance for Payload's panel; staff write limits; `/security-guidance` review                                                                                                              | Sign-in, comments, votes, reports, account deletion, export, and a staff edit work through the frontend; an unsigned request to the backend is refused; sign-in's redirects keep their cookies; every session cookie is `__Host-` with no `Domain` | 3–4                                                                |
+| 5. `apps/frontend`            | Move the public pages and components; the API client; member pages with the forwarded cookie; the admin route group and its gate; the thumbnail route                                                                                                                                                                                                  | Every page matches PR #18's screenshots and passes the whole-site audit                                                                                                                                                                            | 6–8                                                                |
+| 6. Purges                     | The `purge` job, `POST /api/revalidate`, signature checks                                                                                                                                                                                                                                                                                              | Publishing changes the site within seconds; a forged or old purge is refused; a failed one retries                                                                                                                                                 | 2                                                                  |
+| 7. Admin shell and lists      | Sign-in and the authenticator gate, navigation, list views for the 17 collections                                                                                                                                                                                                                                                                      | Staff can find any record as fast as in Payload's panel                                                                                                                                                                                            | 5–7                                                                |
+| 8. Topic editor               | Body, links, people, evidence, references, workflow, change notes, versions, field errors                                                                                                                                                                                                                                                              | An editor publishes a real topic end to end; every refusal Payload's panel showed is shown                                                                                                                                                         | 8–12                                                               |
+| 9. Other editors              | Countries, categories, tags, individuals, references, media, snippets, videos, link archives                                                                                                                                                                                                                                                           | Each record type can be created, edited, and checked as today                                                                                                                                                                                      | 6–9                                                                |
+| 10. Moderation and people     | Comments, reports, feedback, invitations, users and roles, audit log                                                                                                                                                                                                                                                                                   | The moderation manual tests from weeks 9 and 10 pass in the new admin                                                                                                                                                                              | 4–6                                                                |
+| 11. Admin parity              | Bulk actions, autosave, live preview, version comparison, document locking, duplicating, list columns and remembered filters, inline creation of related records, multi-file uploads with a focal point, the dashboard                                                                                                                                 | Every feature staff use in Payload's panel today has its counterpart; Payload's panel can be removed without loss                                                                                                                                  | 10–15                                                              |
+| 12. Backend clean-up          | Remove Payload's admin panel, its local-only allowance, and the public pages from the backend; rename `apps/web` to `apps/api`; update AGENTS.md and the docs that ADR 0014 supersedes                                                                                                                                                                 | The backend answers no HTML; the import lint rules pass                                                                                                                                                                                            | 2–3                                                                |
+| 13. Hosting, if launched      | The domain; the accounts (Cloudflare Workers Paid, Hetzner, Supabase, Backblaze B2, Resend), in the developer's name; staging at `dev.<domain>` and production, each with its Worker, R2, D1, Supabase project, server, Tunnel, and keys; Cloudflare Access on staging; the promotion workflow; the runbooks, including the ownership-transfer runbook | A build promoted from staging serves production, with production's migrations run first; staging serves `dev.<domain>` behind Access                                                                                                               | 5–7                                                                |
+| 14. Verification, if launched | Load test through Workers and the Tunnel; Smart Placement on and off; `make scale-check`; restore drill; every manual test so far, in the new admin                                                                                                                                                                                                    | 500 simultaneous visitors with no failures and a 95th percentile under 500 ms for uncached pages                                                                                                                                                   | 3–4                                                                |
+| **Total**                     |                                                                                                                                                                                                                                                                                                                                                        |                                                                                                                                                                                                                                                    | **56–80 for phases 0–12 (about 11–16 weeks); 8–11 more to launch** |
 
-About 60% of the time (phases 2 and 7–11) is the admin frontend.
+About two-thirds of phases 0–12 (phases 2 and 7–11) is the admin frontend.
 
-The pilot runs on the split, after phase 14: the developer decided
-(2026-10-20) to have the split from the beginning rather than run the pilot
-on today's single app.
+The developer decided (2026-10-20) to build the split from the beginning,
+and later (2026-10-21) that there is no pilot for now: the split is built
+locally and shown as a demo, and phases 13 and 14 wait for a launch.
 
 ## Consequences
 
@@ -519,26 +565,35 @@ on today's single app.
   near Virginia, beside the backend and R2, which shortens that call but
   makes far-away visitors wait for one long round trip on every page,
   cached or not; static files still come from the nearest data centre.
-  Phase 1 measures both settings, and the faster one for the expected
-  visitors is kept.
+  Phase 14 measures both settings on the real services, and the faster
+  one for the expected visitors is kept.
 - **New surface to get right and test:** the pass-through, its request
   signatures, and signed purges.
-- **Running cost:** Workers Paid ($5 a month plus usage) and small R2, D1,
-  and Durable Object charges. The Hetzner server may shrink one size.
-- **Time:** about 12–18 weeks before the pilot can run, on the new shape.
-- **A staging environment** to run and pay for (about $10–30 a month).
+- **Running cost: none until a launch.** Phases 0–12 use free services
+  only. A launch then adds Workers Paid ($5 a month plus usage), small R2,
+  D1, and Durable Object charges, the Hetzner server, Supabase, and a
+  staging environment (about $10–30 a month).
+- **Time:** about 11–16 weeks for phases 0–12, and 8–11 more days to
+  launch.
+- **Real services are met late.** Hosting is first tried in phase 13, so
+  problems that only appear there (the Tunnel, Supabase's pooler, Workers'
+  limits under real traffic) surface only then. The local workerd preview
+  and the optional free-plan checks reduce that risk.
 
 **Unchanged:** the data model, the access rules, the hooks, the worker and
-its jobs, backups, invite-only sign-in, and `noindex`.
+its jobs, the backup tool (only its target moves, to Backblaze B2),
+invite-only sign-in, and `noindex`.
 
-**Supersedes, once accepted:**
+**Supersedes** (each record's status line points here):
 
 - ADR 0001's one deployable web app (`apps/web` with the site, Payload's
-  admin panel, and `/api/v1`);
+  admin panel, and `/api/v1`), and its PostgreSQL "with pgvector";
 - the parts of ADR 0007 and ADR 0013 that describe the public pages'
   caching;
+- ADR 0006's and ADR 0007's thumbnails from YouTube's image server, which
+  ADR 0007 had left for after a pilot;
 - ADR 0002's use of Payload's admin panel for staff;
-- ADR 0012's backups on R2, now that uploads are there too;
+- ADR 0012's suggestion of R2 for backups, now that uploads are there too;
 - in AGENTS.md, the directory boundaries for `apps/web`, "everything runs
   in containers" (the frontend runs on a Worker), and the shared page cache
   in Redis (pages are cached in R2 and D1). Phase 12 updates AGENTS.md.
@@ -563,8 +618,28 @@ Their other decisions stand.
   about one week on top of that draft. It still needs the database and
   queues, so it is a second backend, not a frontend on Cloudflare.
 
+## Decisions confirmed on 2026-10-21
+
+The developer accepted this ADR and settled the questions it raised:
+
+- **Accounts:** none are created before phase 13 except free ones that do
+  not ask for payment. Paid accounts (Cloudflare Workers Paid, Hetzner,
+  Supabase, Backblaze B2, Resend) are opened in phase 13, only if the
+  platform launches, in the developer's name, each added to the
+  ownership-transfer runbook when it is created.
+- **No pilot for now:** the split is built locally and shown to the
+  developer's manager as a demo (Until a launch).
+- **Video thumbnails:** served from the site (Everything else).
+- **pgvector:** dropped (Everything else).
+- **GraphQL:** stays off (The backend: APIs only).
+- **Backups:** Backblaze B2, US East (Everything else).
+- **Reply notifications stay in-site only**, as ADR 0010 decided: no email
+  about replies.
+- **Members still cannot edit or delete their own comments**, as ADR 0009
+  decided; moderators hide comments.
+
 ## Open questions for the developer
 
-1. **The domain's name.** Production uses `<domain>` and staging
-   `dev.<domain>`. It is needed by phase 13; until then staging runs on
-   temporary addresses (Before the domain is bought).
+1. **Whether to launch.** Phases 13 and 14, the domain (production at
+   `<domain>`, staging at `dev.<domain>`), and every paid service wait for
+   that decision.

@@ -2,7 +2,8 @@
 
 - Date: 2026-10-16
 - Status: Accepted; the last consequence (a speaker does not count as named)
-  is superseded by [ADR 0007](0007-public-pages-and-caching.md)
+  is superseded by [ADR 0007](0007-public-pages-and-caching.md), and the
+  thumbnails from YouTube's image server by [ADR 0014](0014-split-site-and-backend.md)
 
 ## Context
 

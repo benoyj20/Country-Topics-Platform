@@ -21,4 +21,4 @@ record that supersedes it and update the old record's status line to point to it
 | [0011](0011-account-deletion-feedback-and-legal-pages.md)   | Account deletion, data export, feedback, and legal pages                                            | Accepted |
 | [0012](0012-backups-and-error-reporting.md)                 | Backups and error reporting                                                                         | Accepted |
 | [0013](0013-containers-shared-cache-and-scale-rehearsal.md) | Containers, a shared page cache, and the scale rehearsal                                            | Accepted |
-| [0014](0014-split-site-and-backend.md)                      | Split one frontend, the site and the admin (Cloudflare Workers), from an API-only backend (Hetzner) | Proposed |
+| [0014](0014-split-site-and-backend.md)                      | Split one frontend, the site and the admin (Cloudflare Workers), from an API-only backend (Hetzner) | Accepted |

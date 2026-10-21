@@ -73,7 +73,9 @@ are narrow keys:
 - the forwarding key, which signs every request it passes to the backend,
   with the visitor's address (Sign-in and API calls);
 - a Cloudflare token limited to purging the zone's cache, if phase 1 shows
-  OpenNext needs one.
+  OpenNext needs one;
+- on staging only, a Cloudflare Access service token for the backend's
+  Tunnel host (Environments).
 
 Inside the frontend, the site and the admin are two route groups, each with
 its own root layout, so neither loads the other's header, styles, or
@@ -150,8 +152,16 @@ packages/
   - `/api/auth/*`: sign-in;
   - `/files/:id`: uploaded files.
 - **It answers only the frontend.** Its Tunnel host (`api.<domain>`,
-  `api.dev.<domain>` on staging) refuses any request without the
-  frontend's signature, so it is not a public API.
+  `api-dev.<domain>` on staging, one level deep so Cloudflare's free
+  certificate covers it) refuses any request without the frontend's
+  signature, so it is not a public API. The exceptions are
+  `/api/v1/health`, which reveals nothing and is what the containers' and
+  Caddy's health checks call, and the rehearsal and load tests, which sign
+  their requests with that environment's key.
+- **Its links and redirects name the frontend.** Routes that redirect, such
+  as the browse and comment routes' canonical redirects, build their URLs
+  from `SITE_URL` instead of the request's own address, which is the
+  Tunnel host behind the pass-through.
 - **The REST API is staff-only for writes**, as now: the access rules
   refuse anyone without a staff role and a recent authenticator check. With
   the admin panel gone, the REST API also gets rate limits for staff writes,
@@ -240,28 +250,57 @@ to cover another host. That is what lets staging live at `dev.<domain>`
 
 - **The pass-through:** a route in the frontend forwards each `/api/*` and
   `/files/*` request to the backend's Tunnel host unchanged: method, body
-  (streamed), cookies, and response headers, including `Set-Cookie`. The
-  one exception is `/api/revalidate`, which the frontend answers itself
-  (Cache and purges). Uploads fit Cloudflare's request limit (100 MB on
+  (streamed), cookies, and response headers, including every `Set-Cookie`.
+  It fetches with `redirect: "manual"`, so a redirect, such as the one that
+  ends a Google or email sign-in with its cookie, reaches the browser
+  instead of being followed in the Worker. As a safeguard, it rewrites any
+  `Location` that names the Tunnel host to the frontend's host. The one
+  path it does not pass on is `/api/revalidate`, which the frontend answers
+  itself (Cache and purges). Uploads fit Cloudflare's request limit (100 MB on
   the Free and Pro plans; the media limit is 20 MB).
 - **Every passed-on request is signed.** The frontend adds the visitor's
   address (from Cloudflare's header) and a signature with the forwarding
-  key (HMAC over the method, path, address, and a timestamp). The backend
-  refuses unsigned or stale requests. It takes the client address only from
-  a signed request, for Better Auth's limits and its own, so rate limits
-  still count each visitor. The frontend's own calls (member pages, the
-  `/admin` gate, page data) are signed the same way.
-- **Cookies stay host-only.** Better Auth's session cookie is set without a
-  `Domain` attribute, as now, so browsers send it only to `<domain>`, never
-  to `dev.<domain>` or any other host. Phase 4 also tries the `__Host-`
-  prefix, with which browsers refuse any cookie for that name set by
-  another host. A test checks that no response sets a `Domain` attribute.
+  key: an HMAC over the method, the path with its query, the address, and
+  a timestamp. The body is not signed: the signature proves the request
+  came through the frontend, and TLS protects the rest. The backend refuses
+  unsigned requests and timestamps more than 5 minutes off its own clock,
+  which allows for drift between Cloudflare's and Hetzner's clocks. It
+  takes the client address only from a signed request, for Better Auth's
+  limits and its own, so rate limits still count each visitor. Locally,
+  where no Cloudflare header exists, the frontend signs `127.0.0.1`, so
+  local requests share one bucket, as they do today.
+- **The frontend's own calls are signed too:** member pages, the `/admin`
+  gate, and page data. Its cached page-data reads put the signed fetch
+  inside a `"use cache"` function keyed by the path. Next.js puts a fetch's
+  headers in its cache key, so a fresh signature on every call would
+  otherwise mean the cache never hits.
+- **Cookies stay host-only and carry the `__Host-` prefix.** Better Auth's
+  cookies are set without a `Domain` attribute, as now, so browsers send
+  them only to `<domain>`, never to `dev.<domain>` or any other host. The
+  prefix is required, not optional: browsers refuse a `__Host-` cookie
+  that names a domain, so staging, which is same-site with production,
+  cannot plant a session cookie that production would read. If Better Auth
+  cannot name its cookies that way, the pass-through adds the prefix to
+  every `Set-Cookie` on the way out and removes it from `Cookie` on the way
+  in. Tests check that no response sets a `Domain` attribute and that every
+  session cookie has the prefix.
 - **No CORS.** Every browser call is same-origin, so `isSameOriginWrite`
   and Payload's `csrf` keep checking against `SITE_URL`, as today.
 - **Payload's panel during the move, on staging only.** From phase 4 to
-  phase 12, staff still edit staging's content in Payload's panel, moved to
-  `/cms` (Payload's `routes.admin`) and passed on like `/api`. Phase 12
-  removes it. Production starts after phase 12, so it never has the panel.
+  phase 12, staff still edit staging's content in Payload's panel:
+  - Its route (Payload's `routes.admin` and the `app/(payload)/admin`
+    folder) moves to `/cms`, and the pass-through forwards `/cms` like
+    `/api`.
+  - Its scripts and styles would load from `/_next`, which the frontend
+    answers itself, so the backend gets `assetPrefix: "/cms-assets"`, which
+    the pass-through also forwards.
+  - Phase 4 confirms that the panel loads this way. If it does not, staff
+    use the panel on staging's Tunnel host, behind Cloudflare Access, until
+    phase 12.
+
+  Phase 12 removes the panel, the route, and the prefix. Production starts
+  after phase 12, so it never has the panel.
+
 - **Member pages** (account, notifications, feedback, the sign-in redirect)
   are rendered by the frontend per request, sending the visitor's cookie to
   the backend. They are never cached.
@@ -335,7 +374,7 @@ or cookies.
 
 | Service           | Local (each developer's machine)                                                              | Staging (hosted, for testing)                                                        | Production                                                             |
 | ----------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| Addresses         | `localhost:3000`, `/admin`; the backend on `localhost:3001`, reached through the pass-through | `dev.<domain>`, `dev.<domain>/admin`; the backend's Tunnel host `api.dev.<domain>`   | `<domain>`, `<domain>/admin`; the backend's Tunnel host `api.<domain>` |
+| Addresses         | `localhost:3000`, `/admin`; the backend on `localhost:3001`, reached through the pass-through | `dev.<domain>`, `dev.<domain>/admin`; the backend's Tunnel host `api-dev.<domain>`   | `<domain>`, `<domain>/admin`; the backend's Tunnel host `api.<domain>` |
 | Frontend          | `next dev`                                                                                    | Its own Worker (`frontend-staging`), R2 bucket, and D1 database                      | Its own Worker, R2 bucket, and D1 database                             |
 | Backend           | Docker Compose                                                                                | Its own small Hetzner server and Tunnel                                              | Its own Hetzner server and Tunnel                                      |
 | Database          | PostgreSQL 17 in Docker                                                                       | Its own Supabase project, in a separate Supabase organisation                        | Its own Supabase project                                               |
@@ -357,12 +396,17 @@ Rules that keep them apart:
   `production`) is required, and each app refuses to start when an address
   belongs to another environment: production with a `localhost` or staging
   address, staging with production's domain, local with anything public.
+  Hostnames are compared exactly, never by suffix, since `dev.<domain>`
+  ends with production's domain.
   This extends the check in `src/env.ts` that refuses Turnstile's test keys
   outside `localhost`.
-- **Staging is closed to the public.** Cloudflare Access covers
-  `dev.<domain>`, except `/api/revalidate`, which checks its own signature.
-  Staging's backend answers only the signed frontend, like production's.
-  Production has no Access.
+- **Staging is closed to the public from phase 0.** Cloudflare Access
+  covers `dev.<domain>`, except `/api/revalidate`, which checks its own
+  signature. It also covers the backend's Tunnel host, `api-dev.<domain>`,
+  so the staging backend is closed before phase 4 adds the signatures.
+  The staging frontend passes Access with a service token that exists only
+  in staging. Production's backend opens in phase 13, after the signatures
+  exist, and has no Access.
 - **One build, promoted.** A merge to `main` builds the two apps once and
   deploys them to staging, after the database migrations run there. The same
   build reaches production only through a manual promotion with the
@@ -373,12 +417,14 @@ Rules that keep them apart:
   as now (ADR 0012). Staging's data is made by the seed scripts and the
   rehearsal.
 - **Separate credentials.** Each environment's database password, Better
-  Auth secret, purge-signing key, and service keys are its own, and the
+  Auth secret, purge key, forwarding key, and service keys are its own, so
+  staging's keys can never sign a request that production's backend
+  accepts, and the
   Cloudflare deploy token for staging cannot touch production's Worker.
 - **Local runs the same pass-through.** `next dev` serves the frontend on
   `localhost:3000` and passes `/api` and `/files` to the backend on
-  `localhost:3001` with the same signed route, so sign-in and rate limits
-  behave as in production.
+  `localhost:3001` with the same signed route, so sign-in, cookies, and
+  redirects behave as in production.
 
 Staging costs about $10–30 a month (a small Hetzner server and Supabase's
 free plan in its own organisation); it needs no domain of its own.
@@ -391,24 +437,24 @@ asks. Estimates are working days for one developer with Claude. The two
 spikes are go/no-go gates: if one fails, stop and revisit this decision.
 Everything from phase 1 on is deployed to staging as it is built.
 
-| Phase                       | Work                                                                                                                                                                                                                   | Done when                                                                                                                                                                   | Days                          |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
-| 0. Environments             | `dev.<domain>` and its Worker, R2, D1, Supabase project, Hetzner server, Tunnel, and Cloudflare Access; GitHub environments; `APP_ENV` and the start-up checks                                                         | A placeholder page and a health check deploy to staging from `main`; each app refuses another environment's addresses                                                       | 3–4                           |
-| 1. Site spike               | A throwaway OpenNext build of the topic page on staging                                                                                                                                                                | The page renders its rich text, fits Workers' limits, `revalidateTag` purges it, fonts load, Sentry reports                                                                 | 2–3                           |
-| 2. Admin spike              | A throwaway `/admin` page in the same build that edits one topic through the REST API: the Lexical body, one relation, saving a draft, publishing                                                                      | The saved JSON renders unchanged on the site; the Worker with the admin in it still fits; public pages load none of the admin's scripts; a refused publish shows its error  | 3–4                           |
-| 3. Contracts and page data  | `packages/contracts`; the four `/api/v1/pages/*` endpoints; integration tests                                                                                                                                          | Each endpoint returns exactly what the page builds today; drafts and archived items answer as the pages do                                                                  | 3–4                           |
-| 4. API through the frontend | The pass-through for `/api`, `/files`, and staging's `/cms`; request signatures and the visitor's address; host-only cookies; staff write limits; `/security-guidance` review                                          | Sign-in, comments, votes, reports, account deletion, export, and a staff edit work at `<domain>`; an unsigned request to the backend is refused; no cookie carries `Domain` | 3–4                           |
-| 5. `apps/frontend`          | Move the public pages and components; the API client; member pages with the forwarded cookie; the admin route group and its gate                                                                                       | Every page matches PR #18's screenshots and passes the whole-site audit                                                                                                     | 5–7                           |
-| 6. Purges                   | The `purge` job, `POST /api/revalidate`, signature checks                                                                                                                                                              | Publishing changes the site within seconds; a forged or old purge is refused; a failed one retries                                                                          | 2                             |
-| 7. Admin shell and lists    | Sign-in and the authenticator gate, navigation, list views for the 17 collections                                                                                                                                      | Staff can find any record as fast as in Payload's panel                                                                                                                     | 5–7                           |
-| 8. Topic editor             | Body, links, people, evidence, references, workflow, change notes, versions, field errors                                                                                                                              | An editor publishes a real topic end to end; every refusal Payload's panel showed is shown                                                                                  | 8–12                          |
-| 9. Other editors            | Countries, categories, tags, individuals, references, media, snippets, videos, link archives                                                                                                                           | Each record type can be created, edited, and checked as today                                                                                                               | 6–9                           |
-| 10. Moderation and people   | Comments, reports, feedback, invitations, users and roles, audit log                                                                                                                                                   | The moderation manual tests from weeks 9 and 10 pass in the new admin                                                                                                       | 4–6                           |
-| 11. Admin parity            | Bulk actions, autosave, live preview, version comparison, document locking, duplicating, list columns and remembered filters, inline creation of related records, multi-file uploads with a focal point, the dashboard | Every feature staff use in Payload's panel today has its counterpart; Payload's panel can be removed without loss                                                           | 10–15                         |
-| 12. Backend clean-up        | Remove Payload's admin panel (`/cms`) and the public pages from the backend; rename `apps/web` to `apps/api`; update AGENTS.md and the docs that ADR 0014 supersedes                                                   | The backend answers no HTML; the import lint rules pass                                                                                                                     | 2–3                           |
-| 13. Production              | Production's Worker, R2, D1, Supabase project, Hetzner server, and Tunnel; the backup provider's US bucket; the promotion workflow; Compose, the rehearsal, and runbooks, including the ownership-transfer runbook     | A build promoted from staging serves production, with production's migrations run first                                                                                     | 2–3                           |
-| 14. Verification            | Load test through Workers and the Tunnel; `make scale-check`; restore drill; every manual test so far, in the new admin                                                                                                | 500 simultaneous visitors with no failures and a 95th percentile under 500 ms for uncached pages                                                                            | 3–4                           |
-| **Total**                   |                                                                                                                                                                                                                        |                                                                                                                                                                             | **61–87 (about 12–18 weeks)** |
+| Phase                       | Work                                                                                                                                                                                                                           | Done when                                                                                                                                                                                                                                   | Days                          |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| 0. Environments             | `dev.<domain>` and its Worker, R2, D1, Supabase project, Hetzner server, Tunnel, and Cloudflare Access; GitHub environments; `APP_ENV` and the start-up checks                                                                 | A placeholder page and a health check deploy to staging from `main`; each app refuses another environment's addresses                                                                                                                       | 3–4                           |
+| 1. Site spike               | A throwaway OpenNext build of the topic page on staging                                                                                                                                                                        | The page renders its rich text, fits Workers' limits, `revalidateTag` purges it, fonts load, Sentry reports                                                                                                                                 | 2–3                           |
+| 2. Admin spike              | A throwaway `/admin` page in the same build that edits one topic through the REST API: the Lexical body, one relation, saving a draft, publishing                                                                              | The saved JSON renders unchanged on the site; the Worker with the admin in it still fits; public pages load none of the admin's scripts; a refused publish shows its error                                                                  | 3–4                           |
+| 3. Contracts and page data  | `packages/contracts`; the four `/api/v1/pages/*` endpoints; integration tests                                                                                                                                                  | Each endpoint returns exactly what the page builds today; drafts and archived items answer as the pages do                                                                                                                                  | 3–4                           |
+| 4. API through the frontend | The pass-through for `/api`, `/files`, and staging's `/cms` with its assets; request signatures and the visitor's address; redirects built from `SITE_URL`; `__Host-` cookies; staff write limits; `/security-guidance` review | Sign-in, comments, votes, reports, account deletion, export, and a staff edit work at `<domain>`; an unsigned request to the backend is refused; sign-in's redirects keep their cookies; every session cookie is `__Host-` with no `Domain` | 3–4                           |
+| 5. `apps/frontend`          | Move the public pages and components; the API client; member pages with the forwarded cookie; the admin route group and its gate                                                                                               | Every page matches PR #18's screenshots and passes the whole-site audit                                                                                                                                                                     | 5–7                           |
+| 6. Purges                   | The `purge` job, `POST /api/revalidate`, signature checks                                                                                                                                                                      | Publishing changes the site within seconds; a forged or old purge is refused; a failed one retries                                                                                                                                          | 2                             |
+| 7. Admin shell and lists    | Sign-in and the authenticator gate, navigation, list views for the 17 collections                                                                                                                                              | Staff can find any record as fast as in Payload's panel                                                                                                                                                                                     | 5–7                           |
+| 8. Topic editor             | Body, links, people, evidence, references, workflow, change notes, versions, field errors                                                                                                                                      | An editor publishes a real topic end to end; every refusal Payload's panel showed is shown                                                                                                                                                  | 8–12                          |
+| 9. Other editors            | Countries, categories, tags, individuals, references, media, snippets, videos, link archives                                                                                                                                   | Each record type can be created, edited, and checked as today                                                                                                                                                                               | 6–9                           |
+| 10. Moderation and people   | Comments, reports, feedback, invitations, users and roles, audit log                                                                                                                                                           | The moderation manual tests from weeks 9 and 10 pass in the new admin                                                                                                                                                                       | 4–6                           |
+| 11. Admin parity            | Bulk actions, autosave, live preview, version comparison, document locking, duplicating, list columns and remembered filters, inline creation of related records, multi-file uploads with a focal point, the dashboard         | Every feature staff use in Payload's panel today has its counterpart; Payload's panel can be removed without loss                                                                                                                           | 10–15                         |
+| 12. Backend clean-up        | Remove Payload's admin panel (`/cms`, its assets prefix) and the public pages from the backend; rename `apps/web` to `apps/api`; update AGENTS.md and the docs that ADR 0014 supersedes                                        | The backend answers no HTML; the import lint rules pass                                                                                                                                                                                     | 2–3                           |
+| 13. Production              | Production's Worker, R2, D1, Supabase project, Hetzner server, and Tunnel; the backup provider's US bucket; the promotion workflow; Compose, the rehearsal, and runbooks, including the ownership-transfer runbook             | A build promoted from staging serves production, with production's migrations run first                                                                                                                                                     | 2–3                           |
+| 14. Verification            | Load test through Workers and the Tunnel; `make scale-check`; restore drill; every manual test so far, in the new admin                                                                                                        | 500 simultaneous visitors with no failures and a 95th percentile under 500 ms for uncached pages                                                                                                                                            | 3–4                           |
+| **Total**                   |                                                                                                                                                                                                                                |                                                                                                                                                                                                                                             | **61–87 (about 12–18 weeks)** |
 
 About 60% of the time (phases 2 and 7–11) is the admin frontend.
 

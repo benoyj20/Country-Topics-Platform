@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { loadTopicPage } from "./backend";
+import { loadTopicPage } from "../backend";
 import { TopicBody } from "./TopicBody";
 
 /** The topic page, its data cached for `lifetimeS` seconds. */

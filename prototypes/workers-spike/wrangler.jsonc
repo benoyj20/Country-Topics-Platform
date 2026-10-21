@@ -4,7 +4,8 @@
   "main": "worker.ts",
   "compatibility_date": "2026-09-15",
   // global_fetch_strictly_public is left out: with it, the local preview
-  // could not reach the stand-in backend on 127.0.0.1. The real frontend
+  // could not reach the stand-in backend on 127.0.0.1 or apps/web on the
+  // host. The real frontend
   // keeps it, since its backend is a public Tunnel address.
   "compatibility_flags": ["nodejs_compat"],
   "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
@@ -34,7 +35,15 @@
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DOQueueHandler"] }],
   "vars": {
+    // This site's own address, which the admin's writes must come from.
+    "SITE_URL": "http://localhost:8787",
+    // The stand-in for the backend's page data (backend.mjs).
     "BACKEND_URL": "http://127.0.0.1:3102",
+    // The real local backend (apps/web) for the admin: Payload's REST API,
+    // reached from the container, and the address it checks writes'
+    // origin against (its SITE_URL).
+    "PAYLOAD_URL": "http://host.docker.internal:3000",
+    "PAYLOAD_ORIGIN": "http://localhost:3000",
     // Throwaway local values: no real key, and "Sentry" is backend.mjs.
     "PURGE_KEY": "spike-local-purge-key",
     "SENTRY_DSN": "http://public@127.0.0.1:3102/1",

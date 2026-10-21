@@ -1,7 +1,8 @@
 # 0013: Containers, a shared page cache, and the scale rehearsal
 
 - Date: 2026-10-18
-- Status: Accepted
+- Status: Accepted; the public pages' shared cache in Valkey is superseded
+  by [ADR 0014](0014-split-site-and-backend.md)
 
 ## Context
 

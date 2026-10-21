@@ -1,7 +1,8 @@
 # 0002: Sign-in with Better Auth, roles in Payload
 
 - Date: 2026-10-14
-- Status: Accepted
+- Status: Accepted; staff's use of Payload's admin panel is superseded by
+  [ADR 0014](0014-split-site-and-backend.md)
 
 ## Context
 

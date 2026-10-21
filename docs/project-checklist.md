@@ -524,8 +524,8 @@ See [ADR 0007](adr/0007-public-pages-and-caching.md) for the design.
   Built in week 11 (see there, and ADR 0013).
 - [x] Paging past 50 topics, filters, and search came in week 8 (below):
   lists that stop short link to `/topics` with their filter.
-- [ ] Not built yet: serving video thumbnails through the site (decided with
-  the consent banner after the pilot).
+- [ ] Not built yet: serving video thumbnails through the site, now decided
+  in ADR 0014 (a frontend route, phase 5).
 
 ### Week 8: browsing, filters, search, shareable links
 

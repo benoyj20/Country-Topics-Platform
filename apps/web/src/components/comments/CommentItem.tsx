@@ -46,6 +46,12 @@ function CommentBody({ body }: { body: string }) {
   );
 }
 
+/** The first letter of an author's name, shown in their avatar. */
+function initial(author: string | null): string {
+  const first = author ? Array.from(author.trim())[0] : undefined;
+  return first ? first.toLocaleUpperCase() : "?";
+}
+
 function ModerateLink({ id }: { id: string }) {
   // The admin panel checks the reader's role and authenticator itself.
   return (
@@ -139,6 +145,9 @@ export function CommentItem({
       aria-label={`Comment by ${comment.author ?? "a former member"}`}
     >
       <p className={styles.byline}>
+        <span className={styles.avatar} aria-hidden="true">
+          {initial(comment.author)}
+        </span>
         <strong>{comment.author ?? "Former member"}</strong>
         {standing.mine ? <span className={styles.you}>You</span> : null}
         <time dateTime={comment.createdAt} className={styles.time}>

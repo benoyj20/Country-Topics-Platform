@@ -431,7 +431,7 @@ export function CommentSection({ slug }: { slug: string }) {
         </p>
       ) : null}
       {current?.open && viewerState === "loaded" && !signedIn ? (
-        <p>
+        <p className={styles.prompt}>
           <Link href={signInHref}>Sign in</Link> to comment, reply, and vote.
         </p>
       ) : null}

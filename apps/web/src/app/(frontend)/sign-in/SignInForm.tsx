@@ -82,6 +82,11 @@ export function SignInForm({
           Continue with Google
         </button>
       )}
+      {googleEnabled && (
+        <p className="divider" aria-hidden="true">
+          or
+        </p>
+      )}
       <form className="stack" onSubmit={sendLink}>
         <label htmlFor="email">Email address</label>
         <input

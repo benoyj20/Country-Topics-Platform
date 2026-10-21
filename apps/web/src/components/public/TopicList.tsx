@@ -5,11 +5,12 @@ import type { LimitedList, TopicSummary } from "@/public/types";
 
 import styles from "./public.module.css";
 
-/** Published topics, each with its countries and summary. */
+/** Published topics as cards, each with its countries and summary. */
 export function TopicList({
   topics,
   empty,
   moreHref,
+  layout = "list",
 }: {
   /** Browse results also say how many references and comments each has. */
   topics: LimitedList<
@@ -19,35 +20,40 @@ export function TopicList({
   empty: string;
   /** Where to browse them all, when the list stops short. */
   moreHref?: string;
+  /** Cards in a grid, or one under another. */
+  layout?: "grid" | "list";
 }) {
-  if (topics.items.length === 0) return <p className="muted">{empty}</p>;
+  if (topics.items.length === 0) return <p className={styles.empty}>{empty}</p>;
   return (
     <>
-      <ul className={styles.topics}>
+      <ul className={layout === "grid" ? styles.topicGrid : styles.topics}>
         {topics.items.map((topic) => (
           <li key={topic.slug} className={styles.topicCard}>
+            {topic.countries.length > 0 ? (
+              <p className={styles.cardCountries}>
+                {topic.countries.map((country) => (
+                  <Link key={country.slug} href={`/countries/${country.slug}`}>
+                    {country.name}
+                  </Link>
+                ))}
+              </p>
+            ) : null}
             <h3>
               <Link href={`/topics/${topic.slug}`}>{topic.title}</Link>
             </h3>
-            <p>{topic.summary}</p>
-            <p className={styles.meta}>
-              {topic.countries.map((country, index) => (
-                <span key={country.slug}>
-                  {index > 0 ? ", " : null}
-                  <Link href={`/countries/${country.slug}`}>
-                    {country.name}
-                  </Link>
-                </span>
-              ))}
-              {topic.firstPublishedAt
-                ? `${topic.countries.length > 0 ? " · " : ""}${formatDate(topic.firstPublishedAt)}`
-                : null}
-              {topic.referenceCount !== undefined
-                ? ` · ${counted(topic.referenceCount, "reference")}`
-                : null}
-              {topic.commentCount
-                ? ` · ${counted(topic.commentCount, "comment")}`
-                : null}
+            <p className={styles.summary}>{topic.summary}</p>
+            <p className={styles.cardMeta}>
+              {topic.firstPublishedAt ? (
+                <time dateTime={topic.firstPublishedAt}>
+                  {formatDate(topic.firstPublishedAt)}
+                </time>
+              ) : null}
+              {topic.referenceCount !== undefined ? (
+                <span>{counted(topic.referenceCount, "reference")}</span>
+              ) : null}
+              {topic.commentCount ? (
+                <span>{counted(topic.commentCount, "comment")}</span>
+              ) : null}
             </p>
           </li>
         ))}

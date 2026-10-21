@@ -37,13 +37,18 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function CountryPageView({ params }: Props) {
   const country = await load(params);
   return (
-    <div className="stack">
-      <h1>{country.name}</h1>
-      {country.region ? (
-        <p className={styles.meta}>
-          {[country.subregion, country.region].filter(Boolean).join(", ")}
+    <div className="wide">
+      <header className={styles.pageHeader}>
+        <p className="eyebrow">
+          {country.region
+            ? [country.subregion, country.region].filter(Boolean).join(" · ")
+            : "Country"}
         </p>
-      ) : null}
+        <h1>{country.name}</h1>
+        <p className="lede">
+          Topics about {country.name}, each with its evidence and references.
+        </p>
+      </header>
 
       <section className={styles.section} aria-labelledby="topics">
         <h2 id="topics">Topics</h2>
@@ -51,16 +56,20 @@ export default async function CountryPageView({ params }: Props) {
           topics={country.topics}
           empty={`No topics about ${country.name} yet.`}
           moreHref={browseHref({ country: [country.slug] })}
+          layout="grid"
         />
       </section>
 
       {country.people.length > 0 ? (
         <section className={styles.section} aria-labelledby="people">
           <h2 id="people">People in these topics</h2>
-          <ul className={styles.names}>
+          <ul className={styles.chips}>
             {country.people.map((individual) => (
               <li key={individual.slug}>
-                <Link href={`/individuals/${individual.slug}`}>
+                <Link
+                  className={styles.chip}
+                  href={`/individuals/${individual.slug}`}
+                >
                   {individual.name}
                 </Link>
               </li>

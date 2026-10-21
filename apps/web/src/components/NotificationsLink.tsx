@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { authClient } from "@/auth/client";
+import { NavLink } from "@/components/NavLink";
 import {
   fetchUnreadNotifications,
   NOTIFICATIONS_READ_EVENT,
@@ -50,12 +50,12 @@ export function NotificationsLink() {
   const shown =
     unread >= UNREAD_COUNT_MAX ? `${UNREAD_COUNT_MAX - 1}+` : String(unread);
   return (
-    <Link
+    <NavLink
       href="/notifications"
       aria-label={unread > 0 ? `Notifications, ${shown} unread` : undefined}
     >
       Notifications
       {unread > 0 ? <span className="count">{shown}</span> : null}
-    </Link>
+    </NavLink>
   );
 }

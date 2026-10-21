@@ -40,6 +40,12 @@ export function TopicBody({
 }) {
   const converters: JSXConvertersFunction = ({ defaultConverters }) => ({
     ...defaultConverters,
+    // Paragraphs are spaced by the page, so blank ones that editors leave
+    // between them would only double the gap.
+    paragraph: ({ node, nodesToJSX }) => {
+      const children = nodesToJSX({ nodes: node.children });
+      return children.length > 0 ? <p>{children}</p> : null;
+    },
     link: ({ node, nodesToJSX }) => {
       const children = nodesToJSX({ nodes: node.children });
       if (node.fields.linkType !== "internal") {

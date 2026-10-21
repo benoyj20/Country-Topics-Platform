@@ -36,7 +36,7 @@ export default async function SignInPage({
       : null;
 
   return (
-    <section className="stack">
+    <section className="stack auth-card">
       <h1>Sign in</h1>
       <p className="muted">
         Country Topics is invite-only during the pilot. Use the Google account

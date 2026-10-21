@@ -6,12 +6,27 @@
 
 /** Options every Sentry SDK in the project starts from. */
 export const ERROR_REPORTING_DEFAULTS = {
-  // No IP addresses, cookies, or user details from the SDK itself.
-  sendDefaultPii: false,
+  // Nothing about people from the SDK itself. Sentry 11 collects users,
+  // cookies, headers, bodies, query strings, and local variables unless
+  // told not to; its old sendDefaultPii option is gone. scrubErrorEvent
+  // still runs on every report as the second line of defence.
+  dataCollection: {
+    userInfo: false,
+    cookies: false,
+    // The one header reports keep (KEPT_HEADERS below).
+    httpHeaders: { request: { allow: ["user-agent"] }, response: false },
+    httpBodies: [],
+    urlQueryParams: false,
+    graphQL: { document: false, variables: false },
+    genAI: { inputs: false, outputs: false },
+    databaseQueryData: false,
+    queues: false,
+    stackFrameVariables: false,
+  },
   // Errors only: no performance traces, profiles, or session replays.
   tracesSampleRate: 0,
   maxBreadcrumbs: 20,
-} as const;
+};
 
 /**
  * SENTRY_ENVIRONMENT when unset and the caller names no default: errors

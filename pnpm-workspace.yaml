@@ -7,3 +7,10 @@ packages:
 onlyBuiltDependencies:
   - esbuild
   - unrs-resolver
+
+overrides:
+  # The Workers spike's adapter pulls in AWS SDK packages published on
+  # 2026-10-21 that ask for @aws-sdk/types 3.975.0, a release still being
+  # published that day. Every package keeps the version the rest of the
+  # workspace already uses; remove with prototypes/workers-spike.
+  "@aws-sdk/types": 3.974.6

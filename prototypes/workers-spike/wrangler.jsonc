@@ -1,0 +1,42 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "countrytopics-workers-spike",
+  "main": "worker.ts",
+  "compatibility_date": "2026-09-15",
+  // global_fetch_strictly_public is left out: with it, the local preview
+  // could not reach the stand-in backend on 127.0.0.1. The real frontend
+  // keeps it, since its backend is a public Tunnel address.
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
+  "services": [
+    {
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "countrytopics-workers-spike",
+    },
+  ],
+  "r2_buckets": [
+    {
+      "binding": "NEXT_INC_CACHE_R2_BUCKET",
+      "bucket_name": "countrytopics-workers-spike-cache",
+    },
+  ],
+  "d1_databases": [
+    {
+      "binding": "NEXT_TAG_CACHE_D1",
+      "database_name": "countrytopics-workers-spike-tags",
+      "database_id": "local",
+    },
+  ],
+  "durable_objects": {
+    "bindings": [
+      { "name": "NEXT_CACHE_DO_QUEUE", "class_name": "DOQueueHandler" },
+    ],
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DOQueueHandler"] }],
+  "vars": {
+    "BACKEND_URL": "http://127.0.0.1:3102",
+    // Throwaway local values: no real key, and "Sentry" is backend.mjs.
+    "PURGE_KEY": "spike-local-purge-key",
+    "SENTRY_DSN": "http://public@127.0.0.1:3102/1",
+  },
+}

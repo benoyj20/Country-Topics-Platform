@@ -65,7 +65,10 @@ Constraints of Cloudflare Workers that matter here:
 | PostgreSQL, two Valkeys, uploads, backups | Supabase / Hetzner / R2 / Backblaze B2 | Unchanged, except that backups go to Backblaze B2 (Everything else)                                   | Not public                                                                                                         |
 
 The frontend imports nothing from Payload, `pg`, ioredis, or
-`@countrytopics/jobs`, and holds no database, queue, or service credentials.
+`@countrytopics/jobs`, except Payload's rich-text renderer
+(`@payloadcms/richtext-lexical/react`), which phase 1 showed runs on
+Workers without bringing Payload's server code with it. It holds no
+database, queue, or service credentials.
 A lint rule (`no-restricted-imports`) enforces the imports. Its only secrets
 are narrow keys:
 
@@ -544,6 +547,44 @@ happen only if a launch is decided.
 | **Total**                     |                                                                                                                                                                                                                                                                                                                                                        |                                                                                                                                                                                                                                                    | **56–80 for phases 0–12 (about 11–16 weeks); 8–11 more to launch** |
 
 About two-thirds of phases 0–12 (phases 2 and 7–11) is the admin frontend.
+
+### Phase 1 results (2026-10-21)
+
+The site spike (`prototypes/workers-spike`) passed every check, run
+locally in workerd, the Workers runtime; there is no Cloudflare account
+yet, so it was not deployed to `workers.dev`:
+
+| Check                            | Result                                                                                                                                                                                   |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rich text in the Workers runtime | apps/web's renderer, copied, rendered headings, bold and italic, lists, quotes, and external and internal links, and dropped empty paragraphs, for a TEST topic and a real published one |
+| Size                             | 1.17 MB compressed (5.6 MB raw): under the free plan's 3 MB and Workers Paid's 10 MB                                                                                                     |
+| Start-up                         | About 56 ms of CPU locally (`wrangler check startup`), against a 1-second limit                                                                                                          |
+| Caching                          | Repeat requests are cache hits from R2, with no call to the backend                                                                                                                      |
+| Purge by tag                     | An edit stays hidden until its tag is purged; the next request is then rendered fresh; a forged purge is refused                                                                         |
+| Background refresh               | A stale page is served once while the Durable Object queue renders a new one                                                                                                             |
+| Fonts                            | `next/font`'s files are served from the Worker's assets as `font/woff2`                                                                                                                  |
+| Error reports                    | Errors reach Sentry, with no user or cookies once the site's scrubbing is applied                                                                                                        |
+
+What it changes for the later phases:
+
+- **Error reports must be scrubbed.** Sentry's Cloudflare SDK sent the
+  visitor's cookies and a user even without `sendDefaultPii`, so the
+  frontend passes every report through `@countrytopics/observability`'s
+  `scrubErrorEvent`, as the spike does.
+- **Topic pages keep `generateStaticParams` returning `[]`,** as apps/web's
+  do. Without it Next.js renders them on every request and caches nothing.
+- **On this Windows machine, OpenNext builds only on Linux:** its build
+  makes symbolic links, which Windows allows only in Developer Mode. The
+  Workers preview runs in a container (the spike's `Dockerfile`);
+  `next dev` still runs on Windows for everyday work.
+- **The local preview leaves out `global_fetch_strictly_public`,** which
+  stops a Worker reaching `127.0.0.1`. Hosted Workers keep it, since their
+  backend is a public Tunnel address.
+- **Wrangler warns that the queue's class is not exported,** although the
+  built Worker exports it and the background refresh worked. Phase 13
+  checks it on a real deploy.
+- Not checked locally: the free plan's 10 ms of CPU per request, which
+  only a deploy can measure.
 
 The developer decided (2026-10-20) to build the split from the beginning,
 and later (2026-10-21) that there is no pilot for now: the split is built

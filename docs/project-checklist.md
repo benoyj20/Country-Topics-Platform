@@ -1226,3 +1226,26 @@ and 31 GB), 2026-10-18 and 2026-10-19.
   `CREATE EXTENSION ... vector`, as the backup runbook now says.
 - [ ] Not in phase 0: the workerd preview of the frontend, which needs
   `apps/frontend`; it comes with the site spike in phase 1.
+
+### The split, phase 1: the site spike (ADR 0014)
+
+- [x] `prototypes/workers-spike`: a throwaway OpenNext build of the topic
+  page, with the site's rich-text renderer, fonts, and styles, pages
+  cached in R2, tags in D1, and the Durable Object queue, run in workerd,
+  the Workers runtime, in a Linux container (2026-10-21).
+- [x] Every check passed (ADR 0014, "Phase 1 results"): rich text for a
+  TEST topic and a real one; 1.17 MB compressed, under the free plan's
+  3 MB; about 56 ms of start-up CPU; cache hits with no backend call; a
+  purge by tag shows the edit on the next request, and a forged one is
+  refused; a stale page refreshed in the background; fonts served from the
+  Worker; error reports reached a stand-in Sentry.
+- [x] Found and fixed in the spike: Sentry's Cloudflare SDK sent the
+  visitor's cookies and a user, so reports now go through the site's
+  scrubbing; the topic page was not cached until it returned an empty
+  `generateStaticParams`, as apps/web's does.
+- [x] `pnpm-workspace.yaml` pins `@aws-sdk/types` to 3.974.6, the version
+  the workspace already used: AWS SDK packages published on 2026-10-21,
+  pulled in by the adapter, asked for a 3.975.0 that was still being
+  published. Remove the pin with the spike.
+- [ ] Not done: a deploy to `workers.dev`, which needs a Cloudflare
+  account; it would also measure the free plan's 10 ms of CPU a request.

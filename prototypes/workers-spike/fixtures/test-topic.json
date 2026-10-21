@@ -1,0 +1,231 @@
+{
+  "slug": "test-workers-spike-topic",
+  "title": "TEST: Workers spike topic",
+  "summary": "TEST content for the phase 1 Workers spike. It is not a real topic.",
+  "bodyLinks": { "topics:test-1": "/topics/test-other-topic" },
+  "body": {
+    "root": {
+      "type": "root",
+      "format": "",
+      "indent": 0,
+      "version": 1,
+      "direction": "ltr",
+      "children": [
+        {
+          "type": "heading",
+          "tag": "h2",
+          "format": "",
+          "indent": 0,
+          "version": 1,
+          "direction": "ltr",
+          "children": [
+            {
+              "type": "text",
+              "text": "TEST background",
+              "mode": "normal",
+              "style": "",
+              "detail": 0,
+              "format": 0,
+              "version": 1
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "format": "",
+          "indent": 0,
+          "version": 1,
+          "direction": "ltr",
+          "textFormat": 0,
+          "children": [
+            {
+              "type": "text",
+              "text": "This TEST paragraph has ",
+              "mode": "normal",
+              "style": "",
+              "detail": 0,
+              "format": 0,
+              "version": 1
+            },
+            {
+              "type": "text",
+              "text": "bold",
+              "mode": "normal",
+              "style": "",
+              "detail": 0,
+              "format": 1,
+              "version": 1
+            },
+            {
+              "type": "text",
+              "text": " and ",
+              "mode": "normal",
+              "style": "",
+              "detail": 0,
+              "format": 0,
+              "version": 1
+            },
+            {
+              "type": "text",
+              "text": "italic",
+              "mode": "normal",
+              "style": "",
+              "detail": 0,
+              "format": 2,
+              "version": 1
+            },
+            {
+              "type": "text",
+              "text": " text, an ",
+              "mode": "normal",
+              "style": "",
+              "detail": 0,
+              "format": 0,
+              "version": 1
+            },
+            {
+              "type": "link",
+              "format": "",
+              "indent": 0,
+              "version": 3,
+              "direction": "ltr",
+              "fields": {
+                "linkType": "custom",
+                "url": "https://example.org/test",
+                "newTab": true
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "text": "outside link",
+                  "mode": "normal",
+                  "style": "",
+                  "detail": 0,
+                  "format": 0,
+                  "version": 1
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": ", and a ",
+              "mode": "normal",
+              "style": "",
+              "detail": 0,
+              "format": 0,
+              "version": 1
+            },
+            {
+              "type": "link",
+              "format": "",
+              "indent": 0,
+              "version": 3,
+              "direction": "ltr",
+              "fields": {
+                "linkType": "internal",
+                "doc": { "relationTo": "topics", "value": "test-1" }
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "text": "link to another TEST topic",
+                  "mode": "normal",
+                  "style": "",
+                  "detail": 0,
+                  "format": 0,
+                  "version": 1
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": ".",
+              "mode": "normal",
+              "style": "",
+              "detail": 0,
+              "format": 0,
+              "version": 1
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "format": "",
+          "indent": 0,
+          "version": 1,
+          "direction": null,
+          "textFormat": 0,
+          "children": []
+        },
+        {
+          "type": "list",
+          "listType": "bullet",
+          "tag": "ul",
+          "start": 1,
+          "format": "",
+          "indent": 0,
+          "version": 1,
+          "direction": "ltr",
+          "children": [
+            {
+              "type": "listitem",
+              "value": 1,
+              "format": "",
+              "indent": 0,
+              "version": 1,
+              "direction": "ltr",
+              "children": [
+                {
+                  "type": "text",
+                  "text": "A first TEST point",
+                  "mode": "normal",
+                  "style": "",
+                  "detail": 0,
+                  "format": 0,
+                  "version": 1
+                }
+              ]
+            },
+            {
+              "type": "listitem",
+              "value": 2,
+              "format": "",
+              "indent": 0,
+              "version": 1,
+              "direction": "ltr",
+              "children": [
+                {
+                  "type": "text",
+                  "text": "A second TEST point",
+                  "mode": "normal",
+                  "style": "",
+                  "detail": 0,
+                  "format": 0,
+                  "version": 1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "quote",
+          "format": "",
+          "indent": 0,
+          "version": 1,
+          "direction": "ltr",
+          "children": [
+            {
+              "type": "text",
+              "text": "A TEST quotation.",
+              "mode": "normal",
+              "style": "",
+              "detail": 0,
+              "format": 0,
+              "version": 1
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -637,6 +637,42 @@ What it changes for the later phases:
   because the two route groups have separate root layouts. Phase 5 adds
   `global-not-found`.
 
+### Phase 3 results (2026-10-21)
+
+The four page-data endpoints answer from the same cached loaders as the
+pages, with `Cache-Control: no-store`: the frontend caches the data itself
+and purges it by tag, and a cache between the two could not be purged.
+
+- **Exactly what the page builds.** Integration tests compare each
+  endpoint's JSON with its loader's, for the home page, a published and an
+  archived topic, a country, and two people. Drafts, unknown and malformed
+  slugs, and people no published topic names answer 404, as their pages
+  do. Against the local database, all 269 addresses answered the same
+  status as their pages, and every answer passed its contract.
+- **The contracts.** `packages/contracts` holds zod schemas for the
+  public read model (the four pages and browsing), the types made from
+  them, which apps/web's `src/public/types.ts` re-exports, each endpoint's
+  path, and the cache tags its data is purged by.
+  - Parsing drops any field a schema does not list, so the backend, which
+    deploys apart from the frontend, can add one before the frontend uses
+    it. The backend's tests check that every answer parses unchanged, so a
+    field it starts sending by mistake, such as a staff-only one, fails
+    there.
+  - The rich-text body is checked at its root and its top-level nodes.
+  - The paths helper refuses anything but a slug, so no path built from a
+    visitor's address can reach another endpoint with the frontend's
+    signature.
+- **The body names only public pages.** An internal link to a draft or a
+  private profile keeps its text but loses its target, as the page already
+  showed it. The rendered page never named such a document, but its JSON
+  would have.
+- **Repeated reads come from Valkey,** in about 6 ms locally.
+- **Not in phase 3:** the member API's request and response schemas move
+  into `packages/contracts` in phase 5, with the components that call them,
+  and Payload's generated types for the REST API in phase 7, with the
+  admin's lists. The licence list moved into `@countrytopics/domain`, so
+  the contracts depend on no app.
+
 ## Consequences
 
 **Gains:**

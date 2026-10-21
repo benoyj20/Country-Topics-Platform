@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@better-auth/utils": "0.4.2",
+    "@countrytopics/contracts": "workspace:*",
     "@countrytopics/domain": "workspace:*",
     "@countrytopics/jobs": "workspace:*",
     "@countrytopics/environment": "workspace:*",

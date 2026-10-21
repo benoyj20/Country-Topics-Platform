@@ -29,6 +29,18 @@ export const REFERENCE_KINDS = [
 ] as const;
 export type ReferenceKind = (typeof REFERENCE_KINDS)[number];
 
+/** The licences a file may have; only files we may publish are uploaded. */
+export const LICENCES = [
+  "public_domain",
+  "cc_by",
+  "cc_by_sa",
+  "other_open",
+  "permission",
+  "own_work",
+  "official_document",
+] as const;
+export type Licence = (typeof LICENCES)[number];
+
 /**
  * Whether a reference's DOI, ISBN, and link were confirmed by their registries
  * or sites. "Not found" and "failed" stay distinct: a DOI that does not exist

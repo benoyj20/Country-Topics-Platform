@@ -22,7 +22,13 @@ export const TOPIC_PERSON_ROLES = [
 export type TopicPersonRole = (typeof TOPIC_PERSON_ROLES)[number];
 
 /** The kinds of entry in a topic's public change log. */
-export type TopicChangeKind = "published" | "updated" | "archived" | "restored";
+export const TOPIC_CHANGE_KINDS = [
+  "published",
+  "updated",
+  "archived",
+  "restored",
+] as const;
+export type TopicChangeKind = (typeof TOPIC_CHANGE_KINDS)[number];
 
 export type TopicSave = {
   /** This save publishes (rather than saving a draft). */

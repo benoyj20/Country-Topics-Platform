@@ -1,10 +1,13 @@
-import { type SnippetEvidence, statementIsBacked } from "@countrytopics/domain";
+import {
+  type Licence,
+  type SnippetEvidence,
+  statementIsBacked,
+} from "@countrytopics/domain";
 import type { Payload, Where } from "payload";
 
 import { rows } from "@/array-rows";
 import { relationId } from "@/audit";
-import type { Licence } from "@/content-labels";
-import { richTextLinkTargets } from "@/editor";
+import { internalLinkTarget, richTextLinkTargets } from "@/editor";
 import { loadPayload } from "@/payload-instance";
 import { snippetEvidence } from "@/snippet-evidence";
 
@@ -583,6 +586,51 @@ async function referencesOf(
 }
 
 /** Page addresses for the body's links to public topics and individuals. */
+type BodyNode = { fields?: unknown; children?: unknown };
+
+/**
+ * The body as visitors may see it. An internal link to a public page keeps
+ * only that page's id; one to anything else, such as a draft or a private
+ * profile, loses its target, as the page shows it as plain text. The
+ * page's data then names nothing the page does not.
+ */
+function publicBody(
+  body: Topic["body"],
+  links: Record<string, string>,
+): Topic["body"] {
+  const visit = (node: BodyNode): BodyNode => {
+    let shown = node;
+    const fields = node.fields;
+    if (
+      fields &&
+      typeof fields === "object" &&
+      "linkType" in fields &&
+      fields.linkType === "internal"
+    ) {
+      const target = internalLinkTarget(fields);
+      const isPublic =
+        target !== null &&
+        links[`${target.relationTo}:${target.id}`] !== undefined;
+      shown = {
+        ...node,
+        fields: {
+          ...fields,
+          doc: isPublic
+            ? { relationTo: target.relationTo, value: target.id }
+            : null,
+        },
+      };
+    }
+    return Array.isArray(shown.children)
+      ? {
+          ...shown,
+          children: shown.children.map((child: BodyNode) => visit(child)),
+        }
+      : shown;
+  };
+  return { ...body, root: visit(body.root) as Topic["body"]["root"] };
+}
+
 async function bodyLinksOf(
   payload: Payload,
   body: Topic["body"],
@@ -712,7 +760,7 @@ export async function loadTopicPage(slug: string): Promise<TopicPage | null> {
           ]
         : [];
     }),
-    body: topic.body,
+    body: publicBody(topic.body, bodyLinks),
     bodyLinks,
     evidence,
     references,

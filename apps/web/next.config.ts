@@ -28,6 +28,7 @@ const nextConfig: NextConfig = {
   transpilePackages: [
     "@countrytopics/domain",
     "@countrytopics/email",
+    "@countrytopics/environment",
     "@countrytopics/jobs",
     "@countrytopics/observability",
     "@countrytopics/search",

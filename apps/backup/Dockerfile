@@ -19,6 +19,7 @@ WORKDIR /app
 # change its own code; it writes only temporary files.
 COPY --from=build /repo/package.json /repo/pnpm-workspace.yaml ./
 COPY --from=build /repo/node_modules ./node_modules
+COPY --from=build /repo/packages/environment ./packages/environment
 COPY --from=build /repo/packages/observability ./packages/observability
 COPY --from=build /repo/apps/backup ./apps/backup
 WORKDIR /app/apps/backup

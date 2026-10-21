@@ -1,4 +1,9 @@
 import {
+  checkServiceAddress,
+  errorEnvironmentFor,
+  readAppEnvironment,
+} from "@countrytopics/environment";
+import {
   type ErrorReportingConfig,
   readErrorReporting,
 } from "@countrytopics/observability";
@@ -84,13 +89,29 @@ function readLocation(
 
 export function readBackupEnv(env: Env = process.env): BackupEnv {
   const problems: string[] = [];
+  const environment = readAppEnvironment(env, problems);
   const databaseUrl = env.DATABASE_URL?.trim() ?? "";
   if (!POSTGRES_URL_PATTERN.test(databaseUrl)) {
     problems.push("DATABASE_URL must be a postgres:// connection URL");
   }
   const files = readLocation(env, "S3_", undefined, problems);
   const backups = readLocation(env, "BACKUP_S3_", files, problems);
-  const errorReporting = readErrorReporting(env, problems);
+  const errorReporting = readErrorReporting(
+    env,
+    problems,
+    errorEnvironmentFor(environment),
+  );
+  checkServiceAddress(environment, "DATABASE_URL", databaseUrl, problems);
+  checkServiceAddress(environment, "S3_ENDPOINT", files.endpoint, problems);
+  // Unset, the backup endpoint is the site's, which is checked above.
+  if (backups.endpoint !== files.endpoint) {
+    checkServiceAddress(
+      environment,
+      "BACKUP_S3_ENDPOINT",
+      backups.endpoint,
+      problems,
+    );
+  }
   if (
     !problems.length &&
     backups.bucket === files.bucket &&

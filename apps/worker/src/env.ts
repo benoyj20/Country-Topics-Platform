@@ -1,3 +1,10 @@
+import {
+  checkServiceAddress,
+  checkSiteAddress,
+  errorEnvironmentFor,
+  readAppEnvironment,
+  readSiteUrl,
+} from "@countrytopics/environment";
 import { DEFAULT_QUEUE_PREFIX } from "@countrytopics/jobs";
 import {
   type ErrorReportingConfig,
@@ -47,6 +54,7 @@ function readWayback(env: Env, problems: string[]): WorkerEnv["wayback"] {
 
 export function readWorkerEnv(env: Env = process.env): WorkerEnv {
   const problems: string[] = [];
+  const environment = readAppEnvironment(env, problems);
 
   const redisUrl = env.REDIS_URL?.trim() ?? "";
   if (!/^rediss?:\/\//.test(redisUrl)) {
@@ -77,12 +85,7 @@ export function readWorkerEnv(env: Env = process.env): WorkerEnv {
     problems.push("DATABASE_URL must be a postgres:// connection URL");
   }
 
-  const siteUrl = env.SITE_URL?.trim() ?? "";
-  if (!/^https?:\/\/[^/\s]+\/?$/.test(siteUrl)) {
-    problems.push(
-      "SITE_URL must be an http(s) origin, such as http://localhost:3000",
-    );
-  }
+  const siteUrl = readSiteUrl(env, problems);
 
   const contactEmail = env.CONTACT_EMAIL?.trim() || undefined;
   if (contactEmail && !/^[^@\s]+@[^@\s]+$/.test(contactEmail)) {
@@ -90,7 +93,16 @@ export function readWorkerEnv(env: Env = process.env): WorkerEnv {
   }
 
   const wayback = readWayback(env, problems);
-  const errorReporting = readErrorReporting(env, problems);
+  const errorReporting = readErrorReporting(
+    env,
+    problems,
+    errorEnvironmentFor(environment),
+  );
+
+  checkSiteAddress(environment, "SITE_URL", siteUrl, problems);
+  checkServiceAddress(environment, "REDIS_URL", redisUrl, problems);
+  checkServiceAddress(environment, "SMTP_URL", smtpUrl, problems);
+  checkServiceAddress(environment, "DATABASE_URL", databaseUrl, problems);
 
   if (problems.length > 0) {
     throw new Error(
@@ -103,7 +115,7 @@ export function readWorkerEnv(env: Env = process.env): WorkerEnv {
     smtpUrl,
     emailFrom,
     databaseUrl,
-    siteUrl: siteUrl.replace(/\/$/, ""),
+    siteUrl,
     contactEmail,
     googleBooksApiKey: env.GOOGLE_BOOKS_API_KEY?.trim() || undefined,
     youtubeApiKey: env.YOUTUBE_API_KEY?.trim() || undefined,

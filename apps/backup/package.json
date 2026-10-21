@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1152.0",
+    "@countrytopics/environment": "workspace:*",
     "@countrytopics/observability": "workspace:*",
     "pg": "8.20.0"
   },

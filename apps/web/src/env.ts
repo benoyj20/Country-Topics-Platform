@@ -1,4 +1,12 @@
 import { normalizeEmail } from "@countrytopics/domain";
+import {
+  checkServiceAddress,
+  checkSiteAddress,
+  errorEnvironmentFor,
+  isLoopbackHostname,
+  readAppEnvironment,
+  readSiteUrl,
+} from "@countrytopics/environment";
 import { DEFAULT_QUEUE_PREFIX } from "@countrytopics/jobs";
 import {
   type ErrorReportingConfig,
@@ -87,25 +95,6 @@ function readSecret(env: Env, name: string, problems: string[]): string {
   return value;
 }
 
-function readSiteUrl(env: Env, problems: string[]): string {
-  const value = env.SITE_URL?.trim() ?? "";
-  try {
-    const url = new URL(value);
-    if (
-      (url.protocol === "http:" || url.protocol === "https:") &&
-      url.pathname === "/"
-    ) {
-      return url.origin;
-    }
-  } catch {
-    // Reported below.
-  }
-  problems.push(
-    "SITE_URL must be an http(s) origin, such as http://localhost:3000",
-  );
-  return value;
-}
-
 function readGoogle(env: Env, problems: string[]): ServerEnv["google"] {
   const clientId = env.GOOGLE_CLIENT_ID?.trim() ?? "";
   const clientSecret = env.GOOGLE_CLIENT_SECRET?.trim() ?? "";
@@ -140,8 +129,6 @@ function readInviteOnly(env: Env, problems: string[]): boolean {
   return true;
 }
 
-const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1"]);
-
 function readTurnstile(
   env: Env,
   siteUrl: string,
@@ -157,14 +144,14 @@ function readTurnstile(
     return undefined;
   }
   // Test keys always give the same answer, so they would let anyone
-  // through on a real site.
+  // through on any address others can reach, a quick-tunnel demo included.
   if (
     isTurnstileTestSecret(secretKey) &&
     URL.canParse(siteUrl) &&
-    !LOCAL_HOSTNAMES.has(new URL(siteUrl).hostname)
+    !isLoopbackHostname(new URL(siteUrl).hostname)
   ) {
     problems.push(
-      "TURNSTILE_SECRET_KEY is one of Cloudflare's test keys, which work only when SITE_URL is localhost",
+      "TURNSTILE_SECRET_KEY is one of Cloudflare's test keys, which work only when SITE_URL is localhost; leave both Turnstile keys empty for a demo",
     );
   }
   return { siteKey, secretKey };
@@ -202,6 +189,7 @@ function readStorage(env: Env, problems: string[]): StorageEnv {
 
 export function readServerEnv(env: Env = process.env): ServerEnv {
   const problems: string[] = [];
+  const environment = readAppEnvironment(env, problems);
 
   const databaseUrl = env.DATABASE_URL?.trim() ?? "";
   if (!POSTGRES_URL_PATTERN.test(databaseUrl)) {
@@ -244,7 +232,23 @@ export function readServerEnv(env: Env = process.env): ServerEnv {
   const storage = readStorage(env, problems);
   const turnstile = readTurnstile(env, siteUrl, problems);
   const clientIpHeader = readClientIpHeader(env, problems);
-  const errorReporting = readErrorReporting(env, problems);
+  const errorReporting = readErrorReporting(
+    env,
+    problems,
+    errorEnvironmentFor(environment),
+  );
+
+  checkSiteAddress(environment, "SITE_URL", siteUrl, problems);
+  checkServiceAddress(environment, "DATABASE_URL", databaseUrl, problems);
+  checkServiceAddress(
+    environment,
+    "DATABASE_REPLICA_URL",
+    replicaUrl,
+    problems,
+  );
+  checkServiceAddress(environment, "REDIS_URL", redisUrl, problems);
+  checkServiceAddress(environment, "PAGE_CACHE_URL", pageCacheUrl, problems);
+  checkServiceAddress(environment, "S3_ENDPOINT", storage.endpoint, problems);
 
   const contactEmail = env.CONTACT_EMAIL?.trim() || undefined;
   if (contactEmail && !/^[^@\s]+@[^@\s]+$/.test(contactEmail)) {

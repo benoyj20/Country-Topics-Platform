@@ -13,6 +13,7 @@
   "dependencies": {
     "@countrytopics/email": "workspace:*",
     "@countrytopics/jobs": "workspace:*",
+    "@countrytopics/environment": "workspace:*",
     "@countrytopics/observability": "workspace:*",
     "@countrytopics/search": "workspace:*",
     "@countrytopics/sources": "workspace:*",

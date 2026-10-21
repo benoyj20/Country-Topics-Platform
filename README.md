@@ -76,11 +76,12 @@ Open `http://localhost:4173` and click **Try demo**. See
 - `apps/worker` — background jobs on BullMQ: sign-in emails, reference checks, link archiving, video checks, the search index
 - `packages/domain` — roles, sign-up rules, name, slug, date, DOI, and ISBN rules, the topic workflow, the evidence rules, snippet and transcript parsing, language codes, the plain text of rich text, and the comment, vote, report, and display-name rules
 - `packages/email` — the email adapter (SMTP) and email templates
+- `packages/environment` — which environment a process belongs to (`APP_ENV`: local, staging, or production), and the start-up checks that stop it running with another environment's addresses
 - `packages/jobs` — job queues shared by the web app and the worker, and the worker's database reads and writes
 - `packages/search` — the search adapter: topic search with filters and facets, on PostgreSQL full text
 - `packages/sources` — outside services: Crossref, the DOI system, Open Library, Google Books (optional), the Wayback Machine, YouTube (oEmbed and the Data API), and safe link checks
 - `prototypes` — throwaway experiments; apps never import from here
-- `deploy/compose` — local PostgreSQL (pgvector), Redis-compatible Valkey, Mailpit, SeaweedFS (S3-compatible storage)
+- `deploy/compose` — local PostgreSQL 17, Redis-compatible Valkey, Mailpit, SeaweedFS (S3-compatible storage)
 - `deploy/scripts` — local setup helpers, such as the `make env` script
 - `docs` — plans, checklist, architecture decision records, and runbooks
 - `.claude` — repo-local Claude Code skills and review agents

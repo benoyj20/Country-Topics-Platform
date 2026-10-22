@@ -315,12 +315,13 @@ to cover another host. That is what lets staging live at `dev.<domain>`
 3600`. Their fetches carry the backend's tags (`public-cache.ts`).
 - **Purges cross hosts.** `purgePublicPages()` still purges the backend's
   Valkey cache in `after()`, once the change is committed. Only when that
-  purge has finished does it queue a `purge` job, so the frontend's next miss
-  cannot fetch, and cache for an hour, the old data. The worker sends the
-  job to the site as `POST /api/revalidate` with the tags, signed with the
-  purge key (HMAC, timestamped, rejected after 5 minutes). The site calls
-  `revalidateTag`, and OpenNext purges Cloudflare's cache. A failed purge
-  is retried; the hourly revalidation bounds staleness if every retry fails.
+  purge has been written is a `purge` job queued (by the backend's cache
+  handler; Phase 6 results), so the frontend's next miss cannot fetch, and
+  cache for an hour, the old data. The worker sends the job to the site as
+  `POST /api/revalidate` with the tags, signed with the purge key (HMAC,
+  timestamped, rejected after 5 minutes). The site calls `revalidateTag`,
+  which OpenNext records in its D1 tag cache. A failed purge is retried;
+  the hourly revalidation bounds staleness if every retry fails.
 - **The Valkey page cache stays** on the backend, now holding API responses.
 
 ### Everything else
@@ -806,7 +807,7 @@ How it works, where the plan left details open:
 
 Left for later phases:
 
-- **Purges reach the frontend in phase 6.** The backend still purges its own
+- **Purges reach the frontend in phase 6** (done: Phase 6 results). The backend still purges its own
   caches when content changes, but nothing yet tells the frontend, so a
   published change shows on the site only when its cached page and data
   expire: within an hour, or two when a stale page is served once while it
@@ -825,6 +826,65 @@ Left for later phases:
   the backend's pages never finished in a production build. The frontend's
   own pages have none outstanding. The local Workers preview's image lacked
   the system's certificates, which workerd needs for HTTPS.
+
+### Phase 6 results (2026-10-21)
+
+Publishing now reaches the site within a second. Checked on the local
+database with a new TEST admin, who published edits of the TEST browse
+check topic's summary through the frontend:
+
+| Check                       | Result                                                                                                                                                                                                                                                                                                                                   |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Publishing changes the site | The topic page showed each edit 0.09–0.14 s after the publish answered, on a production build of the frontend (`next start`), and 0.54 s under `next dev`; between edits it was served from the cache                                                                                                                                    |
+| Without a purge             | With the worker stopped, the page kept the previous version for as long as it was watched (20 s), as phase 5 left it                                                                                                                                                                                                                     |
+| A failed purge retries      | With the site stopped, the purge failed five times (1, 2, 4, 8, and 16 s apart); the page kept its cached version across the site's restart, and the sixth try purged it, 14 s after the site was back                                                                                                                                   |
+| A forged or old purge       | Refused with 403 and nothing purged: unsigned, signed with another key, signed six minutes before, and signed for another body. A signed purge naming an unknown tag is refused with 400, and `GET` with 405. The backend still refuses unsigned requests, and the pass-through never passes `/api/revalidate` on, however it is spelled |
+| The Workers runtime         | In workerd, with the worker purging it, the page showed each edit 0.15–0.19 s after the publish answered and was served from R2 in between; the same forged, old, and unsigned purges were refused                                                                                                                                       |
+| Tests                       | Unit tests for the signature, the request's contract, the job's sending and retries, the site's route, and both apps' settings; an integration test that the backend's cache queues the site's purge once its own is written, for public tags only                                                                                       |
+
+How it works, where the plan left details open:
+
+- **The backend's cache handler queues the purge.** Next.js runs the tag
+  purges `after()` asks for only once every `after()` callback has
+  finished, so `purgePublicPages()` cannot wait for its own purge.
+  `cache-handler.mjs` can: once it has written a purge of public tags to
+  Valkey, it queues a `purge` job with them. The site's next miss so
+  always finds the backend's new data. A purge that cannot be queued is
+  reported, not thrown, since the backend's own purge has happened; the
+  site then refreshes within the hour.
+- **The worker sends it to `SITE_URL`'s `/api/revalidate`**, signed with
+  `PURGE_KEY` (`packages/forwarding`): an HMAC over a timestamp and the
+  body, refused once five minutes old or new. The key is the frontend's and
+  the worker's only, and must differ from the forwarding key; the backend
+  never holds it. A failed purge is tried ten times over about eight
+  minutes.
+- **The site checks the signature before it parses the body**, reads at
+  most 1 KB of it, and accepts only the public tags
+  (`packages/contracts`). It calls `revalidateTag(tag, { expire: 0 })`, as
+  the backend does, so the next visitor gets a fresh render. A captured
+  purge can be replayed only within the five minutes, and can only refresh
+  pages.
+- **The site answers before its tag write ends.** Next.js runs a route's
+  `revalidateTag` after the answer, in the request's `waitUntil`, and
+  offers no way to wait for it. So a D1 write that fails after the site has
+  answered 200 is not retried; the pages then refresh within the hour.
+  Every purge in these checks took effect.
+- **Answers a retry cannot change are not retried**: a redirect or a 4xx
+  other than 403 (a key being changed in both places), 408, or 429.
+- **The scale rehearsal has no site**, so its worker has no `PURGE_KEY`
+  and drops its purge jobs. Locally the key is optional for that reason;
+  staging and production refuse to start without it. `make env` generates
+  it.
+- **Cloudflare's own cache is not involved.** A Worker runs in front of
+  Cloudflare's cache, and OpenNext keeps its pages in R2 and D1, which
+  `revalidateTag` purges; so no zone purge token is needed. Phase 13
+  confirms this on a real deploy.
+
+Left for later phases:
+
+- **Changes made outside a web request** (scripts, and the worker's video
+  and link checks) still purge nothing, as before the split; their pages
+  refresh within the hour.
 
 ## Consequences
 

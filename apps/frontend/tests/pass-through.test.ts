@@ -15,12 +15,14 @@ const LOCAL: FrontendSettings = {
   siteUrl: "http://localhost:3000",
   backendUrl: "http://localhost:3002",
   forwardingKey: "test-forwarding-key-0123456789abcdef",
+  purgeKey: "test-purge-key-0123456789abcdef0123",
 };
 const HOSTED: FrontendSettings = {
   environment: "production",
   siteUrl: "https://countrytopics.example",
   backendUrl: "https://api.countrytopics.example",
   forwardingKey: LOCAL.forwardingKey,
+  purgeKey: LOCAL.purgeKey,
 };
 
 type Sent = { url: string; init: RequestInit & { duplex?: string } };
@@ -319,6 +321,7 @@ describe("the frontend's settings", () => {
     SITE_URL: "http://localhost:3000",
     BACKEND_URL: "http://localhost:3002/",
     FORWARDING_KEY: "f".repeat(32),
+    PURGE_KEY: "p".repeat(32),
   };
 
   it("read the site, the backend, and the key", () => {
@@ -327,6 +330,7 @@ describe("the frontend's settings", () => {
       siteUrl: "http://localhost:3000",
       backendUrl: "http://localhost:3002",
       forwardingKey: "f".repeat(32),
+      purgeKey: "p".repeat(32),
       contactEmail: undefined,
       siteOperator: undefined,
     });
@@ -350,6 +354,14 @@ describe("the frontend's settings", () => {
     assert.throws(
       () => readFrontendSettings({ ...valid, FORWARDING_KEY: "short" }),
       /FORWARDING_KEY must be at least 32/,
+    );
+    assert.throws(
+      () => readFrontendSettings({ ...valid, PURGE_KEY: "" }),
+      /PURGE_KEY must be at least 32/,
+    );
+    assert.throws(
+      () => readFrontendSettings({ ...valid, PURGE_KEY: valid.FORWARDING_KEY }),
+      /PURGE_KEY must differ from FORWARDING_KEY/,
     );
     assert.throws(
       () => readFrontendSettings({ ...valid, BACKEND_URL: valid.SITE_URL }),

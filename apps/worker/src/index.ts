@@ -3,6 +3,7 @@ import {
   createContentStore,
   createEmailWorker,
   createLinkWorker,
+  createPurgeWorker,
   createRedisConnection,
   createReferenceQueue,
   createReferenceWorker,
@@ -80,6 +81,13 @@ const workers: Record<string, ReturnType<typeof createEmailWorker>> = {
     source: createTopicSearchSource(pool),
     index: createPostgresTopicSearch(pool),
   }),
+  // The site's cache, once the backend has purged its own (ADR 0014).
+  purges: createPurgeWorker({
+    ...queues,
+    purger: env.purgeKey
+      ? { siteUrl: env.siteUrl, purgeKey: env.purgeKey, fetch }
+      : null,
+  }),
   videos: createVideoWorker({
     ...queues,
     store,
@@ -113,7 +121,7 @@ for (const [name, worker] of Object.entries(workers)) {
 }
 
 console.log(
-  `Worker started: queues ${Object.keys(workers).join(", ")}, prefix "${env.queuePrefix}"; Wayback Machine ${env.wayback ? "saving enabled" : "search only (no keys)"}; Google Books backup ${env.googleBooksApiKey ? "on" : "off"}; YouTube Data API ${env.youtubeApiKey ? "on" : "off"}`,
+  `Worker started: queues ${Object.keys(workers).join(", ")}, prefix "${env.queuePrefix}"; Wayback Machine ${env.wayback ? "saving enabled" : "search only (no keys)"}; Google Books backup ${env.googleBooksApiKey ? "on" : "off"}; YouTube Data API ${env.youtubeApiKey ? "on" : "off"}; site purges ${env.purgeKey ? `to ${env.siteUrl}` : "off (no PURGE_KEY)"}`,
 );
 
 // Checks lost while no worker ran (or queued by an older version) are queued

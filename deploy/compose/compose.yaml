@@ -172,6 +172,8 @@ services:
       # only the rehearsal uses (check-stateless.mjs has it too).
       BACKEND_URL: http://lb:8080
       FORWARDING_KEY: &rehearsal-forwarding-key rehearsal-only-forwarding-key-not-a-secret
+      # Nor a site to purge: its worker sends no purges.
+      PURGE_KEY: ""
       # Google's registered redirect is the development address.
       GOOGLE_CLIENT_ID: ""
       GOOGLE_CLIENT_SECRET: ""

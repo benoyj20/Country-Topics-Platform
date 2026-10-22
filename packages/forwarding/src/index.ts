@@ -5,8 +5,9 @@
 // signed requests, and takes the visitor's address only from one, so its
 // rate limits still count each visitor. The body is not signed: the
 // signature proves the request came through the frontend, and TLS
-// protects the rest. Web Crypto only, so the same code runs in the Worker
-// and in Node.
+// protects the rest. The worker's purges of the site are signed here too,
+// with their own key (below). Web Crypto only, so the same code runs in the
+// Worker and in Node.
 
 /** The headers the signature travels in. */
 export const FORWARDING_HEADERS = {
@@ -171,4 +172,80 @@ export async function checkForwardedRequest(
     message(request, clientAddress, timestamp),
   );
   return valid ? { ok: true, clientAddress } : { ok: false, reason: "forged" };
+}
+
+// The worker's purges (ADR 0014, "Cache and purges"): POST /api/revalidate
+// on the site, signed with the purge key, a different key from the
+// forwarding key, over the body and a timestamp. A captured purge can be
+// sent again only within MAX_CLOCK_SKEW_S, and only refreshes pages.
+
+/** The headers a purge's signature travels in. */
+export const PURGE_HEADERS = {
+  timestamp: "x-countrytopics-purge-timestamp",
+  signature: "x-countrytopics-purge-signature",
+} as const;
+
+function purgeMessage(
+  body: string,
+  timestamp: string,
+): Uint8Array<ArrayBuffer> {
+  // The body comes last, so its newlines cannot be mistaken for a field.
+  return encoder.encode([VERSION, "purge", timestamp, body].join("\n"));
+}
+
+/** The headers that sign a purge with `body`, at `now`. */
+export async function signPurge(
+  key: string,
+  body: string,
+  now: number = Date.now(),
+): Promise<Record<string, string>> {
+  const timestamp = String(Math.floor(now / 1000));
+  const signature = await crypto.subtle.sign(
+    "HMAC",
+    await importKey(key, "sign"),
+    purgeMessage(body, timestamp),
+  );
+  return {
+    [PURGE_HEADERS.timestamp]: timestamp,
+    [PURGE_HEADERS.signature]: toBase64Url(signature),
+  };
+}
+
+export type PurgeCheck =
+  | { ok: true }
+  | { ok: false; reason: "unsigned" | "malformed" | "expired" | "forged" };
+
+/**
+ * Whether `headers` carry the worker's signature for a purge with `body`,
+ * made within MAX_CLOCK_SKEW_S of `now`.
+ */
+export async function checkPurge(
+  key: string,
+  body: string,
+  headers: Headers,
+  now: number = Date.now(),
+): Promise<PurgeCheck> {
+  const timestamp = headers.get(PURGE_HEADERS.timestamp);
+  const signature = headers.get(PURGE_HEADERS.signature);
+  if (timestamp === null && signature === null) {
+    return { ok: false, reason: "unsigned" };
+  }
+  if (
+    !timestamp ||
+    !TIMESTAMP_PATTERN.test(timestamp) ||
+    !signature ||
+    !SIGNATURE_PATTERN.test(signature)
+  ) {
+    return { ok: false, reason: "malformed" };
+  }
+  if (Math.abs(now / 1000 - Number(timestamp)) > MAX_CLOCK_SKEW_S) {
+    return { ok: false, reason: "expired" };
+  }
+  const valid = await crypto.subtle.verify(
+    "HMAC",
+    await importKey(key, "verify"),
+    fromBase64Url(signature),
+    purgeMessage(body, timestamp),
+  );
+  return valid ? { ok: true } : { ok: false, reason: "forged" };
 }

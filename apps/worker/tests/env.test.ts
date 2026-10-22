@@ -19,6 +19,7 @@ const hosted = {
   SMTP_URL: "smtps://smtp.example.org:465",
   DATABASE_URL: "postgres://user:pw@db.example.org:5432/countrytopics",
   SITE_URL: "https://countrytopics.example",
+  PURGE_KEY: "p".repeat(32),
 };
 
 describe("readWorkerEnv", () => {
@@ -30,6 +31,7 @@ describe("readWorkerEnv", () => {
       queuePrefix: DEFAULT_QUEUE_PREFIX,
       databaseUrl: valid.DATABASE_URL,
       siteUrl: valid.SITE_URL,
+      purgeKey: undefined,
       contactEmail: undefined,
       googleBooksApiKey: undefined,
       youtubeApiKey: undefined,
@@ -49,6 +51,23 @@ describe("readWorkerEnv", () => {
       () => readWorkerEnv({ ...valid, SENTRY_DSN: "not a dsn" }),
       /SENTRY_DSN must be empty or the project's DSN/,
     );
+  });
+
+  it("needs the purge key, except locally", () => {
+    assert.equal(
+      readWorkerEnv({ ...valid, PURGE_KEY: "p".repeat(32) }).purgeKey,
+      "p".repeat(32),
+    );
+    assert.throws(
+      () => readWorkerEnv({ ...valid, PURGE_KEY: "short" }),
+      /PURGE_KEY must be at least 32 characters/,
+    );
+    for (const PURGE_KEY of [undefined, ""]) {
+      assert.throws(
+        () => readWorkerEnv({ ...hosted, PURGE_KEY }),
+        /PURGE_KEY must be at least 32 characters/,
+      );
+    }
   });
 
   it("refuses to start with another environment's addresses", () => {

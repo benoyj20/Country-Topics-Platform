@@ -1,4 +1,4 @@
-import type { ApiError } from "@countrytopics/contracts";
+import { type ApiError, PURGE_PATH } from "@countrytopics/contracts";
 import {
   FORWARDING_HEADERS,
   signedPathAndQuery,
@@ -24,8 +24,8 @@ const PASSED = ["/api", "/files"];
 
 /** Never passed on: answered here. */
 const NOT_PASSED = [
-  // The purge the worker sends, answered here in phase 6.
-  "/api/revalidate",
+  // The worker's purge of this site's cache (app/api/revalidate).
+  PURGE_PATH,
 ];
 
 // Request headers set by the connection, by this frontend, or by

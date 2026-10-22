@@ -13,6 +13,7 @@ const GENERATED = {
   PAYLOAD_SECRET: () => randomBytes(32).toString("base64url"),
   BETTER_AUTH_SECRET: () => randomBytes(32).toString("base64url"),
   FORWARDING_KEY: () => randomBytes(32).toString("base64url"),
+  PURGE_KEY: () => randomBytes(32).toString("base64url"),
 };
 
 const VARIABLE_LINE = /^([A-Z][A-Z0-9_]*)=(.*)$/;

@@ -29,7 +29,9 @@ const OUTSIDE_REQUEST = /outside a request scope/;
  * Purges public pages once the response is sent. Payload commits a save
  * just before its route returns, while hooks run inside the transaction:
  * purging from the hook itself would let a visitor's request in between
- * render the old content again and cache it until the next purge.
+ * render the old content again and cache it until the next purge. Once
+ * the purge is written, the shared cache asks the worker to purge the
+ * site's cache too (cache-handler.mjs, ADR 0014).
  *
  * Outside a web request (a script using the local API) there is no page
  * cache to reach: the save goes ahead, and pages refresh within

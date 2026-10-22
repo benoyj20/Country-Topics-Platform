@@ -2,4 +2,5 @@ export * from "./browse.ts";
 export * from "./endpoints.ts";
 export * from "./members.ts";
 export * from "./pages.ts";
+export * from "./purges.ts";
 export * from "./sign-in.ts";

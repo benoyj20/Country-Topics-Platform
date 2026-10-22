@@ -1417,8 +1417,8 @@ and 31 GB), 2026-10-18 and 2026-10-19.
     segments;
   - workerd needs the system's certificates for HTTPS, which the local
     preview's image lacked.
-- [ ] Until phase 6's purges, a published change reaches the site when its
-  cached page and data expire, within an hour or two.
+- [x] Until phase 6's purges, a published change reaches the site when its
+  cached page and data expire, within an hour or two. Closed by phase 6.
 - [ ] The backend's copies of the pages stay until phase 12, for the
   rehearsal and the load tests; change pages in `apps/frontend` only.
 - [x] The local database has more TEST accounts for these checks:
@@ -1426,3 +1426,33 @@ and 31 GB), 2026-10-18 and 2026-10-19.
   `test-member-*-p5*@example.test`, who deleted their own accounts or
   remain, and admins `test-admin-p5*@example.test`, with their TEST
   comments, replies, reports, and feedback on the TEST browse-check topic.
+
+### The split, phase 6: purges (ADR 0014)
+
+- [x] Once the backend's cache has written a purge of public tags, it
+  queues a `purge` job; the worker sends the tags to the site's
+  `POST /api/revalidate`, signed with `PURGE_KEY` (an HMAC over a timestamp
+  and the body, refused after five minutes), and the site calls
+  `revalidateTag` (2026-10-21).
+- [x] Publishing changes the site within a second: 0.09–0.14 s after the
+  publish answered on a production build, 0.15–0.19 s in workerd, and
+  0.54 s under `next dev`; without the worker, the page keeps the old
+  version.
+- [x] A failed purge retries: with the site down, it failed five times and
+  the sixth purged the page, which had kept its cached version across the
+  site's restart.
+- [x] Unsigned, forged, six-minute-old, and altered purges are refused
+  (403), unknown tags too (400), in Node and in workerd; the pass-through
+  never passes `/api/revalidate` on.
+- [x] `PURGE_KEY` is the frontend's and the worker's only, differs from
+  `FORWARDING_KEY`, and is required outside local runs; `make env`
+  generates it, and the ownership-transfer runbook lists it. The scale
+  rehearsal has no site, so its worker drops purge jobs.
+- [x] 165 integration tests, the workspace's unit tests, and
+  `make scale-check` pass.
+- [ ] Changes made outside a web request (scripts, the worker's video and
+  link checks) still purge nothing; their pages refresh within the hour.
+- [x] The local database has another TEST admin,
+  `test-admin-p6a@example.test`, and the TEST browse-check topic's change
+  log has the TEST edits made for these checks; its summary is back as it
+  was.

@@ -527,8 +527,8 @@ See [ADR 0007](adr/0007-public-pages-and-caching.md) for the design.
   lists that stop short link to `/topics` with their filter.
 - [x] Video thumbnails come through the site since ADR 0014's phase 5
   (`/thumbnails/:id` in `apps/frontend`); the new admin's snippet editor
-  uses it since phase 9. Payload's panel's still loads YouTube's until the
-  panel goes in phase 12.
+  uses it since phase 9. Payload's panel, which still loaded YouTube's,
+  went in phase 12.
 
 ### Week 8: browsing, filters, search, shareable links
 
@@ -1422,8 +1422,9 @@ and 31 GB), 2026-10-18 and 2026-10-19.
     preview's image lacked.
 - [x] Until phase 6's purges, a published change reaches the site when its
   cached page and data expire, within an hour or two. Closed by phase 6.
-- [ ] The backend's copies of the pages stay until phase 12, for the
+- [x] The backend's copies of the pages stay until phase 12, for the
   rehearsal and the load tests; change pages in `apps/frontend` only.
+  Removed in phase 12, which moved the rehearsal onto the pages' data.
 - [x] The local database has more TEST accounts for these checks:
   `test-member-audit-phase5@example.test`, members
   `test-member-*-p5*@example.test`, who deleted their own accounts or
@@ -1606,11 +1607,36 @@ and 31 GB), 2026-10-18 and 2026-10-19.
 - [x] 53 checks in headless Chrome, a new integration test (20 tests; 308
   in all), and eleven screens axe-clean at 1280, 768, and 390 px, light
   and dark, with no sideways scrolling.
-- [ ] Removing Payload's panel, its local-only allowance, and the public
-  pages from the backend: phase 12.
+- [x] Removing Payload's panel, its local-only allowance, and the public
+  pages from the backend: phase 12 (2026-10-22).
 - [x] The local database has more TEST records from the browser checks:
   42 accounts `test-*@example.test` (admins and moderators of runs
   `p11*`, and phase 9's and 10's reruns), with their invitations; 14
   topics, 8 tags, 8 references, and 8 files `TEST ...`; the records phase
   9's and 10's reruns add; and the TEST individual
   `test-phase8-person-p8mvizfcaf` now has a TEST photo.
+
+### The split, phase 12: the backend clean-up (ADR 0014)
+
+- [x] The backend is `apps/api` (`@countrytopics/api`, Compose's `api`
+  service) and answers no HTML (2026-10-22): Payload's admin panel, its
+  local-only allowance, and the backend's copies of the pages are gone.
+  Any other address answers a JSON 404, and nothing answers without the
+  frontend's signature but the health check.
+- [x] A lint rule keeps pages out of `apps/api` (no JSX, styles, React
+  beyond `cache`, or page and panel modules); the frontend's import rule
+  still passes.
+- [x] The scale rehearsal reads the pages' data: `make scale-check` and
+  the cached load test pass on two `api` containers (p95 51 ms at 100
+  visitors, no failures). The page-data endpoints say whether their data
+  came from the shared cache (`X-Data-Cache`).
+- [x] AGENTS.md, README.md, CONTRIBUTING.md, the runbooks, and `.env.example`
+  describe the split; the backend no longer reads `BACKEND_URL`.
+- [x] Phases 9, 10, and 11's browser checks pass again (67, 42, and 53),
+  all 308 integration tests pass, and phase 5's give 24 of 25: the failing
+  one expected the admin's link to Payload's panel, which is gone.
+- [x] The local database has the records the browser checks' reruns add
+  (runs `p12*`): TEST admins and moderators `test-*@example.test` with
+  their invitations, and TEST topics, tags, references, and files.
+- [ ] Hosting and verification, phases 13 and 14: only if the platform
+  launches.

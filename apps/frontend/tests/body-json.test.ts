@@ -27,14 +27,14 @@ import * as ours from "../src/admin/editor/body-nodes.ts";
 
 // The admin's body editor must save what Payload's editor saves (ADR 0014,
 // phases 2 and 8: "the saved JSON renders unchanged on the site"). Payload's
-// own nodes are the reference, taken from the features apps/web's editor
+// own nodes are the reference, taken from the features apps/api's editor
 // enables; this test is the one place the frontend loads Payload's editor
 // package, in Node only. BODIES_FILE, a JSON array of bodies (such as every
 // topic version in a local database), adds them to the documents checked.
 
 type Nodes = ReadonlyArray<Klass<LexicalNode>>;
 
-/** The nodes Payload's editor registers for apps/web's features. */
+/** The nodes Payload's editor registers for apps/api's features. */
 async function payloadNodes(): Promise<Nodes> {
   const features = [
     payloadEditor.HeadingFeature({ enabledHeadingSizes: ["h2", "h3", "h4"] }),
@@ -42,7 +42,7 @@ async function payloadNodes(): Promise<Nodes> {
     payloadEditor.UnorderedListFeature(),
     payloadEditor.OrderedListFeature(),
     payloadEditor.HorizontalRuleFeature(),
-    // Without apps/web's options, which shape the link form, not its nodes,
+    // Without apps/api's options, which shape the link form, not its nodes,
     // and would need the collections' config.
     payloadEditor.LinkFeature(),
   ];
@@ -104,7 +104,7 @@ function text(value: string, format = 0): TextNode {
   return $createTextNode(value).setFormat(format);
 }
 
-/** A body with every node and format apps/web's editor allows. */
+/** A body with every node and format apps/api's editor allows. */
 function $buildEveryFeature(create: Creators): void {
   const root = $getRoot();
   root.append($createHeadingNode("h2").append(text("A TEST heading")));

@@ -24,8 +24,9 @@ const MEDIA_FILE_PATH = "/api/media/file/";
 
 /**
  * A stored file's address on this site. Payload names a file by its
- * address under its serverURL, which locally is the backend's own; the
- * admin opens it through this site's /api, with the staff member's cookie.
+ * address under its serverURL, the site's (it was the backend's own while
+ * Payload's panel ran there); the admin opens it through this site's /api,
+ * with the staff member's cookie.
  * Null for any other address.
  */
 export function mediaFilePath(url: string | null | undefined): string | null {
@@ -90,7 +91,7 @@ export function savedRecordSchema<T>(schema: z.ZodType<T>) {
  * individuals, whose copy would be the same person (the backend's check
  * for possible duplicates refuses it).
  * The backend gives a copy its own slug, and a topic's copy is a fresh
- * draft (apps/web's Topics).
+ * draft (apps/api's Topics).
  */
 export const DUPLICATED_COLLECTIONS = [
   "topics",

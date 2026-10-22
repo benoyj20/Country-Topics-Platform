@@ -2,7 +2,7 @@ import { EVIDENCE_TEXTS, sourceTexts } from "../evidence-text.ts";
 import { fieldNameAt, type FieldTexts } from "../field-text.ts";
 
 // What the topic editor calls each field and what it says about it, as
-// Payload's panel does (apps/web/src/collections/Topics.ts and
+// Payload's panel does (apps/api/src/collections/Topics.ts and
 // evidence-field.ts).
 
 export const TOPIC_TEXTS: FieldTexts = {

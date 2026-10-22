@@ -17,7 +17,7 @@ import { safeHref } from "../safe-href";
 import { DeleteButton } from "./DeleteButton";
 
 // The records only the worker writes, as Payload's panel shows them
-// (apps/web/src/collections/Videos.ts, LinkArchives.ts): read only, with
+// (apps/api/src/collections/Videos.ts, LinkArchives.ts): read only, with
 // what the worker found. Admins may delete a video no snippet uses.
 
 const never = "Not yet";

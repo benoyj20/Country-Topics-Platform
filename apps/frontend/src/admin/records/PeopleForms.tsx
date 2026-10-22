@@ -31,7 +31,7 @@ import { SelectInput, TextArea, TextInput } from "./inputs";
 import { RecordForm } from "./RecordForm";
 
 // The people editors, as Payload's panel edits them
-// (apps/web/src/collections/Invitations.ts, Users.ts): the invitations an
+// (apps/api/src/collections/Invitations.ts, Users.ts): the invitations an
 // address needs to make an account, and accounts' names and roles. Admins
 // only; staff read their own account. Sign-in itself is Better Auth's.
 

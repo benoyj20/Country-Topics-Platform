@@ -8,13 +8,13 @@ import { type AdminCollection, appendBrackets } from "./admin-lists.ts";
 // Payload refuses anyone else's save or delete of the document (423), so
 // two editors cannot overwrite each other; every save of the document
 // then clears its locks, and the editor takes its lock again. Locks are
-// for verified staff only (apps/web's payload.config.ts).
+// for verified staff only (apps/api's payload.config.ts).
 
 export const LOCKS_PATH = "/api/payload-locked-documents";
 
 /**
  * How long a lock holds after it was last refreshed: Payload's default,
- * which no collection changes (apps/web's tests check it).
+ * which no collection changes (apps/api's tests check it).
  */
 export const LOCK_DURATION_S = 300;
 

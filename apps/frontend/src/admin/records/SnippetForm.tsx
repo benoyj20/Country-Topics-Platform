@@ -39,7 +39,7 @@ import { SNIPPET_TEXTS, TIMEBASE_LABELS } from "./record-texts";
 import { type SnippetVideoState, useSnippetVideo } from "./snippet-video";
 
 // The snippet editor, as Payload's panel edits a snippet
-// (apps/web/src/collections/Snippets.ts): its caption, the clip set with
+// (apps/api/src/collections/Snippets.ts): its caption, the clip set with
 // the player, who speaks and in what language, the transcript pasted from
 // YouTube with what it keeps, a preview as visitors will see it, and the
 // worker's check of the video.

@@ -26,8 +26,8 @@ clip, paste a transcript, and watch it play with synced highlighting. It tested 
 riskiest part of the product (F4) on its own; the site now has its typed version.
 
 The **site** (`apps/frontend`, Next.js built for Cloudflare Workers) renders
-the public and member pages from the **backend** (`apps/web`, Next.js and
-Payload with PostgreSQL), which also holds the admin panel. People sign in with Google or an emailed link (invite-only during the
+the public and member pages, and the admin panel at `/admin`, from the **API**
+(`apps/api`, Next.js and Payload with PostgreSQL), which renders no pages. People sign in with Google or an emailed link (invite-only during the
 pilot); moderators and admins also confirm a code from an authenticator app before
 the admin panel opens. Sign-in emails are sent by the worker (`apps/worker`)
 through a job queue. In the admin panel, staff manage the ISO 3166-1 countries,
@@ -59,10 +59,10 @@ panel. Draft privacy policy and terms are at `/privacy` and `/terms`. A backup
 container dumps the database and copies uploads every day, and `make restore`
 restores a backup into a new database and checks every table; errors from the
 site, its pages, and the worker go to Sentry when `SENTRY_DSN` is set. The
-site caches its pages and their data (in R2 on Workers), and the backend's API
-answers in Valkey, shared by every backend process; publishing purges both, the
-backend's first, then the site's through a signed purge from the worker; `make scale-up` runs two
-backend and two worker containers behind a load balancer for the scale rehearsal
+site caches its pages and their data (in R2 on Workers), and the API its
+answers in Valkey, shared by every API process; publishing purges both, the
+API's first, then the site's through a signed purge from the worker; `make scale-up` runs two
+API and two worker containers behind a load balancer for the scale rehearsal
 (load tests with k6). There is a health check at `/api/v1/health`. The remaining features follow the
 [MVP plan](docs/mvp-plan.md); see the checklist for what is verified.
 
@@ -75,15 +75,15 @@ Open `http://localhost:4173` and click **Try demo**. See
 
 ## Repository layout
 
-- `apps/frontend` — the site (ADR 0014): the public and member pages, the new admin at `/admin` (its dashboard and lists, with bulk actions, an editor for every collection, with locks, autosave, live preview, and versions compared; everything staff used in Payload's panel, which phase 12 removes), video thumbnails, and `/api` and `/files` passed on to `apps/web`, signed; built for Cloudflare Workers
-- `apps/web` — the backend: Payload and its admin panel, sign-in, `/api/v1`, and `/files`; it answers only requests the frontend signed. Its copies of the pages are no longer served and go in phase 12
+- `apps/frontend` — the site (ADR 0014): the public and member pages, the admin at `/admin` (its dashboard and lists, with bulk actions, an editor for every collection, with locks, autosave, live preview, and versions compared), video thumbnails, and `/api` and `/files` passed on to `apps/api`, signed; built for Cloudflare Workers
+- `apps/api` — the backend: Payload's collections, access rules, and REST API, sign-in, `/api/v1`, and `/files`; it renders no pages and answers only requests the frontend signed
 - `apps/worker` — background jobs on BullMQ: sign-in emails, reference checks, link archiving, video checks, the search index, purges of the site's cache
 - `packages/contracts` — what the backend's API accepts and answers (ADR 0014): the public pages' data at `/api/v1/pages/*` and `/api/v1/topics`, the browse parameters, and the member API (comments, votes, reports, notifications, the account, feedback, sign-in), and the site's purge: zod schemas, the types made from them, the endpoints' paths, and their cache tags
 - `packages/domain` — roles, sign-up rules, name, slug, date, DOI, and ISBN rules, the topic workflow, the evidence rules, snippet and transcript parsing, language codes, the plain text and links of rich text, the comment, vote, report, and display-name rules, the browse sorts, and the names shown for stored values
 - `packages/email` — the email adapter (SMTP) and email templates
 - `packages/forwarding` — the frontend's signature on the requests it passes to the backend, checked there, and the worker's on its purges of the site (ADR 0014)
 - `packages/environment` — which environment a process belongs to (`APP_ENV`: local, staging, or production), and the start-up checks that stop it running with another environment's addresses
-- `packages/jobs` — job queues shared by the web app and the worker, and the worker's database reads and writes
+- `packages/jobs` — job queues shared by the API and the worker, and the worker's database reads and writes
 - `packages/search` — the search adapter: topic search with filters and facets, on PostgreSQL full text
 - `packages/sources` — outside services: Crossref, the DOI system, Open Library, Google Books (optional), the Wayback Machine, YouTube (oEmbed and the Data API), and safe link checks
 - `prototypes` — throwaway experiments; apps never import from here
@@ -104,20 +104,17 @@ Open `http://localhost:4173` and click **Try demo**. See
 ```sh
 make env         # creates .env, or adds missing variables; never changes set values
 make bootstrap   # pnpm install
-make infra-up    # PostgreSQL on 5433, Valkey on 6379 (queues) and 6380 (page cache), Mailpit on 1025/8025, S3 storage on 8333, daily backups
+make infra-up    # PostgreSQL on 5433, Valkey on 6379 (queues) and 6380 (data cache), Mailpit on 1025/8025, S3 storage on 8333, daily backups
 make migrate     # applies the database migrations
-make dev         # site at http://localhost:3000, its backend at http://localhost:3002, and the worker
+make dev         # site at http://localhost:3000, its API at http://localhost:3002, and the worker
 ```
 
 To become the first admin, put your address in `ADMIN_EMAILS` in `.env`, restart
 `make dev`, and sign in at `http://localhost:3000/sign-in`, with Google or with the
 emailed link (it arrives in Mailpit). On `/account`, set up an authenticator app,
-then open the admin panel at `http://localhost:3002/admin`: browsers reach the
-backend only through the site, except Payload's panel, which works at the
-backend's own address on this machine until the new admin replaces it. The new
-admin, at `http://localhost:3000/admin`, so far lists and searches every
-collection; records are still edited in Payload's panel. Invite other people from the admin panel's
-**Invitations** collection. If someone loses their authenticator app, run
+then open the admin panel at `http://localhost:3000/admin`. Browsers reach the
+API only through the site: it refuses any request the site did not sign.
+Invite other people from the admin panel's **Invitations** collection. If someone loses their authenticator app, run
 `make reset-2fa EMAIL=their@address` and they can set up a new one. The dev servers
 listen on `127.0.0.1` only.
 

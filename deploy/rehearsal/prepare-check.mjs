@@ -1,4 +1,4 @@
-// Run by `make scale-check` inside a rehearsal web container, so it reaches
+// Run by `make scale-check` inside a rehearsal API container, so it reaches
 // the database that container uses. It invites the two made-up addresses
 // check-stateless.mjs signs in with, and removes the admin's authenticator
 // from an earlier run, which a session cannot replace, with the same script

@@ -4,7 +4,7 @@
 
 # Use the local .env when it exists; otherwise Compose falls back to the defaults in compose.yaml.
 COMPOSE = docker compose $(if $(wildcard .env),--env-file .env) -f deploy/compose/compose.yaml
-WEB = pnpm --filter @countrytopics/web
+API = pnpm --filter @countrytopics/api
 
 help: ## Show available commands
 	@awk 'BEGIN {FS = ":.*## "; printf "Country Topics Platform commands:\n"} /^[a-zA-Z_-]+:.*## / {printf "  %-14s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -24,20 +24,20 @@ infra-down: ## Stop local infrastructure, keeping its data volumes
 infra-config: ## Validate the Compose configuration
 	$(COMPOSE) config --quiet
 
-dev: ## Run the site (http://localhost:3000), its backend (http://localhost:3002), and the worker (run make migrate first)
-	pnpm --parallel --filter @countrytopics/frontend --filter @countrytopics/web --filter @countrytopics/worker dev
+dev: ## Run the site (http://localhost:3000), its API (http://localhost:3002), and the worker (run make migrate first)
+	pnpm --parallel --filter @countrytopics/frontend --filter @countrytopics/api --filter @countrytopics/worker dev
 
 dev-prototype: ## Run the YouTube snippet prototype at http://localhost:4173
 	pnpm --filter @countrytopics/youtube-snippet-prototype dev
 
 migrate: ## Apply database migrations to DATABASE_URL
-	$(WEB) migrate
+	$(API) migrate
 
-generate: ## Regenerate Payload's TypeScript types and admin import map
-	$(WEB) generate
+generate: ## Regenerate Payload's TypeScript types
+	$(API) generate
 
 reset-2fa: ## Remove someone's authenticator app so they can set up a new one: make reset-2fa EMAIL=...
-	$(WEB) reset-two-factor "$(EMAIL)"
+	$(API) reset-two-factor "$(EMAIL)"
 
 backup: ## Take a backup of the database and uploads now
 	$(COMPOSE) run --rm --build backup run
@@ -50,15 +50,15 @@ restore: ## Restore a backup into a new database: make restore BACKUP=<id> DATAB
 
 SCALE = $(COMPOSE) --profile scale
 
-scale-up: ## Scale rehearsal: two web and two worker containers behind a load balancer at http://localhost:8080 (see docs/runbooks/scale-rehearsal.md)
-	$(SCALE) up -d --build --wait web worker lb
+scale-up: ## Scale rehearsal: two API and two worker containers behind a load balancer at http://localhost:8080 (see docs/runbooks/scale-rehearsal.md)
+	$(SCALE) up -d --build --wait api worker lb
 
 scale-seed: ## Fill the rehearsal database with made-up TEST content for load tests: make scale-seed [TOPICS=1000]
-	$(SCALE) run --rm --no-deps web node node_modules/payload/bin.js run scripts/seed-rehearsal.ts $(or $(TOPICS),1000)
+	$(SCALE) run --rm --no-deps api node node_modules/payload/bin.js run scripts/seed-rehearsal.ts $(or $(TOPICS),1000)
 	$(SCALE) restart worker
 
-scale-check: ## Show the rehearsal keeps no state in its containers (sessions, page cache, limits)
-	$(SCALE) exec -T web node --input-type=module - < deploy/rehearsal/prepare-check.mjs
+scale-check: ## Show the rehearsal keeps no state in its containers (sessions, data cache, limits)
+	$(SCALE) exec -T api node --input-type=module - < deploy/rehearsal/prepare-check.mjs
 	$(SCALE) exec -T redis sh -c "valkey-cli --scan --pattern 'countrytopics-scale:rate:*' | xargs -r valkey-cli del > /dev/null"
 	node deploy/rehearsal/check-stateless.mjs
 
@@ -66,7 +66,7 @@ load-test: ## Load-test the rehearsal with k6: make load-test TEST=cached|uncach
 	$(SCALE) run --rm --no-deps $(if $(VUS),-e VUS=$(VUS)) $(if $(PAUSE_S),-e PAUSE_S=$(PAUSE_S)) k6 run /scripts/$(or $(TEST),cached).js
 
 scale-down: ## Stop the scale rehearsal's containers
-	$(SCALE) rm --stop --force web worker lb
+	$(SCALE) rm --stop --force api worker lb
 
 format: ## Format JavaScript and TypeScript packages
 	pnpm -r exec prettier --write .

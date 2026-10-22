@@ -1,5 +1,5 @@
 // The limits and messages of the records topics are built from, shared by
-// the backend's collections (apps/web/src/collections) and the admin's
+// the backend's collections (apps/api/src/collections) and the admin's
 // editors, so both refuse the same things with the same words.
 
 export const CATEGORY_NAME_MAX_LENGTH = 80;

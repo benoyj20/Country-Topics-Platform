@@ -1,7 +1,7 @@
 # Coding agent rules
 
 These rules apply throughout this repository. Follow additional instructions in
-the directory you are editing, such as `apps/web/AGENTS.md` once the web app exists.
+the directory you are editing, such as an app's own `AGENTS.md` if it has one.
 
 The project has one human developer, the repository owner `benoyj20`, working with
 coding agents. "The user" below means that developer.
@@ -66,13 +66,23 @@ coding agents. "The user" below means that developer.
 - Write code with one clear responsibility per function, component, or module.
   Extract independently understandable behavior when a file becomes hard to
   navigate; avoid arbitrary line-count limits and unnecessary wrapper layers.
-- Follow the directory boundaries: the Next.js site, Payload admin, and `/api/v1`
-  route handlers in `apps/web`; background jobs in `apps/worker`; domain logic,
-  database schema, adapters, and shared UI in `packages/`; local infrastructure
-  in `deploy/`; throwaway experiments in `prototypes/`, which apps must never
-  import. Keep business logic out of route handlers and rendering code when it
-  can be tested separately. Do not add a second implementation of an existing
+- Follow the directory boundaries (ADR 0014):
+  - `apps/frontend`: the site's public and member pages and the staff admin at
+    `/admin`, on Cloudflare Workers. It reaches the backend only over HTTP,
+    with the types and schemas in `packages/contracts`; a lint rule keeps
+    Payload, `pg`, ioredis, BullMQ, and the jobs and search packages out of it.
+  - `apps/api`: Payload (collections, hooks, access rules, migrations), its
+    REST API, sign-in, `/api/v1`, and `/files`. It renders no HTML; a lint rule
+    keeps pages and their components out of it.
+  - `apps/worker`: background jobs; `apps/backup`: backups.
+  - `packages/`: domain logic, contracts, adapters, and other shared code;
+    `deploy/`: local infrastructure; `prototypes/`: throwaway experiments,
+    which apps must never import.
+
+  Keep business logic out of route handlers and rendering code when it can be
+  tested separately. Do not add a second implementation of an existing
   responsibility.
+
 - Use descriptive domain names and the design document's terminology (topic,
   individual, snippet, transcript segment, evidence, reference, claim reference,
   thread). Use explicit units in names (`start_s`, `timeoutMs`). Replace repeated
@@ -84,8 +94,8 @@ coding agents. "The user" below means that developer.
   implementations introduced by the task.
 - Next.js and Payload change faster than model training data. Before using their
   APIs, check the installed versions' docs and types: Next.js ships its guides in
-  `apps/web/node_modules/next/dist/docs/`, and Payload's types are in
-  `apps/web/node_modules/payload/dist/`.
+  `apps/api/node_modules/next/dist/docs/` (and the frontend's copy), and
+  Payload's types are in `apps/api/node_modules/payload/dist/`.
 - Use strict TypeScript and explicit data contracts. Validate external data at
   boundaries (request bodies, webhooks, YouTube and scholarly API responses,
   environment variables); do not use `any`, unchecked casts, ignored type
@@ -144,11 +154,13 @@ coding agents. "The user" below means that developer.
 The pilot runs on one PC, but the same code must run as the real site. Keep these
 invariants; changing them needs an ADR.
 
-- Everything runs in containers; all configuration comes from environment
-  variables, never from values written into the code.
-- App containers are stateless: sessions in the database or Redis, uploads in
-  S3-compatible storage, shared page cache in Redis. Nothing depends on a local
-  disk or process memory surviving.
+- The backend (the API, the worker, backups) runs in containers, and the
+  frontend on Cloudflare Workers (ADR 0014); all configuration comes from
+  environment variables, never from values written into the code.
+- Both are stateless: sessions in the database or Redis, uploads in
+  S3-compatible storage, the API's shared data cache in Redis, and the
+  frontend's page cache in R2 and D1. Nothing depends on a local disk or
+  process memory surviving.
 - Slow work (email, link archiving, video health checks, search indexing, AI jobs)
   goes through the queue and runs in `apps/worker`, never inside a web request.
 - PostgreSQL is the only source of truth. Search indexes and caches must be

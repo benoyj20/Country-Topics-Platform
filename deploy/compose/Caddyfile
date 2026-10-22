@@ -1,11 +1,11 @@
 # The scale rehearsal's load balancer (ADR 0013): spreads requests over every
-# web container, round robin. A container that stops answering is skipped:
+# API container, round robin. A container that stops answering is skipped:
 # a request that cannot reach it is tried on another for up to 5 seconds,
 # a failed request takes it out for 10 seconds, and the active health check
 # brings it back. The X-Served-By header names the container that answered.
 :8080 {
 	reverse_proxy {
-		dynamic a web 3000 {
+		dynamic a api 3000 {
 			refresh 5s
 		}
 		lb_policy round_robin

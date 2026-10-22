@@ -64,7 +64,7 @@ import { LinkDialog } from "./LinkDialog";
 // A topic's body editor, loaded in the browser only (next/dynamic with
 // ssr: false), so neither the Worker nor the public pages carry it (ADR
 // 0014, "Heavy parts load in the browser"). Its toolbar has the formats and
-// blocks apps/web's editor allows (src/editor.ts): no uploads, embeds, or
+// blocks apps/api's editor allows (src/editor.ts): no uploads, embeds, or
 // indented paragraphs; lists nest with Tab, as in Payload's editor.
 
 const THEME = {

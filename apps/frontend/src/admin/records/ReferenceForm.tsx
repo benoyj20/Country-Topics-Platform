@@ -33,7 +33,7 @@ import { type FormApi, RecordForm } from "./RecordForm";
 import { REFERENCE_TEXTS } from "./record-texts";
 
 // The reference editor, as Payload's panel edits a reference
-// (apps/web/src/collections/References.ts): its DOI, ISBN, or link, which
+// (apps/api/src/collections/References.ts): its DOI, ISBN, or link, which
 // "Look up" fills the other fields from, and the worker's check of them,
 // which every save asks for again while the reference is not confirmed.
 

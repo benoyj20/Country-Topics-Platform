@@ -4,11 +4,11 @@ import type { Pool } from "pg";
 
 import type { SearchSourceChange, TopicSearchSource } from "./search-jobs.ts";
 
-// Search documents built from the tables of the web app's Payload
+// Search documents built from the tables of the API's Payload
 // collections, as the worker's other stores read them (content-store.ts).
 // The main "topics" row is the live version: draft saves go to the versions
 // table only. What a document holds mirrors what the public pages show
-// (apps/web/src/public/content.ts):
+// (apps/api/src/public/content.ts):
 // - a topic is listed while published and not archived;
 // - it names its people, the individuals its text links to
 //   (linkedIndividuals), and the speakers of the snippets it uses;
@@ -16,12 +16,12 @@ import type { SearchSourceChange, TopicSearchSource } from "./search-jobs.ts";
 //   there, and only a clip's own transcript lines are public;
 // - its comment count includes replies (ADR 0009); votes do not change
 //   comment rows' updated_at, so they never re-index a topic.
-// The web app's integration tests compare the two.
+// The API's integration tests compare the two.
 //
 // A document's version is the latest updated_at of the topic and every row
-// it reads here. Each table below has a hook in the web app that re-indexes
+// it reads here. Each table below has a hook in the API that re-indexes
 // the topics showing a row when a field read here changes
-// (apps/web/src/search-index.ts); a field added here needs its hook to
+// (apps/api/src/search-index.ts); a field added here needs its hook to
 // watch it too. The hourly rebuild catches anything missed.
 
 const LISTED = `t._status = 'published' AND t.state IN ('published', 'updated')`;

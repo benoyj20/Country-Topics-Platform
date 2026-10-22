@@ -26,7 +26,7 @@ import {
 } from "../src/index.ts";
 
 // The admin's parity with Payload's panel (ADR 0014, phase 11). The
-// backend's integration test (apps/web/tests/int/admin-parity.test.ts)
+// backend's integration test (apps/api/tests/int/admin-parity.test.ts)
 // sends these requests; these check the parts it cannot see.
 
 const ID = "0190f5b1-0000-7000-8000-000000000001";

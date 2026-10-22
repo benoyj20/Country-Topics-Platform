@@ -32,7 +32,7 @@ import { SelectInput, TextInput } from "./inputs";
 import { RecordForm, type Saved } from "./RecordForm";
 
 // The file editor, as Payload's panel edits a file
-// (apps/web/src/collections/Media.ts): a document or image uploaded from
+// (apps/api/src/collections/Media.ts): a document or image uploaded from
 // the admin's computer, which a later save may replace, with its
 // description and licence, and an image's focal point. Payload checks the
 // file's content against the types it takes; only the admin's own file is

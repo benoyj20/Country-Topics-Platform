@@ -1209,6 +1209,12 @@ How it works, where the plan left details open:
   backend's `BACKEND_URL`, which only that allowance read. Payload's
   `serverURL` is now always the site's. The frontend's link to the panel
   from an unknown admin address went too.
+- **Sessions stay alive in the admin.** Payload's panel refreshed a staff
+  member's session as they worked; every read the admin makes leaves it as
+  it is, so each admin page now asks for the session from the browser,
+  which refreshes it once it is old enough, as the site's header does.
+  Checked in headless Chrome: each admin page, and each move to another,
+  asks once.
 - **What stays:** the collections, hooks, access rules, versions, and
   uploads; Payload's REST routes, now `app/api/[...slug]`, without the
   panel's styles; sign-in; `/api/v1`; and `/files`. The collections keep

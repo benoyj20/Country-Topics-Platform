@@ -78,11 +78,16 @@ coding agents. "The user" below means that developer.
     in `src/shared`. Lint enforces these lines.
   - `apps/api`: Payload (collections, hooks, access rules, migrations), its
     REST API, sign-in, `/api/v1`, and `/files`. It renders no HTML; a lint rule
-    keeps pages and their components out of it.
+    keeps pages and their components out of it. A collection's config holds
+    its fields and access; its longer save rules live beside it by feature
+    (`src/topics`, `src/comments`). Each public page's data is its own module
+    in `src/public` (`*-page.ts`), built from the shared read model and never
+    from another page's, which lint enforces.
   - `apps/worker`: background jobs; `apps/backup`: backups.
   - `packages/`: domain logic, contracts, adapters, and other shared code;
     `deploy/`: local infrastructure; `prototypes/`: throwaway experiments,
-    which apps must never import.
+    which apps must never import. Each feature's admin lists are its own file
+    in `packages/contracts/src/lists`, combined in `admin-lists.ts`.
 
   Keep business logic out of route handlers and rendering code when it can be
   tested separately. Do not add a second implementation of an existing

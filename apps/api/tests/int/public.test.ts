@@ -20,13 +20,11 @@ import { GET as getIndividualData } from "@/app/api/v1/pages/individuals/[slug]/
 import { GET as getTopicData } from "@/app/api/v1/pages/topics/[slug]/route";
 import { GET as getFile } from "@/app/files/[id]/route";
 import type { Individual, Media, Topic, User } from "@/payload-types";
-import {
-  loadCountryPage,
-  loadHomePage,
-  loadIndividualPage,
-  loadPublicFile,
-  loadTopicPage,
-} from "@/public/content";
+import { loadCountryPage } from "@/public/country-page";
+import { loadPublicFile } from "@/public/files";
+import { loadHomePage } from "@/public/home-page";
+import { loadIndividualPage } from "@/public/individual-page";
+import { loadTopicPage } from "@/public/topic-page";
 import { PUBLIC_TAGS } from "@/public-cache";
 
 import {

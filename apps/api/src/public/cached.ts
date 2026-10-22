@@ -9,14 +9,12 @@ import {
 } from "@/public-cache";
 
 import { noteLoaded, noteRead } from "./cache-report";
-import {
-  loadBrowseTerms,
-  loadCountryPage,
-  loadHomePage,
-  loadIndividualPage,
-  loadPublicFile,
-  loadTopicPage,
-} from "./content";
+import { loadBrowseTerms } from "./browse-terms";
+import { loadCountryPage } from "./country-page";
+import { loadPublicFile } from "./files";
+import { loadHomePage } from "./home-page";
+import { loadIndividualPage } from "./individual-page";
+import { loadTopicPage } from "./topic-page";
 
 // The public read model, cached between requests and tagged with every
 // collection each loader reads, so purging a collection's tag refreshes the

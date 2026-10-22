@@ -8,7 +8,7 @@ import type { SearchSourceChange, TopicSearchSource } from "./search-jobs.ts";
 // collections, as the worker's other stores read them (content-store.ts).
 // The main "topics" row is the live version: draft saves go to the versions
 // table only. What a document holds mirrors what the public pages show
-// (apps/api/src/public/content.ts):
+// (apps/api/src/public/read.ts):
 // - a topic is listed while published and not archived;
 // - it names its people, the individuals its text links to
 //   (linkedIndividuals), and the speakers of the snippets it uses;

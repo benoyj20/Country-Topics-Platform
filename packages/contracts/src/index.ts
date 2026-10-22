@@ -15,6 +15,7 @@ export * from "./admin-taxonomy.ts";
 export * from "./admin-topics.ts";
 export * from "./admin-versions.ts";
 export * from "./browse.ts";
+export * from "./combine.ts";
 export * from "./endpoints.ts";
 export * from "./members.ts";
 export * from "./pages.ts";

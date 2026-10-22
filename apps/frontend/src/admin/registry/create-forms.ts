@@ -1,6 +1,7 @@
 import {
   ADMIN_COLLECTIONS,
   type AdminCollection,
+  combine,
 } from "@countrytopics/contracts";
 
 import { CREATE_FORMS as individuals } from "@/admin/features/individuals/create-forms";
@@ -10,7 +11,6 @@ import { CREATE_FORMS as snippets } from "@/admin/features/snippets/create-forms
 import { CREATE_FORMS as taxonomy } from "@/admin/features/taxonomy/create-forms";
 
 import type { CreateForms } from "../records/create-form";
-import { combine } from "./combine";
 
 // Every feature's new records made from a relationship field, in one place:
 // a feature adds its own in its folder and is listed here once.

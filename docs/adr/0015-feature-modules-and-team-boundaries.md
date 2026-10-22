@@ -66,7 +66,8 @@ feature: `collections.ts`, `editors.ts`, `create-forms.ts`, `versions.ts`,
 and `version-reads.ts`. A feature changes its own folder; only adding or
 removing a feature touches a registry. TypeScript checks that every
 collection has its labels and its editor, and each registry refuses, as
-it loads, two features claiming one collection (`registry/combine.ts`).
+it loads, two features claiming one collection (`combine()`, from
+`packages/contracts`).
 
 **The core**, everything else in `src/admin`, is what every feature uses:
 the shell and navigation, lists and bulk actions, the record form and its
@@ -112,13 +113,40 @@ registries, `packages/contracts`, the other packages, and a collection's
 fields in `apps/api`, which the admin, the site, and the contracts all
 read. Their owners review them together.
 
-### Left for the next step
+### The contracts and the API
 
-The same split for the contracts and the API, in a second PR:
-`packages/contracts/src/admin-lists.ts`, which defines every collection's
-list; the API's `src/public/content.ts`, which builds every public page's
-data; and `src/collections/Topics.ts`, whose save and publish rules sit
-beside its fields.
+A second step split the three files there that every feature edited:
+
+- **The admin's lists.** Each feature defines its collections' lists in
+  `packages/contracts/src/lists/<feature>.ts`, from `lists/fields.ts` and
+  the domain only; `admin-lists.ts` combines them with `combine()`, which
+  the frontend's registries use too. TypeScript fails when a collection
+  has no list. The other contracts were already one file per feature
+  (`admin-topics.ts`, `admin-references.ts`, and so on).
+- **The public pages' data.** `apps/api/src/public` holds one module per
+  page: `topic-page.ts`, `individual-page.ts`, `country-page.ts`,
+  `home-page.ts`, `files.ts` for `/files`, and `browse.ts` with
+  `browse-terms.ts` for browsing. They are built from the read model's
+  shared modules: `read.ts` (the visibility rules and lookups),
+  `topic-lists.ts`, `evidence.ts`, `individuals.ts` (who is public and
+  which of their statements are shown), `naming.ts`, and
+  `profile-links.ts`. `cached.ts` caches each page's loader with its tags.
+- **The topics' rules.** `src/collections/Topics.ts` keeps the fields,
+  access, and which hooks run; the hooks live in `src/topics`:
+  `workflow.ts` (what a save may do and what a publish needs),
+  `publish-checks.ts` (the evidence rule), `change-log.ts` (the change log,
+  purges, search, and audit after a save), and `body-links.ts`.
+
+Lint enforces two more lines:
+
+| From                              | May not import                                                                       |
+| --------------------------------- | ------------------------------------------------------------------------------------ |
+| A feature's lists (`src/lists/*`) | Another feature's lists, or any of the contracts but `fields.ts`; the domain is fine |
+| A module in `apps/api/src/public` | A page's module, except `cached.ts`, which caches them all                           |
+
+The API's collections otherwise stay where Payload's config finds them,
+and features there may read each other's records through Payload, as a
+public individual's page lists the topics that name them.
 
 ## Consequences
 

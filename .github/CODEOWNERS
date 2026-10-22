@@ -28,6 +28,23 @@
 /apps/api/src/collections/Videos.ts @benoyj20
 /apps/api/src/collections/Media.ts @benoyj20
 /apps/api/src/collections/LinkArchives.ts @benoyj20
+/apps/api/src/topics/ @benoyj20
+/apps/api/src/public/topic-page.ts @benoyj20
+/apps/api/src/public/topic-lists.ts @benoyj20
+/apps/api/src/public/home-page.ts @benoyj20
+/apps/api/src/public/evidence.ts @benoyj20
+/apps/api/src/public/files.ts @benoyj20
+/packages/contracts/src/lists/topics.ts @benoyj20
+/packages/contracts/src/lists/references.ts @benoyj20
+/packages/contracts/src/lists/snippets.ts @benoyj20
+/packages/contracts/src/lists/media.ts @benoyj20
+/packages/contracts/src/lists/archives.ts @benoyj20
+/packages/contracts/src/admin-topics.ts @benoyj20
+/packages/contracts/src/admin-references.ts @benoyj20
+/packages/contracts/src/admin-snippets.ts @benoyj20
+/packages/contracts/src/admin-media.ts @benoyj20
+/packages/contracts/src/admin-checks.ts @benoyj20
+/packages/contracts/src/admin-evidence.ts @benoyj20
 
 # Directory: people, countries, and how topics are filed.
 /apps/frontend/src/admin/features/individuals/ @benoyj20
@@ -38,6 +55,15 @@
 /apps/api/src/collections/Countries.ts @benoyj20
 /apps/api/src/collections/Categories.ts @benoyj20
 /apps/api/src/collections/Tags.ts @benoyj20
+/apps/api/src/individuals/ @benoyj20
+/apps/api/src/public/individual-page.ts @benoyj20
+/apps/api/src/public/individuals.ts @benoyj20
+/apps/api/src/public/country-page.ts @benoyj20
+/apps/api/src/public/browse-terms.ts @benoyj20
+/packages/contracts/src/lists/individuals.ts @benoyj20
+/packages/contracts/src/lists/taxonomy.ts @benoyj20
+/packages/contracts/src/admin-individuals.ts @benoyj20
+/packages/contracts/src/admin-taxonomy.ts @benoyj20
 
 # Community: comments, moderation, notifications, and feedback.
 /apps/frontend/src/admin/features/moderation/ @benoyj20
@@ -52,6 +78,8 @@
 /apps/api/src/collections/Feedback.ts @benoyj20
 /apps/api/src/comments/ @benoyj20
 /apps/api/src/notifications/ @benoyj20
+/packages/contracts/src/lists/moderation.ts @benoyj20
+/packages/contracts/src/admin-moderation.ts @benoyj20
 
 # Accounts: sign-in, staff, invitations, and the audit log.
 /apps/frontend/src/admin/features/people/ @benoyj20
@@ -63,3 +91,7 @@
 /apps/api/src/collections/AuditLog.ts @benoyj20
 /apps/api/src/auth/ @benoyj20
 /apps/api/src/account/ @benoyj20
+/packages/contracts/src/lists/people.ts @benoyj20
+/packages/contracts/src/lists/audit.ts @benoyj20
+/packages/contracts/src/admin-people.ts @benoyj20
+/packages/contracts/src/sign-in.ts @benoyj20

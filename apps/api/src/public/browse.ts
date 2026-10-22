@@ -13,7 +13,7 @@ import {
 import { topicSearch } from "@/search";
 
 import { browseTerms } from "./cached";
-import { loadIndividualLinks, loadPublicIndividualLinks } from "./content";
+import { loadIndividualLinks, loadPublicIndividualLinks } from "./individuals";
 import type {
   BrowseFacetValue,
   BrowseFacets,

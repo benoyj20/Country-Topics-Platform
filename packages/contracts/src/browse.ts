@@ -3,12 +3,10 @@ import {
   type EvidenceKind,
   isLanguageTag,
   isSlug,
-} from "@countrytopics/domain";
-import {
   SEARCH_TEXT_MAX_LENGTH,
   TOPIC_SORTS,
   type TopicSort,
-} from "@countrytopics/search/topic-search";
+} from "@countrytopics/domain";
 
 // A browse request as it appears in a URL: /topics?country=kenya&sort=...
 // for people, and /api/v1/topics with the same parameters for the page's

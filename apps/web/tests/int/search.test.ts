@@ -1,4 +1,8 @@
-import { BrowseResult as BrowseContract } from "@countrytopics/contracts";
+import {
+  type BrowseQuery,
+  BrowseResult as BrowseContract,
+  EMPTY_BROWSE_QUERY,
+} from "@countrytopics/contracts";
 import {
   createRedisConnection,
   createSearchQueue,
@@ -24,7 +28,6 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { GET as getTopics } from "@/app/(frontend)/api/v1/topics/route";
 import type { Individual, Topic, User } from "@/payload-types";
 import { browseTopics } from "@/public/browse";
-import { EMPTY_BROWSE_QUERY, type BrowseQuery } from "@/public/browse-query";
 import { serverEnv } from "@/env";
 import { loadIndividualPage } from "@/public/content";
 import type { BrowseResult } from "@/public/types";

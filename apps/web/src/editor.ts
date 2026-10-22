@@ -1,4 +1,9 @@
 import {
+  type InternalLinkTarget,
+  internalLinkTarget,
+  isAllowedLinkUrl,
+} from "@countrytopics/domain";
+import {
   BlockquoteFeature,
   BoldFeature,
   FixedToolbarFeature,
@@ -16,15 +21,8 @@ import {
 } from "@payloadcms/richtext-lexical";
 import type { TextFieldSingleValidation } from "payload";
 
-/** External links in rich text: web pages and email only. */
-export function isAllowedLinkUrl(value: string): boolean {
-  try {
-    const { protocol } = new URL(value);
-    return ["https:", "http:", "mailto:"].includes(protocol);
-  } catch {
-    return false;
-  }
-}
+// The site's renderer uses these too, so they live in packages/domain.
+export { type InternalLinkTarget, internalLinkTarget, isAllowedLinkUrl };
 
 const validateLinkUrl: TextFieldSingleValidation = (value, { siblingData }) => {
   const linkType =
@@ -87,35 +85,6 @@ export function richTextHasText(value: unknown): boolean {
       : false;
   };
   return root ? visit(root) : false;
-}
-
-/** The document an internal link points to, as stored or populated. */
-export type InternalLinkTarget = { relationTo: string; id: string };
-
-/** The target of a link node's fields, when it is an internal link. */
-export function internalLinkTarget(fields: unknown): InternalLinkTarget | null {
-  if (
-    !fields ||
-    typeof fields !== "object" ||
-    !("linkType" in fields) ||
-    fields.linkType !== "internal" ||
-    !("doc" in fields) ||
-    !fields.doc ||
-    typeof fields.doc !== "object" ||
-    !("relationTo" in fields.doc) ||
-    typeof fields.doc.relationTo !== "string" ||
-    !("value" in fields.doc)
-  ) {
-    return null;
-  }
-  const value = fields.doc.value;
-  const id =
-    typeof value === "string"
-      ? value
-      : value && typeof value === "object" && "id" in value
-        ? String(value.id)
-        : null;
-  return id ? { relationTo: fields.doc.relationTo, id } : null;
 }
 
 /** Every document a Lexical document links to, each once, in reading order. */

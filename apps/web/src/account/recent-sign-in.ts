@@ -1,7 +1,10 @@
-// How recently a member must have signed in to delete their account (ADR
-// 0011), so that someone at a device left signed in cannot do it.
+import { RECENT_SIGN_IN_MS } from "@countrytopics/contracts";
 
-export const RECENT_SIGN_IN_MS = 10 * 60 * 1_000;
+// How recently a member must have signed in to delete their account (ADR
+// 0011), so that someone at a device left signed in cannot do it. The
+// account page says how long, so the limit is in packages/contracts.
+
+export { RECENT_SIGN_IN_MS };
 
 /**
  * Whether a session began recently enough for account deletion. Both times

@@ -3,6 +3,7 @@ import {
   normalizeDoi,
   normalizeIsbn,
   REFERENCE_CHECK_STATUSES,
+  REFERENCE_KIND_LABELS,
   REFERENCE_KINDS,
   type ReferenceCheckStatus,
   URL_MAX_LENGTH,
@@ -22,7 +23,6 @@ import {
 } from "@/access";
 import { auditHooks } from "@/audit";
 import { queueLinkArchives, queueReferenceCheck } from "@/content-jobs";
-import { REFERENCE_KIND_LABELS } from "@/content-labels";
 import { PUBLIC_TAGS, purgeOnChange } from "@/public-cache";
 import { bibliography } from "@/sources";
 

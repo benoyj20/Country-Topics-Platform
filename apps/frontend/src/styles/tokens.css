@@ -1,0 +1,87 @@
+/* The design's colour, type, and spacing tokens (PR #18), shared by the
+   site and the admin (ADR 0014). Each imports this file, then its own
+   styles. */
+
+:root {
+  color-scheme: light dark;
+
+  /* --font-inter and --font-source-serif are set by next/font (fonts.ts). */
+  --font-sans:
+    var(--font-inter), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-serif:
+    var(--font-source-serif), Georgia, Cambria, "Times New Roman", serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --page-width: 72rem;
+  --reading-width: 46rem;
+  --gutter: 1.25rem;
+  --header-height: 4rem;
+  --radius: 0.75rem;
+  --radius-small: 0.5rem;
+
+  /* Light: ink-blue text on a cool off-white page, white cards. */
+  --text: #1f2937;
+  --heading: #0b1526;
+  --muted: #5a6577;
+  --background: #f6f7f9;
+  --card: #ffffff;
+  --surface: #eef1f5;
+  --line: #e1e6ed;
+  --line-strong: #c9d1dc;
+  /* Form fields' edges: 3:1 against cards, so fields can be found. */
+  --field-border: #8a94a6;
+  --accent: #1d4ed8;
+  --accent-hover: #1e40af;
+  --accent-soft: #e9efff;
+  --accent-text: #ffffff;
+  --focus-ring: color-mix(in srgb, var(--accent) 35%, transparent);
+  --brand-deep: #0b2545;
+  --brand: #1d4ed8;
+  --supports: #e3f4e8;
+  --supports-text: #17643a;
+  --supports-line: #2f9e5b;
+  --contradicts: #fbe8e6;
+  --contradicts-text: #a52a1f;
+  --contradicts-line: #d4483b;
+  --context-line: #8a94a6;
+  --danger: #c62828;
+  --danger-hover: #a51f1f;
+  --danger-soft: #fdecec;
+  --warning: #b26a00;
+  --shadow-small: 0 1px 2px rgb(15 23 42 / 6%), 0 1px 3px rgb(15 23 42 / 6%);
+  --shadow: 0 4px 12px -2px rgb(15 23 42 / 8%), 0 2px 4px rgb(15 23 42 / 4%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #d6deea;
+    --heading: #f3f6fa;
+    --muted: #98a3b4;
+    --background: #0b111c;
+    --card: #121a28;
+    --surface: #1a2333;
+    --line: #232e42;
+    --line-strong: #34425c;
+    --field-border: #63738f;
+    --accent: #7ea6ff;
+    --accent-hover: #a5c1ff;
+    --accent-soft: #17264a;
+    --accent-text: #0b1a33;
+    --brand-deep: #08172e;
+    --brand: #1e3fae;
+    --supports: #12301f;
+    --supports-text: #8fd8a8;
+    --supports-line: #3fae6a;
+    --contradicts: #3a1916;
+    --contradicts-text: #f4a49b;
+    --contradicts-line: #e0675b;
+    --context-line: #6f7a8e;
+    /* Buttons keep white text on it, so it stays as dark as in light mode. */
+    --danger: #c62828;
+    --danger-hover: #d63a3a;
+    --danger-soft: #3a1916;
+    --warning: #e0a03a;
+    --shadow-small: 0 1px 2px rgb(0 0 0 / 30%);
+    --shadow: 0 6px 16px -4px rgb(0 0 0 / 45%);
+  }
+}

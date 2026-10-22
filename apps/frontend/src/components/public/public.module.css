@@ -1,0 +1,874 @@
+/* The public pages: topic lists, topic pages, profiles. Colours come from
+   the site's tokens in app/(frontend)/styles.css. */
+
+/* Page headers */
+
+.pageHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding-bottom: 1.75rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.pageHeader h1 {
+  margin: 0;
+}
+
+/* The home page's opening panel. */
+.hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  overflow: hidden;
+  padding: clamp(2rem, 1rem + 4vw, 4rem) clamp(1.5rem, 0.5rem + 4vw, 4rem);
+  border-radius: calc(var(--radius) * 1.5);
+  background:
+    radial-gradient(circle at 85% 15%, rgb(126 166 255 / 35%), transparent 45%),
+    linear-gradient(135deg, var(--brand) 0%, var(--brand-deep) 75%);
+  color: #fff;
+  isolation: isolate;
+}
+
+.hero h1 {
+  max-width: 18ch;
+  margin: 0;
+  color: #fff;
+  font-size: clamp(2.1rem, 1.5rem + 2.4vw, 3.4rem);
+}
+
+.hero p {
+  max-width: 40rem;
+  margin: 0;
+  color: rgb(255 255 255 / 85%);
+  font-size: 1.1rem;
+}
+
+/* A globe drawn behind the hero's text. */
+.heroGlobe {
+  position: absolute;
+  top: 50%;
+  right: -4rem;
+  z-index: -1;
+  width: 26rem;
+  height: 26rem;
+  transform: translateY(-50%);
+  opacity: 0.16;
+}
+
+@media (width < 48rem) {
+  .heroGlobe {
+    right: -10rem;
+    opacity: 0.1;
+  }
+}
+
+/* The home page's search box: a plain form to /topics. */
+.searchForm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  max-width: 40rem;
+}
+
+.searchForm input {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+.hero .searchForm {
+  flex-wrap: nowrap;
+  padding: 0.4rem;
+  border: 1px solid var(--field-border);
+  border-radius: calc(var(--radius-small) + 0.4rem);
+  background: var(--card);
+  box-shadow: 0 10px 30px -10px rgb(0 0 0 / 45%);
+}
+
+.hero .searchForm input {
+  border-color: transparent;
+  background: transparent;
+  font-size: 1.05rem;
+}
+
+.hero .searchForm input:focus {
+  border-color: var(--accent);
+}
+
+/* What the evidence behind a topic can be, under the hero. */
+.features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.feature {
+  display: flex;
+  gap: 0.85rem;
+  align-items: flex-start;
+  padding: 1.1rem 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+.feature h2 {
+  margin: 0 0 0.2rem;
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
+  font-weight: 650;
+  letter-spacing: 0;
+}
+
+.feature p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.featureIcon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius-small);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.featureIcon svg {
+  width: 1.3rem;
+  height: 1.3rem;
+}
+
+/* Sections */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 3rem;
+}
+
+.section > h2,
+.sectionHead h2 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+/* A section's heading with a link at the other end, such as "Browse all". */
+.sectionHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+
+.sectionHead a {
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.sectionHead a:hover {
+  text-decoration: underline;
+}
+
+/* How many items a section holds, next to its heading. */
+.tally {
+  margin-left: 0.25rem;
+  padding: 0.05rem 0.55rem;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  vertical-align: middle;
+}
+
+.meta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+/* Chips */
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+a.chip {
+  text-decoration: none;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+a.chip:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* Larger links to countries, on the home page. */
+.countryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 12rem), 1fr));
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.countryLink {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  color: var(--heading);
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.countryLink::after {
+  content: "→";
+  color: var(--muted);
+  transition:
+    transform 0.15s ease,
+    color 0.15s ease;
+}
+
+.countryLink:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  box-shadow: var(--shadow);
+  color: var(--heading);
+}
+
+.countryLink:hover::after {
+  transform: translateX(3px);
+  color: var(--accent);
+}
+
+/* Topic cards */
+
+.topics {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.topicGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 21rem), 1fr));
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The whole card opens the topic; its country links stay links of their own. */
+.topicCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1.25rem 1.4rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  box-shadow: var(--shadow-small);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+
+.topicCard:hover {
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  box-shadow: var(--shadow);
+}
+
+/* The title's link covers the card, so the card shows its focus. */
+.topicCard:has(h3 a:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.topicCard h3 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.topicCard h3 a {
+  color: var(--heading);
+  text-decoration: none;
+}
+
+.topicCard h3 a::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.topicCard h3 a:focus-visible {
+  outline: none;
+}
+
+.topicCard:hover h3 a {
+  color: var(--accent);
+}
+
+.topicCard p {
+  margin: 0;
+}
+
+.summary {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--text);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+
+.cardCountries {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.cardCountries a {
+  position: relative;
+  z-index: 1;
+  text-decoration: none;
+}
+
+.cardCountries a:hover {
+  text-decoration: underline;
+}
+
+.topicCard .cardMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin-top: auto;
+  padding-top: 0.5rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.empty {
+  margin: 0;
+  padding: 2rem 1.5rem;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius);
+  color: var(--muted);
+  text-align: center;
+}
+
+/* The topic page: the article, with a sidebar of its details on wide
+   screens and the details under its header on narrow ones. */
+
+.topicLayout {
+  display: grid;
+  grid-template-areas:
+    "header"
+    "aside"
+    "content";
+  gap: 2rem;
+}
+
+@media (width >= 60rem) {
+  .topicLayout {
+    grid-template-areas:
+      "header aside"
+      "content aside";
+    grid-template-columns: minmax(0, 1fr) 18rem;
+    grid-template-rows: auto 1fr;
+    column-gap: 3.5rem;
+  }
+}
+
+.topicHeader {
+  grid-area: header;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.topicHeader h1 {
+  margin: 0;
+}
+
+.topicContent {
+  grid-area: content;
+  min-width: 0;
+}
+
+.topicContent > .section:first-child {
+  margin-top: 0;
+}
+
+.aside {
+  grid-area: aside;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+@media (width >= 60rem) {
+  .aside {
+    position: sticky;
+    top: calc(var(--header-height) + 1.5rem);
+    align-self: start;
+    /* A long list of people and tags scrolls within the sidebar. */
+    max-height: calc(100vh - var(--header-height) - 3rem);
+    overflow-y: auto;
+  }
+}
+
+.asideCard {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+.asideCard h2 {
+  margin: 0;
+  color: var(--muted);
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.asideGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+/* The page's sections, as links: in the sidebar only, as on a phone they
+   would push the article further down. */
+@media (width < 60rem) {
+  .contents {
+    display: none;
+  }
+
+  /* With nothing else in it, the sidebar would leave an empty gap. */
+  .aside:not(:has(> :not(.contents))) {
+    display: none;
+  }
+}
+
+.toc {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.toc a {
+  display: block;
+  padding: 0.3rem 0 0.3rem 0.75rem;
+  border-left: 2px solid var(--line);
+  color: var(--text);
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+
+.toc a:hover {
+  border-left-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Individuals by their part in a topic. */
+.people {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.people dt {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.people dd {
+  margin: 0.15rem 0 0;
+}
+
+/* A dt and dd kept together. */
+.pair {
+  display: block;
+}
+
+.names {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.archived {
+  border-left-color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 10%, var(--card));
+}
+
+/* Rich text from the topic's body. */
+.body {
+  color: var(--text);
+  font-size: 1.075rem;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+
+.body > :first-child {
+  margin-top: 0;
+}
+
+.body p {
+  margin: 0 0 1.1em;
+}
+
+.body h2,
+.body h3,
+.body h4 {
+  margin: 1.8em 0 0.6em;
+}
+
+.body ul,
+.body ol {
+  padding-left: 1.4rem;
+}
+
+.body li + li {
+  margin-top: 0.3em;
+}
+
+.body blockquote {
+  margin: 1.5rem 0;
+  padding: 0.25rem 0 0.25rem 1.25rem;
+  border-left: 3px solid var(--accent);
+  color: var(--muted);
+  font-family: var(--font-serif);
+  font-size: 1.15rem;
+  font-style: italic;
+}
+
+.body hr {
+  margin: 2rem 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+/* Evidence and references */
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.card {
+  padding: 1.15rem 1.35rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+.item h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.item p {
+  margin: 0;
+}
+
+/* What kind of evidence an item is: a document, a web page, an image. */
+.kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.kind svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+/* The admin's note on a snippet, under its player. */
+.snippetNote {
+  padding: 0 0.25rem;
+  color: var(--muted);
+  font-size: 0.925rem;
+}
+
+.figure {
+  margin: 0;
+}
+
+.figure img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-small);
+  background: var(--surface);
+}
+
+.figure figcaption {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.75rem;
+}
+
+.credit {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+/* A reference, edged in the colour of its stance. */
+.reference {
+  border-left-width: 4px;
+  border-left-color: var(--context-line);
+}
+
+.reference.supports {
+  border-left-color: var(--supports-line);
+}
+
+.reference.contradicts {
+  border-left-color: var(--contradicts-line);
+}
+
+.badge {
+  align-self: flex-start;
+  display: inline-block;
+  padding: 0.1rem 0.6rem;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.badge.supports {
+  background: var(--supports);
+  color: var(--supports-text);
+}
+
+.badge.contradicts {
+  background: var(--contradicts);
+  color: var(--contradicts-text);
+}
+
+.passage {
+  margin: 0.25rem 0 0;
+  padding: 0.75rem 1rem;
+  border-left: 3px solid var(--line-strong);
+  border-radius: 0 var(--radius-small) var(--radius-small) 0;
+  background: var(--surface);
+  font-family: var(--font-serif);
+  font-size: 1.02rem;
+  font-style: italic;
+  overflow-wrap: anywhere;
+}
+
+.identifiers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+
+.backing {
+  font-size: 0.95rem;
+}
+
+.backing > summary {
+  color: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.backing[open] > summary {
+  margin-bottom: 1rem;
+}
+
+.backing > ol + ol {
+  margin-top: 1rem;
+}
+
+/* The change log, as a timeline. */
+.changes {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin: 0;
+  padding: 0 0 0 1.5rem;
+  list-style: none;
+}
+
+.changes::before {
+  content: "";
+  position: absolute;
+  top: 0.5rem;
+  bottom: 0.5rem;
+  left: 0.3rem;
+  width: 2px;
+  background: var(--line);
+}
+
+.changes li {
+  position: relative;
+}
+
+.changes li::before {
+  content: "";
+  position: absolute;
+  top: 0.45rem;
+  left: -1.5rem;
+  width: 0.65rem;
+  height: 0.65rem;
+  box-sizing: border-box;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  background: var(--card);
+}
+
+.changes strong {
+  color: var(--heading);
+}
+
+/* Profiles */
+
+.profile {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem 2rem;
+  align-items: center;
+  padding-bottom: 1.75rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.profile .figure {
+  flex: 0 0 8.5rem;
+}
+
+.profile .figure img {
+  aspect-ratio: 1;
+  width: 8.5rem;
+  border: 3px solid var(--card);
+  border-radius: 50%;
+  box-shadow: var(--shadow);
+  object-fit: cover;
+}
+
+.profileText {
+  display: flex;
+  flex: 1 1 16rem;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.profileText h1,
+.profileText p {
+  margin: 0;
+}
+
+.bio {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.statements {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

@@ -42,6 +42,9 @@ export const viewport: Viewport = {
   ],
 };
 
+// The site's pages are served by apps/frontend since ADR 0014's phase 5;
+// these copies no longer reach visitors and are removed in phase 12.
+// Change the pages there. The API routes in this group stay.
 export default function FrontendLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={`${sans.variable} ${serif.variable}`}>

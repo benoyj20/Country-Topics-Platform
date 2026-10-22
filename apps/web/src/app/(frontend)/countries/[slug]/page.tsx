@@ -1,3 +1,4 @@
+import { browseHref } from "@countrytopics/contracts";
 import { isSlug } from "@countrytopics/domain";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -5,7 +6,6 @@ import { notFound } from "next/navigation";
 
 import styles from "@/components/public/public.module.css";
 import { TopicList } from "@/components/public/TopicList";
-import { browseHref } from "@/public/browse-query";
 import { countryPage } from "@/public/cached";
 import type { CountryPage } from "@/public/types";
 

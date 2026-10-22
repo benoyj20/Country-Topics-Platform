@@ -1,0 +1,239 @@
+/* The /topics browser. Colours come from the site's tokens in
+   app/(frontend)/styles.css. */
+
+.search {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.4rem;
+  border: 1px solid var(--field-border);
+  border-radius: calc(var(--radius-small) + 0.4rem);
+  background: var(--card);
+  box-shadow: var(--shadow-small);
+}
+
+.search input {
+  flex: 1 1 14rem;
+  min-width: 0;
+  border-color: transparent;
+  background: transparent;
+  font-size: 1.05rem;
+}
+
+.flush {
+  margin: 0;
+}
+
+/* The filters beside the results on wide screens (WIDE_SCREEN in
+   TopicBrowser.tsx), above them on narrow ones. */
+.layout {
+  display: grid;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (width >= 48rem) {
+  .layout {
+    grid-template-columns: 16rem minmax(0, 1fr);
+    gap: 2rem;
+  }
+
+  .filters {
+    position: sticky;
+    top: calc(var(--header-height) + 1rem);
+    max-height: calc(100vh - var(--header-height) - 2rem);
+    overflow-y: auto;
+  }
+}
+
+.results {
+  min-width: 0;
+}
+
+.filters {
+  box-sizing: border-box;
+  padding: 0.85rem 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+.filters summary {
+  color: var(--heading);
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.facets {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-top: 1rem;
+}
+
+.facet {
+  min-width: 0;
+  margin: 0;
+  padding: 1rem 0 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+.facet legend {
+  float: left;
+  width: 100%;
+  margin-bottom: 0.4rem;
+  padding: 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.facet legend + * {
+  clear: both;
+}
+
+.group {
+  margin: 0.5rem 0 0.15rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.options {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.2rem 0;
+  font-size: 0.925rem;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.count {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.dates {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.dates label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.875rem;
+}
+
+.chosen {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A chosen filter; choosing it again removes it. */
+.chip {
+  padding: 0.2rem 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.chip:hover {
+  border-color: var(--accent);
+}
+
+.clear {
+  padding: 0.2rem 0.4rem;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.85rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.clear:hover {
+  color: var(--accent);
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.total {
+  flex: 1 1 auto;
+  margin: 0;
+  color: var(--heading);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 650;
+  letter-spacing: 0;
+}
+
+.sort {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.sort select {
+  min-height: 2.4rem;
+  padding: 0.4rem 0.6rem;
+  color: var(--text);
+}
+
+.copied {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.copyField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+/* Results from the previous request, shown while the next loads. */
+.stale {
+  opacity: 0.6;
+  transition: opacity 0.15s ease;
+}
+
+.more {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}

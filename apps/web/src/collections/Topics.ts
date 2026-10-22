@@ -2,8 +2,11 @@ import {
   CLAIM_STANCES,
   changeNoteRequired,
   evidenceProblems,
+  PERSON_ROLE_LABELS,
   type SnippetEvidence,
+  STANCE_LABELS,
   TOPIC_PERSON_ROLES,
+  TOPIC_STATE_LABELS,
   TOPIC_STATES,
   type TopicChangeKind,
   type TopicSave,
@@ -27,11 +30,6 @@ import {
 } from "@/access";
 import { rows } from "@/array-rows";
 import { recordAudit, relationId } from "@/audit";
-import {
-  PERSON_ROLE_LABELS,
-  STANCE_LABELS,
-  TOPIC_STATE_LABELS,
-} from "@/content-labels";
 import { queueLinkArchives, queueSearchIndex } from "@/content-jobs";
 import { richTextHasText, richTextLinkedIds, richTextLinksTo } from "@/editor";
 import { PUBLIC_TAGS, purgePublicPages } from "@/public-cache";

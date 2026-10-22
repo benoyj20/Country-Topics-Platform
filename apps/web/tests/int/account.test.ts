@@ -1,3 +1,11 @@
+import {
+  AccountAnswer,
+  CommentPage,
+  type CommentViewer,
+  PostedComment,
+  type PublicComment,
+  SignInOptions,
+} from "@countrytopics/contracts";
 import { createTopicSearchSource } from "@countrytopics/jobs";
 import config from "@payload-config";
 import {
@@ -12,25 +20,26 @@ import type { AccountExport } from "@/account/export";
 import { GET as getViewer } from "@/app/(frontend)/api/v1/account/comments/route";
 import { PUT as putDisplayName } from "@/app/(frontend)/api/v1/account/display-name/route";
 import { GET as getExport } from "@/app/(frontend)/api/v1/account/export/route";
-import { DELETE as deleteAccount } from "@/app/(frontend)/api/v1/account/route";
+import {
+  DELETE as deleteAccount,
+  GET as getAccount,
+} from "@/app/(frontend)/api/v1/account/route";
 import { POST as postReport } from "@/app/(frontend)/api/v1/comments/[id]/reports/route";
 import { PUT as putVote } from "@/app/(frontend)/api/v1/comments/[id]/vote/route";
 import { POST as postFeedback } from "@/app/(frontend)/api/v1/feedback/route";
+import { GET as getSignInOptions } from "@/app/(frontend)/api/v1/sign-in-options/route";
 import {
   GET as getComments,
   POST as postComments,
 } from "@/app/(frontend)/api/v1/topics/[slug]/comments/route";
-import type {
-  CommentPage,
-  CommentViewer,
-  PublicComment,
-} from "@/comments/types";
+import { serverEnv } from "@/env";
 import type { Topic, User } from "@/payload-types";
 import { RATE_LIMITS } from "@/rate-limit";
 
 import { richText, workerSide } from "./fixtures";
 import {
   clearRateLimits,
+  contractJson,
   CookieJar,
   countryId,
   payloadRest,
@@ -117,7 +126,7 @@ async function posted(
     bySlug(topic.slug),
   );
   expect(response.status).toBe(201);
-  return ((await response.json()) as { comment: PublicComment }).comment;
+  return (await contractJson(PostedComment, response)).comment;
 }
 
 async function page(): Promise<CommentPage> {
@@ -126,7 +135,7 @@ async function page(): Promise<CommentPage> {
     bySlug(topic.slug),
   );
   expect(response.status).toBe(200);
-  return (await response.json()) as CommentPage;
+  return contractJson(CommentPage, response);
 }
 
 const listed = (current: CommentPage, id: string) =>
@@ -228,6 +237,53 @@ beforeEach(clearRateLimits);
 afterAll(async () => {
   await stopEmailWorker?.();
   await worker?.close();
+});
+
+describe("the account, as the frontend asks for it", () => {
+  it("is the signed-in person, or null for visitors, and is never cached", async () => {
+    const asked = await getAccount(
+      request("GET", "/api/v1/account", { jar: dave }),
+    );
+    expect(asked.status).toBe(200);
+    expect(asked.headers.get("cache-control")).toBe("private, no-store");
+    // Reading the session sets no cookie: the frontend renders with it.
+    expect(asked.headers.getSetCookie()).toEqual([]);
+    expect((await contractJson(AccountAnswer, asked)).account).toEqual({
+      email: testEmail("account-dave"),
+      name: daveProfile.name ?? null,
+      displayName: "TEST Dave A",
+      role: "member",
+      staff: false,
+      twoFactorEnabled: false,
+      adminVerified: false,
+    });
+
+    const staff = await contractJson(
+      AccountAnswer,
+      await getAccount(request("GET", "/api/v1/account", { jar: admin })),
+    );
+    expect(staff.account).toMatchObject({
+      role: "admin",
+      staff: true,
+      twoFactorEnabled: true,
+      adminVerified: true,
+    });
+
+    const visitor = await contractJson(
+      AccountAnswer,
+      await getAccount(request("GET", "/api/v1/account")),
+    );
+    expect(visitor.account).toBeNull();
+  });
+
+  it("comes with what the sign-in page offers", async () => {
+    const response = getSignInOptions();
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(await contractJson(SignInOptions, response)).toEqual({
+      google: Boolean(serverEnv().google),
+      turnstileSiteKey: serverEnv().turnstile?.siteKey ?? null,
+    });
+  });
 });
 
 describe("feedback", () => {

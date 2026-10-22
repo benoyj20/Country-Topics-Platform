@@ -1,3 +1,12 @@
+import {
+  CommentPage,
+  LinkedThread,
+  type MemberNotification,
+  NotificationPage,
+  PostedComment,
+  type PublicComment,
+  UnreadNotifications,
+} from "@countrytopics/contracts";
 import { createTopicSearchSource } from "@countrytopics/jobs";
 import config from "@payload-config";
 import {
@@ -19,22 +28,14 @@ import {
   POST as postComments,
 } from "@/app/(frontend)/api/v1/topics/[slug]/comments/route";
 import { createComment, findCommentTopic } from "@/comments/store";
-import type {
-  CommentPage,
-  CommentThread,
-  PublicComment,
-} from "@/comments/types";
 import { NOTIFICATIONS_PAGE_SIZE } from "@/notifications/limits";
-import type {
-  MemberNotification,
-  NotificationPage,
-} from "@/notifications/types";
 import type { Comment, Topic, User } from "@/payload-types";
 import { RATE_LIMITS } from "@/rate-limit";
 
 import { richText, workerSide } from "./fixtures";
 import {
   clearRateLimits,
+  contractJson,
   CookieJar,
   countryId,
   payloadRest,
@@ -124,7 +125,7 @@ async function posted(
 ): Promise<PublicComment> {
   const response = await post(jar, body, parentId);
   expect(response.status).toBe(201);
-  return ((await response.json()) as { comment: PublicComment }).comment;
+  return (await contractJson(PostedComment, response)).comment;
 }
 
 async function page(): Promise<CommentPage> {
@@ -135,7 +136,7 @@ async function page(): Promise<CommentPage> {
     bySlug(topic.slug),
   );
   expect(response.status).toBe(200);
-  return (await response.json()) as CommentPage;
+  return contractJson(CommentPage, response);
 }
 
 const listed = (current: CommentPage, id: string) =>
@@ -177,7 +178,7 @@ async function notifications(jar: CookieJar): Promise<NotificationPage> {
   );
   expect(response.status).toBe(200);
   expect(response.headers.get("cache-control")).toBe("private, no-store");
-  return (await response.json()) as NotificationPage;
+  return contractJson(NotificationPage, response);
 }
 
 async function unread(jar: CookieJar): Promise<number> {
@@ -185,7 +186,7 @@ async function unread(jar: CookieJar): Promise<number> {
     request("GET", "/api/v1/account/notifications/unread", { jar }),
   );
   expect(response.status).toBe(200);
-  return ((await response.json()) as { unread: number }).unread;
+  return (await contractJson(UnreadNotifications, response)).unread;
 }
 
 function markRead(jar: CookieJar, ids: string[]) {
@@ -511,9 +512,7 @@ describe("hiding comments", () => {
       { params: Promise.resolve({ slug: topic.slug, id: reply.id }) },
     );
     expect(linked.status).toBe(200);
-    expect(
-      ((await linked.json()) as { thread: CommentThread }).thread,
-    ).toMatchObject({
+    expect((await contractJson(LinkedThread, linked)).thread).toMatchObject({
       id: thread.id,
       hidden: true,
     });

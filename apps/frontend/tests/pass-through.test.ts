@@ -93,32 +93,32 @@ describe("the pass-through", () => {
     const request = new Request("http://localhost:3000/x");
     // A path a router might let through, which a URL would read as a host.
     Object.defineProperty(request, "url", {
-      value: "http://localhost:3000//evil.example/steal?a=1",
+      value: "http://localhost:3000/api//evil.example/steal?a=1",
     });
     await passThrough(request, LOCAL, send);
     const [{ url }] = sent as [Sent];
     assert.equal(new URL(url).origin, "http://localhost:3002");
-    assert.equal(url, "http://localhost:3002//evil.example/steal?a=1");
+    assert.equal(url, "http://localhost:3002/api//evil.example/steal?a=1");
   });
 
-  it("signs a page-data request without Next.js's _rsc parameter, and keeps it in the URL", async () => {
+  it("signs a request without Next.js's _rsc parameter, which the backend's Next.js removes, and keeps it in the URL", async () => {
     const { sent, send } = backend(() => new Response("ok"));
     await passThrough(
-      new Request("http://localhost:3000/topics/x?_rsc=abc", {
+      new Request("http://localhost:3000/api/v1/x?_rsc=abc", {
         headers: { rsc: "1" },
       }),
       LOCAL,
       send,
     );
     const [{ url, init }] = sent as [Sent];
-    assert.equal(url, "http://localhost:3002/topics/x?_rsc=abc");
+    assert.equal(url, "http://localhost:3002/api/v1/x?_rsc=abc");
     const headers = new Headers(init.headers);
     assert.equal(headers.get("rsc"), "1");
     assert.equal(
       (
         await checkForwardedRequest(
           LOCAL.forwardingKey,
-          { method: "GET", pathAndQuery: "/topics/x" },
+          { method: "GET", pathAndQuery: "/api/v1/x" },
           headers,
         )
       ).ok,
@@ -216,9 +216,29 @@ describe("the pass-through", () => {
     );
   });
 
-  it("never passes on the purge, or the new admin's addresses", async () => {
+  it("passes on /api and /files only, never the purge", async () => {
     const { sent, send } = backend(() => new Response("ok"));
-    for (const path of ["/api/revalidate", "/admin", "/admin/topics"]) {
+    for (const path of [
+      "/api/v1/pages/home",
+      "/api/auth/get-session",
+      "/files/x",
+    ]) {
+      const response = await passThrough(
+        new Request(`http://localhost:3000${path}`),
+        LOCAL,
+        send,
+      );
+      assert.equal(response.status, 200, path);
+    }
+    assert.equal(sent.length, 3);
+    for (const path of [
+      "/api/revalidate",
+      "/api/revalidate/x",
+      "/admin",
+      "/topics/x",
+      "/apis",
+      "/",
+    ]) {
       const response = await passThrough(
         new Request(`http://localhost:3000${path}`),
         LOCAL,
@@ -226,29 +246,34 @@ describe("the pass-through", () => {
       );
       assert.equal(response.status, 404, path);
     }
-    assert.equal(sent.length, 0);
-    await passThrough(
-      new Request("http://localhost:3000/administrators"),
-      LOCAL,
-      send,
-    );
-    assert.equal(sent.length, 1);
-    // Spelled another way the backend's router reads the same.
-    for (const path of ["/%61dmin", "/api/%72evalidate"]) {
-      const response = await passThrough(
-        new Request(`http://localhost:3000${path}`),
-        LOCAL,
-        send,
-      );
+    assert.equal(sent.length, 3);
+  });
+
+  it("reads a path as the backend's router does, so no spelling reaches another", async () => {
+    const { sent, send } = backend(() => new Response("ok"));
+    for (const path of [
+      // Percent-encoded, as the backend decodes it.
+      "/api/%72evalidate",
+      "/%61pi%2Frevalidate",
+      // Dot segments, which URL parsing resolves, or the backend might.
+      "/api/..%2Fadmin",
+      "/files/.%2E/admin",
+      "/api/%2E%2E%2Fadmin",
+    ]) {
+      const request = new Request("http://localhost:3000/api/x");
+      Object.defineProperty(request, "url", {
+        value: `http://localhost:3000${path}`,
+      });
+      const response = await passThrough(request, LOCAL, send);
       assert.equal(response.status, 404, path);
     }
     const unreadable = await passThrough(
-      new Request("http://localhost:3000/%E0%A4%A"),
+      new Request("http://localhost:3000/api/%E0%A4%A"),
       LOCAL,
       send,
     );
     assert.equal(unreadable.status, 400);
-    assert.equal(sent.length, 1);
+    assert.equal(sent.length, 0);
   });
 
   it("says when the backend cannot be reached, or takes too long", async () => {
@@ -261,14 +286,17 @@ describe("the pass-through", () => {
       down.send,
     );
     assert.equal(api.status, 502);
-    assert.match((await api.json()).error, /not available right now/);
-    const page = await passThrough(
-      new Request("http://localhost:3000/topics"),
+    // The shape of every /api refusal (packages/contracts' ApiError).
+    const body = await api.json();
+    assert.match(body.error, /not available right now/);
+    assert.deepEqual(body.problems, []);
+    const file = await passThrough(
+      new Request("http://localhost:3000/files/x"),
       LOCAL,
       down.send,
     );
-    assert.equal(page.status, 502);
-    assert.match(page.headers.get("content-type") ?? "", /text\/plain/);
+    assert.equal(file.status, 502);
+    assert.match(file.headers.get("content-type") ?? "", /text\/plain/);
 
     const slow = (async (_url: URL | string, init: RequestInit = {}) =>
       new Promise((_resolve, reject) => {
@@ -299,7 +327,23 @@ describe("the frontend's settings", () => {
       siteUrl: "http://localhost:3000",
       backendUrl: "http://localhost:3002",
       forwardingKey: "f".repeat(32),
+      contactEmail: undefined,
+      siteOperator: undefined,
     });
+  });
+
+  it("read who runs the site, for the legal pages, and refuse a bad address", () => {
+    const settings = readFrontendSettings({
+      ...valid,
+      SITE_OPERATOR: " TEST Operator ",
+      CONTACT_EMAIL: "test-contact@example.test",
+    });
+    assert.equal(settings.siteOperator, "TEST Operator");
+    assert.equal(settings.contactEmail, "test-contact@example.test");
+    assert.throws(
+      () => readFrontendSettings({ ...valid, CONTACT_EMAIL: "not an address" }),
+      /CONTACT_EMAIL must be empty or an email address/,
+    );
   });
 
   it("refuse a short key, the same address twice, or another environment's backend", () => {

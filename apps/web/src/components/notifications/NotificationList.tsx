@@ -1,5 +1,6 @@
 "use client";
 
+import { COMMENT_REPORT_REASON_LABELS } from "@countrytopics/domain";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -8,7 +9,6 @@ import {
   formatCommentTime,
   markNotificationsRead,
 } from "@/components/comments/comments-api";
-import { COMMENT_REPORT_REASON_LABELS } from "@/content-labels";
 import type {
   MemberNotification,
   ModerationNotification,

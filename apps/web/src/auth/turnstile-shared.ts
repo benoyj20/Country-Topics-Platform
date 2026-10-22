@@ -1,10 +1,7 @@
-// Shared by the sign-in form and the server's Turnstile check (ADR 0010).
+// Shared by the sign-in form and the server's Turnstile check (ADR 0010);
+// the header and action are in packages/contracts, for the site's form.
 
-/** The header the browser sends a Turnstile token in. */
-export const TURNSTILE_HEADER = "x-captcha-response";
-
-/** The widget's action, which Cloudflare reports back for real keys. */
-export const TURNSTILE_ACTION = "sign-in";
+export { TURNSTILE_ACTION, TURNSTILE_HEADER } from "@countrytopics/contracts";
 
 // Cloudflare's published test secrets, which pass, fail, or report a spent
 // token whatever is sent (developers.cloudflare.com/turnstile/troubleshooting/testing/).

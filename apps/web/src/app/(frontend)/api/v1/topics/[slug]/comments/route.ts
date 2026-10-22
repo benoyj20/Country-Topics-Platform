@@ -1,3 +1,4 @@
+import { NewComment } from "@countrytopics/contracts";
 import {
   commentBodyProblem,
   commentLinkCount,
@@ -8,12 +9,11 @@ import {
   normalizeCommentBody,
 } from "@countrytopics/domain";
 
-import { canonicalRedirect } from "@/api/redirect";
 import { apiError, NO_STORE, readJsonBody } from "@/api/json";
 import { rateLimited, refundRateLimited, writingMember } from "@/api/member";
+import { canonicalRedirect } from "@/api/redirect";
 import {
   COMMENT_REQUEST_MAX_BYTES,
-  newCommentSchema,
   parseListParams,
   problemsOf,
 } from "@/comments/requests";
@@ -85,7 +85,7 @@ export async function POST(request: Request, { params }: Context) {
   if (!member.ok) return member.response;
   const read = await readJsonBody(request, COMMENT_REQUEST_MAX_BYTES);
   if (!read.ok) return read.response;
-  const parsed = newCommentSchema.safeParse(read.value);
+  const parsed = NewComment.safeParse(read.value);
   if (!parsed.success) {
     return apiError(400, "The comment could not be read.", {
       problems: problemsOf(parsed.error),

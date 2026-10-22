@@ -1,9 +1,9 @@
+import { safeCallbackPath } from "@countrytopics/contracts";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { EMAIL_NOT_VERIFIED_ERROR, NOT_INVITED_ERROR } from "@/auth/auth";
 import { currentAccount } from "@/auth/current-account";
-import { safeCallbackPath } from "@/auth/redirects";
 import { serverEnv } from "@/env";
 
 import { SignInForm } from "./SignInForm";

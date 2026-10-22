@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  FEEDBACK_KIND_LABELS,
   FEEDBACK_KINDS,
   FEEDBACK_MESSAGE_MAX_LENGTH,
   type FeedbackKind,
@@ -11,7 +12,6 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { sendFeedback } from "@/components/account-api";
-import { FEEDBACK_KIND_LABELS } from "@/content-labels";
 
 /** Sends feedback about the site; `page` is the path it is about, if any. */
 export function FeedbackForm({ page }: { page: string | null }) {

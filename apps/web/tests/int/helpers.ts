@@ -5,11 +5,26 @@ import { createOTP } from "@better-auth/utils/otp";
 import config from "@payload-config";
 import { REST_GET, REST_PATCH, REST_POST } from "@payloadcms/next/routes";
 import type { Payload } from "payload";
+import { expect } from "vitest";
 import * as z from "zod";
 
 import { getAuth } from "@/auth/auth";
 import { serverEnv } from "@/env";
 import type { User } from "@/payload-types";
+
+/**
+ * A response's JSON, checked against its contract (packages/contracts): it
+ * must parse unchanged, so the backend sends nothing its contract leaves
+ * out, such as a staff-only field (ADR 0014).
+ */
+export async function contractJson<T>(
+  schema: { parse(value: unknown): T },
+  response: Response,
+): Promise<T> {
+  const body: unknown = await response.json();
+  expect(schema.parse(body)).toEqual(body);
+  return body as T;
+}
 
 export const SITE_URL = "http://localhost:3000";
 const MAILPIT_URL = process.env.TEST_MAILPIT_URL ?? "http://localhost:8025";

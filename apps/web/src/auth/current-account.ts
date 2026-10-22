@@ -1,9 +1,5 @@
-import {
-  canEnterAdminPanel,
-  isRole,
-  isStaff,
-  type Role,
-} from "@countrytopics/domain";
+import type { Account } from "@countrytopics/contracts";
+import { canEnterAdminPanel, isRole, isStaff } from "@countrytopics/domain";
 import { headers } from "next/headers";
 
 import { loadPayload } from "@/payload-instance";
@@ -11,24 +7,26 @@ import { loadPayload } from "@/payload-instance";
 import { ensureUserProfile } from "./accounts";
 import { getAuth } from "./auth";
 
-export type CurrentAccount = {
-  email: string;
-  name: string | null;
-  /** Shown publicly with their comments; null until they choose one. */
-  displayName: string | null;
-  role: Role;
-  staff: boolean;
-  twoFactorEnabled: boolean;
-  /** This session passed the authenticator check recently enough for the admin panel. */
-  adminVerified: boolean;
-};
+export type CurrentAccount = Account;
 
 /** The signed-in person for server-rendered pages, or null for visitors. */
 export async function currentAccount(): Promise<CurrentAccount | null> {
-  // Server components cannot set cookies, so the browser refreshes the session
-  // instead (RefreshSession).
+  return accountFor(await headers());
+}
+
+/**
+ * The person a request's session cookie belongs to, or null for visitors:
+ * for this backend's pages, and for the frontend's, which ask through
+ * GET /api/v1/account.
+ */
+export async function accountFor(
+  requestHeaders: Headers,
+): Promise<CurrentAccount | null> {
+  // Reading a session must not set cookies: server components cannot, and
+  // the frontend renders its pages with them unchanged. The browser
+  // refreshes the session instead (RefreshSession).
   const session = await getAuth().api.getSession({
-    headers: await headers(),
+    headers: requestHeaders,
     query: { disableRefresh: true },
   });
   if (!session) return null;

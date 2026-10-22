@@ -1,3 +1,4 @@
+import { DisplayNameChange } from "@countrytopics/contracts";
 import {
   displayNameProblem,
   normalizeDisplayName,
@@ -5,11 +6,7 @@ import {
 
 import { apiError, NO_STORE, readJsonBody } from "@/api/json";
 import { rateLimited, writingMember } from "@/api/member";
-import {
-  displayNameSchema,
-  problemsOf,
-  SMALL_REQUEST_MAX_BYTES,
-} from "@/comments/requests";
+import { problemsOf, SMALL_REQUEST_MAX_BYTES } from "@/comments/requests";
 import { loadPayload } from "@/payload-instance";
 
 // PUT /api/v1/account/display-name, `{ displayName }`: the name shown
@@ -21,7 +18,7 @@ export async function PUT(request: Request) {
   if (!member.ok) return member.response;
   const read = await readJsonBody(request, SMALL_REQUEST_MAX_BYTES);
   if (!read.ok) return read.response;
-  const parsed = displayNameSchema.safeParse(read.value);
+  const parsed = DisplayNameChange.safeParse(read.value);
   if (!parsed.success) {
     return apiError(400, "The name could not be read.", {
       problems: problemsOf(parsed.error),

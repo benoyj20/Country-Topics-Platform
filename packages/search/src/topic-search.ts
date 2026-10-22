@@ -1,4 +1,4 @@
-import type { EvidenceKind } from "@countrytopics/domain";
+import type { EvidenceKind, TopicSort } from "@countrytopics/domain";
 
 // The search adapter (ADR 0008): F1 browsing, filters, and full-text search
 // over listed topics. The index is a copy, rebuilt from PostgreSQL by the
@@ -6,22 +6,14 @@ import type { EvidenceKind } from "@countrytopics/domain";
 // and rank text can implement it (PostgreSQL full text now, Meilisearch or
 // OpenSearch when facet load requires it, ADR 0001).
 
-export const TOPIC_SORTS = [
-  /** Best text match first; only with search words. */
-  "relevance",
-  /** First published, newest first. */
-  "newest",
-  /** Last published (an update or the first publish), newest first. */
-  "updated",
-  /** Most references cited, then newest first. */
-  "referenced",
-  /** Most comments (replies included), then newest first. */
-  "discussed",
-] as const;
-export type TopicSort = (typeof TOPIC_SORTS)[number];
+// Shared with the site, which must not depend on this package's database
+// adapter.
+export {
+  SEARCH_TEXT_MAX_LENGTH,
+  TOPIC_SORTS,
+  type TopicSort,
+} from "@countrytopics/domain";
 
-/** Search words, as typed; longer queries are refused rather than cut. */
-export const SEARCH_TEXT_MAX_LENGTH = 200;
 /** Topics in one page of results. */
 export const SEARCH_PAGE_SIZE = 20;
 /** Values listed per facet, most topics first; selected ones are always kept. */

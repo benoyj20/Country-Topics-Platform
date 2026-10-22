@@ -1,8 +1,8 @@
+import { browseSearchParams, parseBrowseQuery } from "@countrytopics/contracts";
 import { InvalidCursorError } from "@countrytopics/search/topic-search";
 
 import { canonicalRedirect } from "@/api/redirect";
 import { browseTopics } from "@/public/browse";
-import { browseSearchParams, parseBrowseQuery } from "@/public/browse-query";
 
 // GET /api/v1/topics: listed topics for browsing and search (ADR 0008), with
 // the same parameters as the /topics page, plus `cursor` for later pages.

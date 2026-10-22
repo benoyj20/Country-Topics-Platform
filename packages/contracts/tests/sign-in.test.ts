@@ -1,13 +1,15 @@
-import { describe, expect, it } from "vitest";
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
 
-import { DEFAULT_AFTER_SIGN_IN, safeCallbackPath } from "@/auth/redirects";
+import { DEFAULT_AFTER_SIGN_IN, safeCallbackPath } from "../src/index.ts";
 
 const SITE = "http://localhost:3000";
 
 describe("safeCallbackPath", () => {
   it("keeps paths on this site, with their query and fragment", () => {
-    expect(safeCallbackPath("/admin", SITE)).toBe("/admin");
-    expect(safeCallbackPath("/account?tab=security#code", SITE)).toBe(
+    assert.equal(safeCallbackPath("/admin", SITE), "/admin");
+    assert.equal(
+      safeCallbackPath("/account?tab=security#code", SITE),
       "/account?tab=security#code",
     );
   });
@@ -21,12 +23,12 @@ describe("safeCallbackPath", () => {
       "javascript:alert(1)",
       "account",
     ]) {
-      expect(safeCallbackPath(value, SITE), value).toBe(DEFAULT_AFTER_SIGN_IN);
+      assert.equal(safeCallbackPath(value, SITE), DEFAULT_AFTER_SIGN_IN, value);
     }
   });
 
   it("uses the default for missing or repeated values", () => {
-    expect(safeCallbackPath(undefined, SITE)).toBe(DEFAULT_AFTER_SIGN_IN);
-    expect(safeCallbackPath(["/a", "/b"], SITE)).toBe(DEFAULT_AFTER_SIGN_IN);
+    assert.equal(safeCallbackPath(undefined, SITE), DEFAULT_AFTER_SIGN_IN);
+    assert.equal(safeCallbackPath(["/a", "/b"], SITE), DEFAULT_AFTER_SIGN_IN);
   });
 });

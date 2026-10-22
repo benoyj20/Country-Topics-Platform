@@ -128,6 +128,29 @@ export function readSecret(env: Env, name: string, problems: string[]): string {
   return value;
 }
 
+const SITE_OPERATOR_MAX_LENGTH = 200;
+
+/**
+ * Who runs the site and how to reach them, as the privacy policy and terms
+ * name them (ADR 0011). Both are optional: the pages mark what is missing.
+ */
+export function readLegalContacts(
+  env: Env,
+  problems: string[],
+): { contactEmail?: string; siteOperator?: string } {
+  const contactEmail = env.CONTACT_EMAIL?.trim() || undefined;
+  if (contactEmail && !/^[^@\s]+@[^@\s]+$/.test(contactEmail)) {
+    problems.push("CONTACT_EMAIL must be empty or an email address");
+  }
+  const siteOperator = env.SITE_OPERATOR?.trim() || undefined;
+  if (siteOperator && siteOperator.length > SITE_OPERATOR_MAX_LENGTH) {
+    problems.push(
+      `SITE_OPERATOR must be at most ${SITE_OPERATOR_MAX_LENGTH} characters`,
+    );
+  }
+  return { contactEmail, siteOperator };
+}
+
 /**
  * A hostname as URL gives it, lowercased and without a trailing dot. URL
  * normalises http(s) hosts itself, but not those of postgres://, redis://,

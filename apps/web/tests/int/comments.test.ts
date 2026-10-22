@@ -1,4 +1,12 @@
 import {
+  CommentPage,
+  CommentViewer,
+  CountedVote,
+  PostedComment,
+  type PublicComment,
+  ReplyPage,
+} from "@countrytopics/contracts";
+import {
   createTopicSearchSource,
   processSearchJob,
   searchJobSchema,
@@ -38,17 +46,12 @@ import {
   findCommentTopic,
   THREAD_REPLIES_SHOWN,
 } from "@/comments/store";
-import type {
-  CommentPage,
-  CommentViewer,
-  PublicComment,
-  ReplyPage,
-} from "@/comments/types";
 import type { Topic, User } from "@/payload-types";
 
 import { richText, workerSide } from "./fixtures";
 import {
   clearRateLimits,
+  contractJson,
   CookieJar,
   countryId,
   payloadRest,
@@ -141,7 +144,7 @@ function list(topic: Topic, search = "") {
 async function page(topic: Topic, search = ""): Promise<CommentPage> {
   const response = await list(topic, search);
   expect(response.status).toBe(200);
-  return (await response.json()) as CommentPage;
+  return contractJson(CommentPage, response);
 }
 
 function post(topic: Topic, call: Call) {
@@ -159,7 +162,7 @@ async function posted(
 ): Promise<PublicComment> {
   const response = await post(topic, { jar, body: { body, parentId } });
   expect(response.status).toBe(201);
-  return ((await response.json()) as { comment: PublicComment }).comment;
+  return (await contractJson(PostedComment, response)).comment;
 }
 
 function vote(id: string, call: Call) {
@@ -182,7 +185,7 @@ async function viewer(ids: string[], jar?: CookieJar): Promise<CommentViewer> {
   );
   expect(response.status).toBe(200);
   expect(response.headers.get("cache-control")).toBe("private, no-store");
-  return (await response.json()) as CommentViewer;
+  return contractJson(CommentViewer, response);
 }
 
 function setName(jar: CookieJar, displayName: string) {
@@ -510,7 +513,7 @@ describe("listing", () => {
       byId(thread.id),
     );
     expect(response.status).toBe(200);
-    const rest = (await response.json()) as ReplyPage;
+    const rest = await contractJson(ReplyPage, response);
     expect(rest.replies.map((item) => item.id)).toEqual(
       replies.slice(THREAD_REPLIES_SHOWN),
     );
@@ -535,7 +538,7 @@ describe("votes", () => {
     const score = async (value: number) => {
       const response = await vote(target.id, { jar: bob, body: { value } });
       expect(response.status).toBe(200);
-      return ((await response.json()) as { score: number }).score;
+      return (await contractJson(CountedVote, response)).score;
     };
     expect(await score(1)).toBe(1);
     expect(await score(1)).toBe(1);

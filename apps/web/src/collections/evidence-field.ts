@@ -1,8 +1,11 @@
-import { EVIDENCE_KINDS, URL_MAX_LENGTH } from "@countrytopics/domain";
+import {
+  EVIDENCE_KIND_LABELS,
+  EVIDENCE_KINDS,
+  URL_MAX_LENGTH,
+} from "@countrytopics/domain";
 import type { ArrayField } from "payload";
 
 import { rows } from "@/array-rows";
-import { EVIDENCE_KIND_LABELS } from "@/content-labels";
 
 import { DOCUMENT_MIME_TYPES, IMAGE_MIME_TYPES } from "./Media";
 import { httpUrl, optionalHttpUrl } from "./url-field";

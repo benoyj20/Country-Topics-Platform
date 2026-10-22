@@ -5,9 +5,12 @@ import { notFound } from "next/navigation";
 import { readRecordTitle } from "@/admin/backend";
 import { AdminRefusal } from "@/admin/components/AdminRefusal";
 import { AdminShell } from "@/admin/components/AdminShell";
+import {
+  readTopicChanges,
+  readTopicVersions,
+} from "@/admin/features/topics/backend";
 import { adminGate } from "@/admin/gate";
 import { isUuid } from "@/admin/list-state";
-import { readTopicChanges, readTopicVersions } from "@/admin/topics/backend";
 import { formatDateTime } from "@/format";
 
 // Rendered for each request with the staff member's cookie, never cached.

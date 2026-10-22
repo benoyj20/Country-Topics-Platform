@@ -4,7 +4,13 @@ import type { ReactNode } from "react";
 import { FONT_VARIABLES } from "@/fonts";
 
 import "@/styles/tokens.css";
-import "./admin.css";
+// The admin's shared styles, in order; each feature's own load with it.
+import "./styles/base.css";
+import "./styles/shell.css";
+import "./styles/controls.css";
+import "./styles/lists.css";
+import "./styles/editors.css";
+import "./styles/versions.css";
 
 export const metadata: Metadata = {
   title: "Admin - Country Topics",

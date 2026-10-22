@@ -3,8 +3,8 @@ import { ROLE_LABELS } from "@countrytopics/domain";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { Logo } from "@/components/Logo";
-import { SignOutButton } from "@/components/SignOutButton";
+import { Logo } from "@/shared/Logo";
+import { SignOutButton } from "@/shared/SignOutButton";
 
 import { AdminAccountProvider } from "../account-context";
 import { ADMIN_GROUPS, COLLECTION_TEXT } from "../collections";

@@ -1,0 +1,88 @@
+/* The media feature's styles, loaded with its focal point and uploads. */
+
+/* An image's focal point, set by clicking it. */
+
+.admin-focal-image {
+  position: relative;
+  display: block;
+  max-width: 100%;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-small);
+  background: var(--surface);
+  line-height: 0;
+  cursor: crosshair;
+}
+
+.admin-focal-image:disabled {
+  cursor: default;
+}
+
+.admin-focal-image img {
+  display: block;
+  max-width: 100%;
+  max-height: 24rem;
+  height: auto;
+  border-radius: inherit;
+}
+
+.admin-focal-mark {
+  position: absolute;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin: -0.75rem 0 0 -0.75rem;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 2px #0b1526,
+    0 0 0 5px rgb(255 255 255 / 60%);
+  pointer-events: none;
+}
+
+/* Several files uploaded at once. */
+
+.admin-dropzone {
+  padding: 2rem 1rem;
+  border: 2px dashed var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--card);
+  text-align: center;
+}
+
+.admin-dropzone.dragging {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.admin-uploads {
+  display: grid;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-upload-name {
+  margin: 0;
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+
+.admin-upload-fields {
+  display: grid;
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (min-width: 48rem) {
+  .admin-upload-fields {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 18rem);
+  }
+}
+
+.admin-uploads-bar {
+  top: auto;
+  bottom: 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 0;
+}

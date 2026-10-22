@@ -8,13 +8,15 @@ import { COLLECTION_TEXT } from "@/admin/collections";
 import { AdminRefusal } from "@/admin/components/AdminRefusal";
 import { AdminShell } from "@/admin/components/AdminShell";
 import { adminGate } from "@/admin/gate";
-import type { ComparedVersions } from "@/admin/versions/compared-fields";
+import {
+  readRecordVersion,
+  type RecordVersion,
+} from "@/admin/registry/version-reads";
+import type { ComparedVersions } from "@/admin/registry/versions";
 import {
   comparedWith,
   readPreviousVersion,
-  readRecordVersion,
   readVersionChoices,
-  type RecordVersion,
 } from "@/admin/versions/backend";
 import { RestoreVersion } from "@/admin/versions/RestoreVersion";
 import { VersionCompare } from "@/admin/versions/VersionCompare";

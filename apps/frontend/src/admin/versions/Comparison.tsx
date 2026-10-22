@@ -2,7 +2,7 @@
 
 import { useId, useMemo, useState } from "react";
 
-import { type ComparedVersions, comparedFields } from "./compared-fields";
+import { type ComparedVersions, comparedFields } from "../registry/versions";
 import { type DiffPart, side, textDiff } from "./diff";
 
 // Two versions side by side (ADR 0014, phase 11), as Payload's panel

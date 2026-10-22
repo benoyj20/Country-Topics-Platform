@@ -4,10 +4,13 @@ import { notFound } from "next/navigation";
 
 import { AdminRefusal } from "@/admin/components/AdminRefusal";
 import { AdminShell } from "@/admin/components/AdminShell";
+import {
+  readEditorTopic,
+  readTopicChanges,
+} from "@/admin/features/topics/backend";
+import { TopicChangeLog } from "@/admin/features/topics/TopicChangeLog";
+import { TopicForm } from "@/admin/features/topics/TopicForm";
 import { adminGate } from "@/admin/gate";
-import { readEditorTopic, readTopicChanges } from "@/admin/topics/backend";
-import { TopicChangeLog } from "@/admin/topics/TopicChangeLog";
-import { TopicForm } from "@/admin/topics/TopicForm";
 
 // Rendered for each request with the staff member's cookie, never cached.
 export const dynamic = "force-dynamic";

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { Logo } from "@/components/Logo";
+import { Logo } from "@/shared/Logo";
 
 /**
  * Links at the bottom of every page. The feedback link names the page it

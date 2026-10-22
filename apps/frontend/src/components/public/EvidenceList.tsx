@@ -1,7 +1,7 @@
 import type { PublicEvidence } from "@countrytopics/contracts";
 
-import { SnippetPlayer } from "@/components/snippets/SnippetPlayer";
 import { formatDate, formatFileSize } from "@/format";
+import { SnippetPlayer } from "@/shared/snippets/SnippetPlayer";
 
 import { FileCredit } from "./FileCredit";
 import { DocumentIcon, ImageIcon, LinkIcon } from "./icons";

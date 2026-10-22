@@ -2,15 +2,9 @@ import "server-only";
 
 import {
   COMPARED_VERSIONS_MAX,
-  editorReference,
-  editorSnippet,
   isRecordId,
   previousVersionSearchParams,
-  referenceVersionSchema,
-  snippetVersionSchema,
   type VersionedCollection,
-  versionParent,
-  versionSearchParams,
   versionsPageSchema,
   versionsSearchParams,
 } from "@countrytopics/contracts";
@@ -19,10 +13,10 @@ import * as z from "zod";
 import { BackendError } from "@/backend/request";
 
 import { readAsStaff } from "../backend";
-import type { ReferenceVersionValues } from "./compared-fields";
 
 // The version pages' reads from Payload's REST API, as the staff member
-// (ADR 0014, phase 11). A topic's version is read by ../topics/backend.ts.
+// (ADR 0014, phase 11): what every versioned collection shares. One version
+// of a record is read by its feature (registry/version-reads.ts).
 
 /** A page of a record's versions, newest first. */
 export async function readVersions(
@@ -77,63 +71,4 @@ export function comparedWith(
   if (previous) return previous;
   const at = choices.findIndex((choice) => choice.id === shown);
   return at > 0 ? (choices[at - 1]?.id ?? null) : null;
-}
-
-/** A version of a reference or snippet, as the comparison reads it. */
-export type RecordVersion =
-  | {
-      collection: "references";
-      id: string;
-      parent: string;
-      updatedAt: string;
-      values: ReferenceVersionValues;
-    }
-  | {
-      collection: "snippets";
-      id: string;
-      parent: string;
-      updatedAt: string;
-      values: ReturnType<typeof editorSnippet>["values"];
-    };
-
-/** One version of a reference or snippet, or null when there is none. */
-export async function readRecordVersion(
-  collection: "references" | "snippets",
-  version: string,
-): Promise<RecordVersion | null> {
-  if (!isRecordId(version)) return null;
-  const path = `/api/${collection}/versions/${version}?${versionSearchParams()}`;
-  if (collection === "references") {
-    const found = await readAsStaff(path, referenceVersionSchema);
-    if (!found) return null;
-    const parent = versionParent(found);
-    const { values, status } = editorReference({
-      ...found.version,
-      id: parent,
-      createdAt: found.createdAt,
-      updatedAt: found.updatedAt,
-    });
-    return {
-      collection,
-      id: found.id,
-      parent,
-      updatedAt: found.updatedAt,
-      values: { ...values, checkStatus: status.checkStatus },
-    };
-  }
-  const found = await readAsStaff(path, snippetVersionSchema);
-  if (!found) return null;
-  const parent = versionParent(found);
-  return {
-    collection,
-    id: found.id,
-    parent,
-    updatedAt: found.updatedAt,
-    values: editorSnippet({
-      ...found.version,
-      id: parent,
-      createdAt: found.createdAt,
-      updatedAt: found.updatedAt,
-    }).values,
-  };
 }

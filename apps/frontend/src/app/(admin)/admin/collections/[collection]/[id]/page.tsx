@@ -8,7 +8,7 @@ import { COLLECTION_TEXT } from "@/admin/collections";
 import { AdminRefusal } from "@/admin/components/AdminRefusal";
 import { AdminShell } from "@/admin/components/AdminShell";
 import { adminGate, canRead, createHref } from "@/admin/gate";
-import { EDITORS } from "@/admin/records/editors";
+import { EDITORS } from "@/admin/registry/editors";
 
 // Rendered for each request with the staff member's cookie, never cached.
 export const dynamic = "force-dynamic";

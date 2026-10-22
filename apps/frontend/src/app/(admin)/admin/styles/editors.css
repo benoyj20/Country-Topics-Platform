@@ -1,0 +1,613 @@
+/* A record's editor: its bar, its fields and rows, pickers, dialogs,
+   the rich-text body, previews, and locks. */
+
+/* Editors */
+
+.admin-error-summary {
+  padding: 0.875rem 1rem;
+  border: 2px solid var(--danger);
+  border-radius: var(--radius-small);
+  background: var(--danger-soft);
+}
+
+.admin-error-summary:focus {
+  outline: 3px solid var(--focus-ring);
+}
+
+.admin-error-summary ul {
+  margin: 0.375rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.admin-error-summary a {
+  color: var(--admin-danger-text);
+}
+
+.admin-field {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.admin-field > label {
+  color: var(--heading);
+  font-weight: 600;
+}
+
+.admin-required {
+  color: var(--admin-danger-text);
+}
+
+.admin-field-error {
+  color: var(--admin-danger-text);
+  font-weight: 600;
+}
+
+.admin-field.invalid .admin-input,
+.admin-input[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+.admin-check {
+  display: inline-flex;
+  gap: 0.5rem;
+  align-items: center;
+  font-weight: 600;
+}
+
+.admin-check input {
+  width: 1.05rem;
+  height: 1.05rem;
+  margin: 0;
+}
+
+.admin-fields {
+  display: grid;
+  gap: 1rem;
+}
+
+@media (min-width: 40rem) {
+  .admin-fields.two {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+
+textarea.admin-input {
+  min-height: auto;
+  resize: vertical;
+}
+
+.admin-input.large {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.admin-input:disabled,
+.admin-check input:disabled {
+  background: var(--surface);
+  color: var(--text);
+  cursor: default;
+}
+
+.admin-picker {
+  display: grid;
+  gap: 0.375rem;
+}
+
+.admin-chosen {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-chosen li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+  background: var(--surface);
+}
+
+.admin-chosen li > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-combobox {
+  position: relative;
+}
+
+.admin-options {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  right: 0;
+  left: 0;
+  z-index: 20;
+  max-height: 16rem;
+  margin: 0;
+  padding: 0.25rem;
+  overflow-y: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-small);
+  background: var(--card);
+  box-shadow: var(--shadow);
+  list-style: none;
+}
+
+.admin-options li {
+  padding: 0.35rem 0.5rem;
+  border-radius: var(--radius-small);
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.admin-options li[aria-selected="true"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.admin-picker-status {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.admin-picker-status:empty {
+  display: none;
+}
+
+.admin-array {
+  display: grid;
+  gap: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--line);
+}
+
+.admin-array:focus {
+  outline: none;
+}
+
+.admin-rows {
+  display: grid;
+  gap: 0.75rem;
+  justify-items: start;
+}
+
+.admin-array-row {
+  display: grid;
+  gap: 0.75rem;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0.75rem 1rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+.admin-array-row > legend {
+  padding: 0 0.375rem;
+  color: var(--heading);
+  font-weight: 650;
+}
+
+.admin-array-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  justify-content: flex-end;
+  font-size: 0.875rem;
+}
+
+.admin-choices {
+  display: grid;
+  gap: 0.375rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.admin-choices legend {
+  margin-bottom: 0.25rem;
+  color: var(--heading);
+  font-weight: 600;
+}
+
+.admin-details {
+  display: grid;
+  gap: 0.375rem;
+  margin: 0;
+}
+
+.admin-details > div {
+  display: grid;
+  grid-template-columns: minmax(7rem, auto) minmax(0, 1fr);
+  gap: 0.75rem;
+}
+
+.admin-details dt {
+  color: var(--muted);
+}
+
+.admin-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-details.wide > div {
+  grid-template-columns: minmax(8rem, 12rem) minmax(0, 1fr);
+}
+
+.admin-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-log {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-log li {
+  display: grid;
+  gap: 0.125rem;
+  padding-left: 0.75rem;
+  border-left: 3px solid var(--line-strong);
+  overflow-wrap: anywhere;
+}
+
+.admin-view-rows {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.admin-view-rows li {
+  overflow-wrap: anywhere;
+}
+
+.admin-view-rows blockquote,
+.admin-rich-text blockquote,
+.editor-quote {
+  margin: 0.375rem 0;
+  padding-left: 0.875rem;
+  border-left: 3px solid var(--line-strong);
+  color: var(--muted);
+}
+
+.admin-rich-text {
+  max-width: var(--reading-width);
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  overflow-wrap: anywhere;
+}
+
+.admin-rich-text > * > * + * {
+  margin-top: 0.75rem;
+}
+
+.admin-dialog {
+  width: min(32rem, calc(100vw - 2rem));
+  padding: 1.25rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--card);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+
+.admin-dialog::backdrop {
+  background: rgb(15 23 42 / 45%);
+}
+
+/* An editor: a bar with its state and buttons, kept in view, then the
+   fields, with the record's details (a topic's publishing and history)
+   beside them on wide screens and after them on narrow ones. */
+
+.record-editor {
+  display: grid;
+  gap: 1rem;
+}
+
+/* Under the sticky header, which it stays below while the form scrolls. */
+.record-editor-bar {
+  position: sticky;
+  top: var(--header-height);
+  z-index: 15;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 calc(-1 * var(--gutter));
+  padding: 0.75rem var(--gutter);
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--background) 88%, transparent);
+  backdrop-filter: saturate(1.4) blur(10px);
+}
+
+.record-editor-state {
+  font-weight: 600;
+}
+
+.record-editor-columns {
+  display: grid;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.record-editor-main,
+.record-editor-side {
+  display: grid;
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+/* The form's fields on white cards, as the site's content is; in a dialog,
+   which is a card already, they sit on it plainly. */
+.record-editor-main,
+.record-editor-side {
+  padding: 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  box-shadow: var(--shadow-small);
+}
+
+.record-editor-side:empty {
+  display: none;
+}
+
+.record-editor-main .admin-card,
+.record-editor-side .admin-card {
+  background: var(--surface);
+  box-shadow: none;
+}
+
+.admin-dialog .record-editor-main,
+.admin-dialog .record-editor-side {
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+
+@media (min-width: 64rem) {
+  .record-editor-columns {
+    grid-template-columns: minmax(0, 1fr) 20rem;
+  }
+}
+
+/* The body editor */
+
+.editor {
+  border: 1px solid var(--field-border);
+  border-radius: var(--radius-small);
+  background: var(--card);
+}
+
+.editor.invalid {
+  border-color: var(--danger);
+}
+
+.editor:focus-within {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.editor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  align-items: center;
+  padding: 0.375rem;
+  border-bottom: 1px solid var(--line);
+  border-radius: var(--radius-small) var(--radius-small) 0 0;
+  background: var(--surface);
+}
+
+.editor-toolbar button,
+.editor-toolbar select {
+  min-width: 2rem;
+  min-height: 2rem;
+  padding: 0.15rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.editor-toolbar select {
+  border-color: var(--line-strong);
+  background: var(--card);
+}
+
+.editor-toolbar button:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  background: var(--card);
+}
+
+.editor-toolbar button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.editor-toolbar button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.editor-format-bold {
+  font-weight: 700;
+}
+
+.editor-format-italic {
+  font-style: italic;
+}
+
+.editor-format-underline {
+  text-decoration: underline;
+}
+
+.editor-format-strikethrough {
+  text-decoration: line-through;
+}
+
+.editor-hint {
+  color: var(--admin-danger-text);
+  font-size: 0.875rem;
+}
+
+.editor-input {
+  min-height: 14rem;
+  padding: 0.75rem 1rem;
+  overflow-wrap: anywhere;
+}
+
+.editor-input:focus {
+  outline: none;
+}
+
+.editor-input > * + * {
+  margin-top: 0.75rem;
+}
+
+.editor-input[aria-readonly="true"] {
+  background: var(--surface);
+}
+
+.editor-h2 {
+  font-size: 1.35rem;
+}
+
+.editor-h3 {
+  font-size: 1.15rem;
+}
+
+.editor-h4 {
+  font-size: 1rem;
+}
+
+.editor-ul,
+.editor-ol {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.editor-nested {
+  list-style: none;
+}
+
+.editor-link {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.editor-hr {
+  border: 0;
+  border-top: 1px solid var(--line-strong);
+}
+
+.editor-underline {
+  text-decoration: underline;
+}
+
+.editor-strikethrough {
+  text-decoration: line-through;
+}
+
+.editor-underline-strikethrough {
+  text-decoration: underline line-through;
+}
+
+/* A file's preview, and a video's thumbnail. */
+
+.admin-preview {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+  background: var(--surface);
+}
+
+/* What a member wrote, shown to staff as written. */
+
+.admin-quote {
+  margin: 0;
+  padding: 0.5rem 0 0.5rem 0.875rem;
+  border-left: 3px solid var(--line-strong);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.admin-code-block {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+  background: var(--surface);
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* A record named by a long address, such as an account's email, wraps. */
+
+/* The way back above a record's title: "Topics", or "Topics / its title". */
+.admin-crumbs {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.admin-crumbs a {
+  text-decoration: none;
+}
+
+.admin-crumbs a:hover {
+  text-decoration: underline;
+}
+
+.admin-main h1 {
+  overflow-wrap: anywhere;
+}
+
+/* Admin parity (ADR 0014, phase 11) */
+
+/* Someone else's lock on the record open here. */
+
+.admin-lock > * + * {
+  margin-top: 0.5rem;
+}
+
+/* A record made from a field, in a dialog with its whole editor. */
+
+.admin-dialog.wide {
+  width: min(72rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+}

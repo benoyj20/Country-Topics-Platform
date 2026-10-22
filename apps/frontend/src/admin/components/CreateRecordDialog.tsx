@@ -1,58 +1,18 @@
 "use client";
 
-import {
-  type AdminCollection,
-  EMPTY_INDIVIDUAL,
-  EMPTY_MEDIA,
-  EMPTY_REFERENCE,
-  EMPTY_SNIPPET,
-  EMPTY_TERM,
-} from "@countrytopics/contracts";
-import dynamic from "next/dynamic";
+import type { AdminCollection } from "@countrytopics/contracts";
 import { useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
 
 import { COLLECTION_TEXT } from "../collections";
 import { FieldIdPrefix } from "../field-id-prefix";
+import { CREATE_FORMS } from "../registry/create-forms";
 
 // A related record made without leaving the editor (ADR 0014, phase 11),
 // as Payload's panel makes one from a relationship field: the record's own
 // editor in a dialog, which, once saved, chooses the record in the field.
-// The editors load only when a dialog opens.
-
-const loading = () => <p className="admin-muted">Loading the editor…</p>;
-const TermForm = dynamic(
-  () => import("../records/TaxonomyForms").then((module) => module.TermForm),
-  { loading },
-);
-const ReferenceForm = dynamic(
-  () =>
-    import("../records/ReferenceForm").then((module) => module.ReferenceForm),
-  { loading },
-);
-const IndividualForm = dynamic(
-  () =>
-    import("../records/IndividualForm").then((module) => module.IndividualForm),
-  { loading },
-);
-const MediaForm = dynamic(
-  () => import("../records/MediaForm").then((module) => module.MediaForm),
-  { loading },
-);
-const SnippetForm = dynamic(
-  () => import("../records/SnippetForm").then((module) => module.SnippetForm),
-  { loading },
-);
-
-/** The collections whose records a field can make: those made in the admin. */
-export const CREATED_FROM_FIELDS: ReadonlySet<AdminCollection> = new Set([
-  "references",
-  "individuals",
-  "categories",
-  "tags",
-  "media",
-  "snippets",
-]);
+// Each feature offers its own (registry/create-forms.ts); the editors load
+// only when a dialog opens.
 
 function Editor({
   collection,
@@ -61,62 +21,8 @@ function Editor({
   collection: AdminCollection;
   onCreated: (id: string) => void;
 }) {
-  switch (collection) {
-    case "categories":
-    case "tags":
-      return (
-        <TermForm
-          collection={collection}
-          id={null}
-          values={EMPTY_TERM}
-          status={null}
-          canEdit
-          onCreated={onCreated}
-        />
-      );
-    case "references":
-      return (
-        <ReferenceForm
-          id={null}
-          values={EMPTY_REFERENCE}
-          status={null}
-          canEdit
-          onCreated={onCreated}
-        />
-      );
-    case "individuals":
-      return (
-        <IndividualForm
-          id={null}
-          values={EMPTY_INDIVIDUAL}
-          status={null}
-          canEdit
-          onCreated={onCreated}
-        />
-      );
-    case "media":
-      return (
-        <MediaForm
-          id={null}
-          values={EMPTY_MEDIA}
-          file={null}
-          canEdit
-          onCreated={onCreated}
-        />
-      );
-    case "snippets":
-      return (
-        <SnippetForm
-          id={null}
-          values={EMPTY_SNIPPET}
-          status={null}
-          canEdit
-          onCreated={onCreated}
-        />
-      );
-    default:
-      return null;
-  }
+  const Form = CREATE_FORMS[collection];
+  return Form ? <Form onCreated={onCreated} /> : null;
 }
 
 export function CreateRecordDialog({

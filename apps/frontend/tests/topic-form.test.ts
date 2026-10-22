@@ -1,7 +1,6 @@
+import { EMPTY_TOPIC } from "@countrytopics/contracts";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-
-import { EMPTY_TOPIC } from "@countrytopics/contracts";
 
 import {
   clearMessages,
@@ -9,9 +8,9 @@ import {
   moveRow,
   savedForm,
   valuesAfterAnswer,
-} from "../src/admin/topics/form-state.ts";
+} from "../src/admin/features/topics/form-state.ts";
+import { fieldName } from "../src/admin/features/topics/topic-text.ts";
 import { safeHref } from "../src/admin/safe-href.ts";
-import { fieldName } from "../src/admin/topics/topic-text.ts";
 
 describe("the topic form's rows", () => {
   it("move within their list, and stay put at its ends", () => {

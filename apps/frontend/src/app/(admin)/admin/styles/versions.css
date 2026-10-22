@@ -1,0 +1,83 @@
+/* Two versions of a record compared. */
+
+/* Two versions compared. */
+
+.admin-compare-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.admin-compare-form label {
+  font-weight: 600;
+}
+
+.admin-compare-form .admin-input {
+  width: auto;
+  max-width: 100%;
+}
+
+.admin-compare tbody th[scope="row"] {
+  min-width: 9rem;
+  width: 12rem;
+}
+
+.admin-compare td {
+  width: 44%;
+  max-width: none;
+}
+
+.admin-compare tr.changed > th[scope="row"] {
+  box-shadow: inset 4px 0 0 var(--warning);
+}
+
+/* On narrow screens each field's two versions stack, each named. */
+@media (max-width: 40rem) {
+  .admin-compare thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .admin-compare,
+  .admin-compare tbody,
+  .admin-compare tr,
+  .admin-compare th,
+  .admin-compare td {
+    display: block;
+    width: auto;
+  }
+
+  .admin-compare tbody th[scope="row"] {
+    width: auto;
+    border-bottom: 0;
+  }
+
+  .admin-compare td::before {
+    content: attr(data-version);
+    display: block;
+    color: var(--muted);
+    font-size: 0.8125rem;
+    font-weight: 650;
+  }
+}
+
+.admin-diff {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.admin-diff del {
+  background: var(--contradicts);
+  color: var(--contradicts-text);
+  text-decoration: line-through;
+}
+
+.admin-diff ins {
+  background: var(--supports);
+  color: var(--supports-text);
+  text-decoration: underline;
+}

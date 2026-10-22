@@ -1,2 +1,65 @@
-# Solo project: the owner is responsible for every file, including this one.
+# Who reviews what (ADR 0015). For now one developer owns everything; when
+# teams form, replace @benoyj20 on a section's lines with that team. The
+# last line that matches a path wins, so the feature lines below take
+# precedence over the catch-all.
 * @benoyj20
+
+# Platform: the apps' shared code, the packages, infrastructure, and CI.
+/apps/frontend/src/admin/ @benoyj20
+/apps/frontend/src/shared/ @benoyj20
+/packages/ @benoyj20
+/deploy/ @benoyj20
+/.github/ @benoyj20
+
+# Editorial: topics and the evidence they cite.
+/apps/frontend/src/admin/features/topics/ @benoyj20
+/apps/frontend/src/admin/features/references/ @benoyj20
+/apps/frontend/src/admin/features/snippets/ @benoyj20
+/apps/frontend/src/admin/features/media/ @benoyj20
+/apps/frontend/src/admin/features/archives/ @benoyj20
+/apps/frontend/src/app/(admin)/admin/collections/topics/ @benoyj20
+/apps/frontend/src/app/(admin)/admin/collections/topic-changes/ @benoyj20
+/apps/frontend/src/app/(site)/topics/ @benoyj20
+/apps/frontend/src/app/(site)/preview/ @benoyj20
+/apps/api/src/collections/Topics.ts @benoyj20
+/apps/api/src/collections/TopicChanges.ts @benoyj20
+/apps/api/src/collections/References.ts @benoyj20
+/apps/api/src/collections/Snippets.ts @benoyj20
+/apps/api/src/collections/Videos.ts @benoyj20
+/apps/api/src/collections/Media.ts @benoyj20
+/apps/api/src/collections/LinkArchives.ts @benoyj20
+
+# Directory: people, countries, and how topics are filed.
+/apps/frontend/src/admin/features/individuals/ @benoyj20
+/apps/frontend/src/admin/features/taxonomy/ @benoyj20
+/apps/frontend/src/app/(site)/individuals/ @benoyj20
+/apps/frontend/src/app/(site)/countries/ @benoyj20
+/apps/api/src/collections/Individuals.ts @benoyj20
+/apps/api/src/collections/Countries.ts @benoyj20
+/apps/api/src/collections/Categories.ts @benoyj20
+/apps/api/src/collections/Tags.ts @benoyj20
+
+# Community: comments, moderation, notifications, and feedback.
+/apps/frontend/src/admin/features/moderation/ @benoyj20
+/apps/frontend/src/components/comments/ @benoyj20
+/apps/frontend/src/components/notifications/ @benoyj20
+/apps/frontend/src/app/(site)/notifications/ @benoyj20
+/apps/frontend/src/app/(site)/feedback/ @benoyj20
+/apps/api/src/collections/Comments.ts @benoyj20
+/apps/api/src/collections/CommentReports.ts @benoyj20
+/apps/api/src/collections/CommentVotes.ts @benoyj20
+/apps/api/src/collections/Notifications.ts @benoyj20
+/apps/api/src/collections/Feedback.ts @benoyj20
+/apps/api/src/comments/ @benoyj20
+/apps/api/src/notifications/ @benoyj20
+
+# Accounts: sign-in, staff, invitations, and the audit log.
+/apps/frontend/src/admin/features/people/ @benoyj20
+/apps/frontend/src/admin/features/audit/ @benoyj20
+/apps/frontend/src/app/(site)/account/ @benoyj20
+/apps/frontend/src/app/(site)/sign-in/ @benoyj20
+/apps/api/src/collections/Users.ts @benoyj20
+/apps/api/src/collections/Invitations.ts @benoyj20
+/apps/api/src/collections/AuditLog.ts @benoyj20
+/apps/api/src/auth/ @benoyj20
+/apps/api/src/account/ @benoyj20

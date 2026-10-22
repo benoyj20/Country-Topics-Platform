@@ -2,7 +2,7 @@ import { RECENT_SIGN_IN_MS } from "@countrytopics/contracts";
 import { redirect } from "next/navigation";
 
 import { currentAccount } from "@/backend/account";
-import { SignOutButton } from "@/components/SignOutButton";
+import { SignOutButton } from "@/shared/SignOutButton";
 
 import { DeleteAccountPanel } from "./DeleteAccountPanel";
 import { DisplayNameForm } from "./DisplayNameForm";

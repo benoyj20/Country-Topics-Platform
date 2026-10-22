@@ -4,8 +4,8 @@ import Link from "next/link";
 
 import { AdminRefusal } from "@/admin/components/AdminRefusal";
 import { AdminShell } from "@/admin/components/AdminShell";
+import { TopicForm } from "@/admin/features/topics/TopicForm";
 import { adminGate, createHref } from "@/admin/gate";
-import { TopicForm } from "@/admin/topics/TopicForm";
 
 // Rendered for each request with the staff member's cookie, never cached.
 export const dynamic = "force-dynamic";

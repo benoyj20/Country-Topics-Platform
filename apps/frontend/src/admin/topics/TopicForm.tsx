@@ -52,7 +52,7 @@ import { arrayProps, fieldProps, pickerAria, rowNameAt } from "../field-text";
 import { LockNotice } from "../locks/LockNotice";
 import { useDocumentLock } from "../locks/use-document-lock";
 import { recordName } from "../record-name";
-import { statusTone } from "../status-tone";
+import { type StatusTone, statusTone } from "../status-tone";
 import { clearMessages, savedForm, valuesAfterAnswer } from "./form-state";
 import { deleteTopic, saveTopic } from "./save";
 import { LivePreview } from "./LivePreview";
@@ -116,6 +116,13 @@ function stateText(status: TopicStatus | null): string {
     return `${state}, with unpublished changes`;
   }
   return state;
+}
+
+/** The state badge's colour: blue while changes wait to be published. */
+function stateTone(status: TopicStatus | null): StatusTone {
+  if (!status) return "plain";
+  if (status.firstPublishedAt && status.latest === "draft") return "info";
+  return statusTone("topics", "state", status.state) ?? "plain";
 }
 
 export function TopicForm({
@@ -360,12 +367,7 @@ export function TopicForm({
     <form ref={formRef} className="record-editor" onSubmit={submit} noValidate>
       <div className="record-editor-bar">
         <p className="record-editor-state">
-          <span
-            className="admin-pill"
-            data-tone={
-              (status && statusTone("topics", status.state)) ?? "plain"
-            }
-          >
+          <span className="admin-pill" data-tone={stateTone(status)}>
             {stateText(status)}
           </span>
           {working === "autosave" ? (

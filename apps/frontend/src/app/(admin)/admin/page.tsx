@@ -28,6 +28,13 @@ function shortened(value: unknown, length = 90): string {
     : characters.join("");
 }
 
+/** The lists the dashboard counts and starts, filtered to what waits. */
+const WAITING = {
+  review: "/admin/collections/topics?readyForReview=yes&page=1",
+  reports: "/admin/collections/comment-reports?status=open&page=1",
+  feedback: "/admin/collections/feedback?status=new&page=1",
+} as const;
+
 function recordLink(collection: AdminCollection, id: string) {
   return `/admin/collections/${collection}/${encodeURIComponent(id)}`;
 }
@@ -150,19 +157,19 @@ export default async function AdminHome() {
             icon="review"
             label="Ready for review"
             count={dashboard.review.totalDocs}
-            href="/admin/collections/topics?readyForReview=yes&page=1"
+            href={WAITING.review}
           />
           <Waiting
             icon="report"
             label="Open reports"
             count={dashboard.reports.totalDocs}
-            href="/admin/collections/comment-reports?status=open&page=1"
+            href={WAITING.reports}
           />
           <Waiting
             icon="inbox"
             label="New feedback"
             count={dashboard.feedback.totalDocs}
-            href="/admin/collections/feedback?status=new&page=1"
+            href={WAITING.feedback}
           />
         </ul>
         <div className="admin-dashboard">
@@ -170,7 +177,7 @@ export default async function AdminHome() {
             title="Ready for review"
             page={dashboard.review}
             all={{
-              href: "/admin/collections/topics?readyForReview=yes&page=1",
+              href: WAITING.review,
               label: "Every topic ready for review",
             }}
             empty="No drafts are waiting for review."
@@ -191,7 +198,7 @@ export default async function AdminHome() {
             title="Open reports"
             page={dashboard.reports}
             all={{
-              href: "/admin/collections/comment-reports?status=open&page=1",
+              href: WAITING.reports,
               label: "Every open report",
             }}
             empty="No reports are open."
@@ -213,7 +220,7 @@ export default async function AdminHome() {
             title="New feedback"
             page={dashboard.feedback}
             all={{
-              href: "/admin/collections/feedback?status=new&page=1",
+              href: WAITING.feedback,
               label: "All new feedback",
             }}
             empty="No new feedback."

@@ -127,7 +127,7 @@ function Cell({
     const value = row[field];
     const tone =
       kind === "select" && typeof value === "string"
-        ? statusTone(collection, value)
+        ? statusTone(collection, field, value)
         : null;
     return (
       <td className={kind && SHORT_KINDS.has(kind) ? "short" : undefined}>

@@ -192,6 +192,37 @@ code {
   min-width: 0;
 }
 
+/* Above the phone layout the header keeps to one line, so the bars that
+   stick below it sit at exactly its height; a long address is cut short
+   with an ellipsis, and shown in full on hover. */
+@media (min-width: 50.01rem) {
+  .admin-header,
+  .admin-header-tools {
+    flex-wrap: nowrap;
+  }
+
+  .admin-account-text {
+    max-width: 22rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.admin-nav-account {
+  display: none;
+  margin: 0 0.625rem 0.75rem;
+  color: var(--muted);
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+
+/* In-page jumps, such as a refused field's link, land below the sticky
+   header and the editor's bar. */
+html {
+  scroll-padding-top: 9rem;
+}
+
 .admin-account {
   display: inline-flex;
   gap: 0.5rem;
@@ -206,7 +237,7 @@ code {
   width: 2rem;
   height: 2rem;
   border-radius: 999px;
-  background: linear-gradient(135deg, #2f63e6, var(--brand-deep));
+  background: linear-gradient(135deg, var(--brand), var(--brand-deep));
   color: #fff;
   font-size: 0.875rem;
   font-weight: 700;
@@ -349,8 +380,8 @@ code {
     border-bottom: 1px solid var(--line);
   }
 
-  /* The account shows on the dashboard's greeting and in Sign out; the
-     header keeps to two lines. */
+  /* The account shows at the top of the menu instead, so the header keeps
+     to two lines. */
   .admin-account {
     display: none;
   }
@@ -369,8 +400,17 @@ code {
     position: static;
   }
 
-  .record-editor-bar {
+  .record-editor-bar,
+  .admin-bulk-bar {
     top: 0;
+  }
+
+  html {
+    scroll-padding-top: 5.5rem;
+  }
+
+  .admin-nav-account {
+    display: block;
   }
 
   :root[data-admin-nav-closed] .admin-nav {
@@ -1676,16 +1716,16 @@ textarea.admin-input {
 /* A record named by a long address, such as an account's email, wraps. */
 
 /* The way back above a record's title: "Topics", or "Topics / its title". */
-.admin-stack > p.admin-muted:first-child {
+.admin-crumbs {
   font-size: 0.875rem;
   font-weight: 500;
 }
 
-.admin-stack > p.admin-muted:first-child a {
+.admin-crumbs a {
   text-decoration: none;
 }
 
-.admin-stack > p.admin-muted:first-child a:hover {
+.admin-crumbs a:hover {
   text-decoration: underline;
 }
 
@@ -1705,7 +1745,7 @@ textarea.admin-input {
 
 .admin-bulk-bar {
   position: sticky;
-  top: 0;
+  top: var(--header-height);
   z-index: 10;
   display: flex;
   flex-wrap: wrap;
@@ -2016,7 +2056,7 @@ textarea.admin-input {
   border-radius: calc(var(--radius) + 0.25rem);
   background:
     radial-gradient(circle at 85% 20%, rgb(255 255 255 / 14%), transparent 45%),
-    linear-gradient(135deg, #1d4ed8, var(--brand-deep));
+    linear-gradient(135deg, var(--brand), var(--brand-deep));
   box-shadow: var(--shadow);
   color: #e8eefc;
 }
@@ -2204,4 +2244,19 @@ textarea.admin-input {
 .admin-stack > section > h2 {
   font-family: var(--font-serif);
   font-size: 1.35rem;
+}
+
+/* As on the site: no movement for those who ask for less. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+
+  .admin-cards .admin-card:hover,
+  .admin-stat:hover {
+    transform: none;
+  }
 }

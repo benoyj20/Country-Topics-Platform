@@ -1,16 +1,32 @@
+import type { AdminCollection } from "@countrytopics/contracts";
+
 // The colour a stored status is shown in, as a badge in lists and editors:
 // green for done or public, amber for waiting on staff, red for a problem,
-// blue for a draft newer than what is public, grey for the rest. The
-// badge's text says the status; the colour only helps scan a list. Values
-// that are not statuses, such as a reference's kind, stay plain text.
+// blue for a role or for work newer than what is public, grey for the
+// rest. The badge's text says the status; the colour only helps scan a
+// list. Other choices, such as a reference's kind or a change's kind, stay
+// plain text.
 
 export type StatusTone = "good" | "waiting" | "problem" | "info" | "plain";
 
+/** The fields that hold a status, by collection. */
+const STATUS_FIELDS: Partial<Record<AdminCollection, readonly string[]>> = {
+  topics: ["state"],
+  references: ["checkStatus"],
+  videos: ["checkStatus"],
+  "link-archives": ["status"],
+  comments: ["status"],
+  "comment-reports": ["status"],
+  feedback: ["status"],
+  users: ["role"],
+  invitations: ["role"],
+};
+
 const TONES: Record<string, StatusTone> = {
-  // Topics (TOPIC_STATES)
+  // Topics (TOPIC_STATES): "updated" is published again, so public too.
   published: "good",
+  updated: "good",
   in_review: "waiting",
-  updated: "info",
   draft: "plain",
   archived: "plain",
   // Comments and reports (COMMENT_STATUSES, COMMENT_REPORT_STATUSES)
@@ -41,14 +57,18 @@ const TONES: Record<string, StatusTone> = {
 };
 
 /** Where a value means something else: a link copied to an archive. */
-const IN_COLLECTION: Partial<Record<string, Record<string, StatusTone>>> = {
+const IN_COLLECTION: Partial<
+  Record<AdminCollection, Record<string, StatusTone>>
+> = {
   "link-archives": { archived: "good" },
 };
 
-/** The status's colour; null for a value that is not a status. */
+/** The colour of a status field's value; null for any other field. */
 export function statusTone(
-  collection: string,
+  collection: AdminCollection,
+  field: string,
   value: string,
 ): StatusTone | null {
-  return IN_COLLECTION[collection]?.[value] ?? TONES[value] ?? null;
+  if (!STATUS_FIELDS[collection]?.includes(field)) return null;
+  return IN_COLLECTION[collection]?.[value] ?? TONES[value] ?? "plain";
 }

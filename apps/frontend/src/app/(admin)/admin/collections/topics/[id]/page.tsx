@@ -45,7 +45,7 @@ export default async function TopicEditor({ params, searchParams }: Props) {
   return (
     <AdminShell account={gate.account} current="topics">
       <section className="admin-stack">
-        <p className="admin-muted">
+        <p className="admin-muted admin-crumbs">
           <Link href="/admin/collections/topics">Topics</Link>
         </p>
         <h1>{topic.values.title || "Untitled topic"}</h1>

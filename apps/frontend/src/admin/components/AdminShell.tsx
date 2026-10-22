@@ -76,6 +76,9 @@ export function AdminShell({
       <div className={account ? "admin-frame" : "admin-frame single"}>
         {account && (
           <nav id="admin-nav" className="admin-nav" aria-label="Collections">
+            <p className="admin-nav-account">
+              Signed in as {account.email} ({ROLE_LABELS[account.role]})
+            </p>
             <Link
               href="/admin"
               className="admin-nav-home"

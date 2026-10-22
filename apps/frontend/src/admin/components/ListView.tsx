@@ -5,6 +5,7 @@ import {
   type AdminCollection,
   type AdminPage,
   type AdminRow,
+  mediaFilePath,
   relatedTitle,
 } from "@countrytopics/contracts";
 import Link from "next/link";
@@ -78,8 +79,9 @@ function cellText(
 }
 
 function Thumbnail({ row }: { row: AdminRow }) {
-  const { url, mimeType } = row;
-  if (typeof url !== "string" || typeof mimeType !== "string") return null;
+  const { mimeType } = row;
+  const url = mediaFilePath(typeof row.url === "string" ? row.url : null);
+  if (!url || typeof mimeType !== "string") return null;
   if (!mimeType.startsWith("image/")) return null;
   // Served by the backend to staff only, through /api; next/image would
   // fetch it without the staff member's cookie.

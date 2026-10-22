@@ -6,6 +6,7 @@ import {
   parseYouTubeUrl,
   roundToTenths,
   secondsOrNull,
+  SNIPPET_CAPTION_MAX_LENGTH,
   SNIPPET_MAX_TIME_S,
   snippetTranscript,
   TRANSCRIPT_MAX_LENGTH,
@@ -337,7 +338,7 @@ export const Snippets: CollectionConfig = {
       name: "caption",
       type: "text",
       required: true,
-      maxLength: 200,
+      maxLength: SNIPPET_CAPTION_MAX_LENGTH,
       admin: {
         description:
           "What the clip shows, such as 'Minister announces the budget, 3 May 2024'.",

@@ -1,9 +1,18 @@
 import {
+  DIFFERENT_PERSON_LABEL,
   IMAGE_MIME_TYPES,
   isPartialDate,
   isPartialDateRangeValid,
   isWikidataId,
+  PARTIAL_DATE_MESSAGE,
+  PERSON_ALIASES_MAX,
+  PERSON_BIO_MAX_LENGTH,
+  PERSON_COUNTRY_ROLE_MAX_LENGTH,
+  PERSON_LINK_LABEL_MAX_LENGTH,
+  PERSON_NAME_MAX_LENGTH,
+  PERSON_SUMMARY_MAX_LENGTH,
   personNameKey,
+  STATEMENT_MAX_LENGTH,
   URL_MAX_LENGTH,
 } from "@countrytopics/domain";
 import {
@@ -28,7 +37,6 @@ import {
   lockNameKeys,
   nameKeys,
 } from "@/individuals/duplicates";
-import { DIFFERENT_PERSON_LABEL } from "@/individuals/labels";
 import { namingTopics } from "@/public/naming";
 import { PUBLIC_TAGS, purgeOnChange } from "@/public-cache";
 import { reindexTopicsOnChange } from "@/search-index";
@@ -42,9 +50,6 @@ import { fillSlug, slugField } from "./slug";
 import { keepWhileUsed } from "./topic-references";
 import { httpUrl } from "./url-field";
 
-const NAME_MAX_LENGTH = 200;
-const STATEMENT_MAX_LENGTH = 1000;
-const MAX_ALIASES = 20;
 const NO_STORE = { "Cache-Control": "no-store" };
 
 type AliasRow = { name?: unknown };
@@ -69,7 +74,7 @@ function partialDate(value: unknown): true | string {
   if (value === null || value === undefined || value === "") return true;
   return typeof value === "string" && isPartialDate(value)
     ? true
-    : "Use YYYY, YYYY-MM, or YYYY-MM-DD, only as precise as the source.";
+    : PARTIAL_DATE_MESSAGE;
 }
 
 /**
@@ -155,8 +160,10 @@ const archiveStatementLinks: CollectionAfterChangeHook = async ({
 };
 
 const duplicateQuery = z.object({
-  name: z.string().max(NAME_MAX_LENGTH),
-  aliases: z.array(z.string().max(NAME_MAX_LENGTH)).max(MAX_ALIASES),
+  name: z.string().max(PERSON_NAME_MAX_LENGTH),
+  aliases: z
+    .array(z.string().max(PERSON_NAME_MAX_LENGTH))
+    .max(PERSON_ALIASES_MAX),
   wikidataId: z.string().refine(isWikidataId).optional(),
   exclude: z.uuid().optional(),
 });
@@ -282,13 +289,13 @@ export const Individuals: CollectionConfig = {
       name: "name",
       type: "text",
       required: true,
-      maxLength: NAME_MAX_LENGTH,
+      maxLength: PERSON_NAME_MAX_LENGTH,
       admin: { description: "The name the person is best known by." },
     },
     {
       name: "aliases",
       type: "array",
-      maxRows: MAX_ALIASES,
+      maxRows: PERSON_ALIASES_MAX,
       labels: { singular: "Alias", plural: "Aliases" },
       admin: {
         description:
@@ -299,7 +306,7 @@ export const Individuals: CollectionConfig = {
           name: "name",
           type: "text",
           required: true,
-          maxLength: NAME_MAX_LENGTH,
+          maxLength: PERSON_NAME_MAX_LENGTH,
         },
         { name: "key", type: "text", index: true, admin: { hidden: true } },
       ],
@@ -322,7 +329,7 @@ export const Individuals: CollectionConfig = {
       name: "summary",
       label: "Role or description",
       type: "text",
-      maxLength: 160,
+      maxLength: PERSON_SUMMARY_MAX_LENGTH,
       admin: {
         description:
           "One line that tells people with the same name apart in the admin panel, such as 'Economist' or 'Minister of Finance'. Seen by staff only; to say it publicly, add it as a statement below.",
@@ -347,7 +354,7 @@ export const Individuals: CollectionConfig = {
         {
           name: "role",
           type: "text",
-          maxLength: 120,
+          maxLength: PERSON_COUNTRY_ROLE_MAX_LENGTH,
           admin: {
             description:
               "Such as 'Member of Parliament' or 'Central bank governor'.",
@@ -401,7 +408,7 @@ export const Individuals: CollectionConfig = {
     {
       name: "bio",
       type: "textarea",
-      maxLength: 5000,
+      maxLength: PERSON_BIO_MAX_LENGTH,
       admin: {
         description:
           "Notes for staff, never shown publicly. What the public profile says goes under Statements, each with its evidence and sources.",
@@ -471,7 +478,12 @@ export const Individuals: CollectionConfig = {
       labels: { singular: "Link", plural: "Links" },
       admin: { description: "Official pages and other profiles." },
       fields: [
-        { name: "label", type: "text", required: true, maxLength: 120 },
+        {
+          name: "label",
+          type: "text",
+          required: true,
+          maxLength: PERSON_LINK_LABEL_MAX_LENGTH,
+        },
         {
           name: "url",
           label: "URL",

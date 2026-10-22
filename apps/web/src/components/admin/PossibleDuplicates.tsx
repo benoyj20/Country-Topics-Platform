@@ -9,11 +9,10 @@ import {
   useFormFields,
 } from "@payloadcms/ui";
 import type { CheckboxFieldClientComponent } from "payload";
-import { isWikidataId } from "@countrytopics/domain";
+import { DIFFERENT_PERSON_LABEL, isWikidataId } from "@countrytopics/domain";
 import { useEffect, useState } from "react";
 
 import type { PossibleDuplicate } from "@/individuals/duplicates";
-import { DIFFERENT_PERSON_LABEL } from "@/individuals/labels";
 
 const LOOKUP_DELAY_MS = 400;
 

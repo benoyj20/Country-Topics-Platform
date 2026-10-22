@@ -83,7 +83,7 @@ export function LinkArchiveStatus({ url }: { url: string }) {
     return (
       <p className="admin-notice">
         After you save, the worker copies this page to the Wayback Machine.
-        Reopen the topic later to see the copy.
+        Reopen the editor later to see the copy.
       </p>
     );
   }

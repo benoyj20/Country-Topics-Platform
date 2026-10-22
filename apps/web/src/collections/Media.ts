@@ -1,6 +1,7 @@
 import {
   LICENCE_LABELS,
   MEDIA_MIME_TYPES,
+  MEDIA_TEXT_MAX_LENGTH,
   URL_MAX_LENGTH,
 } from "@countrytopics/domain";
 import type { CollectionConfig } from "payload";
@@ -12,9 +13,6 @@ import { reindexTopicsOnChange } from "@/search-index";
 
 import { keepWhileUsed } from "./topic-references";
 import { optionalHttpUrl } from "./url-field";
-
-/** Larger files belong on their publisher's site, linked and archived. */
-export const UPLOAD_MAX_BYTES = 20 * 1024 * 1024;
 
 // F3 evidence files (documents and images) and F2 photos of individuals,
 // stored in S3-compatible storage (ADR 0005), never on the web server's disk.
@@ -70,7 +68,7 @@ export const Media: CollectionConfig = {
       label: "Description",
       type: "text",
       required: true,
-      maxLength: 300,
+      maxLength: MEDIA_TEXT_MAX_LENGTH,
       admin: {
         description:
           "What the file shows or contains, for people who cannot see it and for search.",
@@ -92,7 +90,7 @@ export const Media: CollectionConfig = {
     {
       name: "credit",
       type: "text",
-      maxLength: 300,
+      maxLength: MEDIA_TEXT_MAX_LENGTH,
       admin: {
         description:
           "Author or owner, as the licence asks, such as 'Photo: A. Example / CC BY 4.0'.",

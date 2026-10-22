@@ -1,11 +1,7 @@
 import {
   CLAIM_STANCES,
   type ClaimStance,
-  EVIDENCE_KINDS,
-  type EvidenceKind,
   isSlug,
-  REFERENCE_CHECK_STATUSES,
-  type ReferenceCheckStatus,
   richTextPlainText,
   SLUG_MESSAGE,
   slugify,
@@ -18,53 +14,48 @@ import {
 import * as z from "zod";
 
 import {
+  emptySourceRow,
+  EVIDENCE_ROW_FIELDS,
+  type EvidenceRow,
+  evidenceRowChecks,
+  evidenceRowOf,
+  evidenceSaveRow,
+  SOURCE_ROW_FIELDS,
+  type SourceRow,
+  sourceRowChecks,
+  sourceRowOf,
+  sourceSaveRow,
+  storedEvidenceRow,
+  storedSourceRow,
+} from "./admin-evidence.ts";
+import {
   adminPageSchema,
   recordOf,
   Related,
   type RelatedRecord,
-  type RelatedValue,
 } from "./admin-lists.ts";
+import {
+  type FieldTree,
+  fieldOfTree,
+  optionalText,
+  recordSearchParams,
+  REQUIRED_MESSAGE,
+  type Row,
+  rowId,
+  storedText as text,
+} from "./admin-records.ts";
 
 // The admin's topic editor (ADR 0014, phase 8), through Payload's REST API:
 // how a topic is read for editing, the body a save sends, and which of the
 // form's fields a refusal names. The backend's tests send these requests
 // and check every refusal its hooks give lands on a field shown here.
 
-/** A file, with what its evidence row shows of it. */
-export type RelatedFile = RelatedRecord & {
-  mimeType: string | null;
-  url: string | null;
-};
-
-/** A cited reference, with whether it can be published yet. */
-export type RelatedReference = RelatedRecord & {
-  checkStatus: ReferenceCheckStatus | null;
-};
-
-/** A row of an array field; `id` is Payload's, absent until first saved. */
-type Row = { id?: string };
-
 export type TopicPersonRow = Row & {
   individual: RelatedRecord | null;
   role: TopicPersonRole;
 };
 
-export type TopicEvidenceRow = Row & {
-  kind: EvidenceKind;
-  title: string;
-  file: RelatedFile | null;
-  snippet: RelatedRecord | null;
-  url: string;
-  archiveUrl: string;
-  note: string;
-};
-
-export type TopicCitationRow = Row & {
-  reference: RelatedReference | null;
-  stance: ClaimStance;
-  passage: string;
-  locator: string;
-};
+export type TopicCitationRow = SourceRow & { stance: ClaimStance };
 
 /** What the editor's form holds. */
 export type TopicValues = {
@@ -76,7 +67,7 @@ export type TopicValues = {
   category: RelatedRecord | null;
   tags: RelatedRecord[];
   people: TopicPersonRow[];
-  evidence: TopicEvidenceRow[];
+  evidence: EvidenceRow[];
   references: TopicCitationRow[];
   changeNote: string;
   readyForReview: boolean;
@@ -122,33 +113,9 @@ export function emptyPersonRow(): TopicPersonRow {
   return { individual: null, role: "subject" };
 }
 
-export function emptyEvidenceRow(): TopicEvidenceRow {
-  return {
-    kind: "document",
-    title: "",
-    file: null,
-    snippet: null,
-    url: "",
-    archiveUrl: "",
-    note: "",
-  };
-}
-
 export function emptyCitationRow(): TopicCitationRow {
-  return { reference: null, stance: "supports", passage: "", locator: "" };
+  return { ...emptySourceRow(), stance: "supports" };
 }
-
-// What a related record shows, by collection, as populated for the editor.
-const RELATED_FIELDS = {
-  countries: ["name"],
-  categories: ["name"],
-  tags: ["name"],
-  individuals: ["name"],
-  media: ["alt", "filename", "mimeType", "url"],
-  snippets: ["caption"],
-  references: ["title", "checkStatus"],
-  users: ["email"],
-} as const;
 
 /** The fields the editor reads, besides the body. */
 const EDITED_FIELDS = [
@@ -180,13 +147,8 @@ const EDITED_FIELDS = [
  * so its links keep only their documents' ids, as Payload's editor saves them.
  */
 export function topicFieldsSearchParams(): URLSearchParams {
-  const params = new URLSearchParams({ depth: "1", draft: "true" });
-  for (const field of EDITED_FIELDS) params.set(`select[${field}]`, "true");
-  for (const [collection, fields] of Object.entries(RELATED_FIELDS)) {
-    for (const field of fields) {
-      params.set(`populate[${collection}][${field}]`, "true");
-    }
-  }
+  const params = recordSearchParams(EDITED_FIELDS);
+  params.set("draft", "true");
   return params;
 }
 
@@ -198,37 +160,6 @@ export function topicBodySearchParams(): URLSearchParams {
     "select[body]": "true",
     "select[updatedAt]": "true",
   });
-}
-
-const text = z.string().nullish();
-/** A file, by its description or else its name. */
-export function fileOf(value: RelatedValue): RelatedFile {
-  if (typeof value === "string") {
-    return { id: value, title: null, mimeType: null, url: null };
-  }
-  const field = (name: string) => {
-    const shown = value[name];
-    return typeof shown === "string" && shown ? shown : null;
-  };
-  return {
-    id: value.id,
-    title: field("alt") ?? field("filename") ?? "",
-    mimeType: field("mimeType"),
-    url: field("url"),
-  };
-}
-
-const CheckStatus = z.enum(REFERENCE_CHECK_STATUSES);
-
-/** A reference, with its check. */
-export function referenceOf(value: RelatedValue): RelatedReference {
-  const status = CheckStatus.safeParse(
-    typeof value === "string" ? undefined : value.checkStatus,
-  );
-  return {
-    ...recordOf("references", value),
-    checkStatus: status.success ? status.data : null,
-  };
 }
 
 /** A topic as `GET /api/topics/<id>` sends it, at depth 0 or with related records populated. */
@@ -248,30 +179,9 @@ export const storedTopicSchema = z.looseObject({
       }),
     )
     .nullish(),
-  evidence: z
-    .array(
-      z.looseObject({
-        id: text,
-        kind: z.enum(EVIDENCE_KINDS).nullish(),
-        title: text,
-        file: Related.nullish(),
-        snippet: Related.nullish(),
-        url: text,
-        archiveUrl: text,
-        note: text,
-      }),
-    )
-    .nullish(),
+  evidence: z.array(storedEvidenceRow).nullish(),
   references: z
-    .array(
-      z.looseObject({
-        id: text,
-        reference: Related.nullish(),
-        stance: z.enum(CLAIM_STANCES).nullish(),
-        passage: text,
-        locator: text,
-      }),
-    )
+    .array(storedSourceRow.extend({ stance: z.enum(CLAIM_STANCES).nullish() }))
     .nullish(),
   readyForReview: z.boolean().nullish(),
   archived: z.boolean().nullish(),
@@ -292,8 +202,6 @@ export const storedBodySchema = z.looseObject({
   body: z.unknown(),
   updatedAt: z.string(),
 });
-
-const rowId = (id: string | null | undefined) => (id ? { id } : {});
 
 /** The form's values and the backend's status of a stored topic and its body. */
 export function editorTopic(stored: StoredTopic, body: unknown): EditorTopic {
@@ -317,22 +225,10 @@ export function editorTopic(stored: StoredTopic, body: unknown): EditorTopic {
           : null,
         role: row.role ?? "subject",
       })),
-      evidence: (stored.evidence ?? []).map((row) => ({
-        ...rowId(row.id),
-        kind: row.kind ?? "document",
-        title: row.title ?? "",
-        file: row.file ? fileOf(row.file) : null,
-        snippet: row.snippet ? recordOf("snippets", row.snippet) : null,
-        url: row.url ?? "",
-        archiveUrl: row.archiveUrl ?? "",
-        note: row.note ?? "",
-      })),
+      evidence: (stored.evidence ?? []).map(evidenceRowOf),
       references: (stored.references ?? []).map((row) => ({
-        ...rowId(row.id),
-        reference: row.reference ? referenceOf(row.reference) : null,
+        ...sourceRowOf(row),
         stance: row.stance ?? "supports",
-        passage: row.passage ?? "",
-        locator: row.locator ?? "",
       })),
       // Never stored: it becomes the publish's change log entry.
       changeNote: "",
@@ -353,9 +249,6 @@ export function editorTopic(stored: StoredTopic, body: unknown): EditorTopic {
     },
   };
 }
-
-/** Empty optional text is saved as no value, as Payload stores a field never filled. */
-const optional = (value: string) => (value.trim() ? value : null);
 
 /**
  * The JSON body of a save: `POST /api/topics` for a new topic, `PATCH
@@ -379,24 +272,12 @@ export function topicSaveBody(
       individual: row.individual?.id ?? null,
       role: row.role,
     })),
-    evidence: values.evidence.map((row) => ({
-      ...rowId(row.id),
-      kind: row.kind,
-      title: optional(row.title),
-      file: row.file?.id ?? null,
-      snippet: row.snippet?.id ?? null,
-      url: optional(row.url),
-      archiveUrl: optional(row.archiveUrl),
-      note: optional(row.note),
-    })),
+    evidence: values.evidence.map(evidenceSaveRow),
     references: values.references.map((row) => ({
-      ...rowId(row.id),
-      reference: row.reference?.id ?? null,
+      ...sourceSaveRow(row),
       stance: row.stance,
-      passage: row.passage,
-      locator: optional(row.locator),
     })),
-    changeNote: optional(values.changeNote),
+    changeNote: optionalText(values.changeNote),
     readyForReview: values.readyForReview,
     archived: values.archived,
     // An empty slug is filled from the title. A new topic leaves it out,
@@ -465,34 +346,20 @@ export function valuesAfterSave(
   };
 }
 
-const TOP_LEVEL_FIELDS = new Set([
-  "title",
-  "summary",
-  "body",
-  "countries",
-  "category",
-  "tags",
-  "people",
-  "evidence",
-  "references",
-  "changeNote",
-  "readyForReview",
-  "archived",
-  "slug",
-]);
-
-const ROW_FIELDS: Record<string, ReadonlySet<string>> = {
-  people: new Set(["individual", "role"]),
-  evidence: new Set([
-    "kind",
-    "title",
-    "file",
-    "snippet",
-    "url",
-    "archiveUrl",
-    "note",
-  ]),
-  references: new Set(["reference", "stance", "passage", "locator"]),
+const TOPIC_FIELDS: FieldTree = {
+  title: true,
+  summary: true,
+  body: true,
+  countries: true,
+  category: true,
+  tags: true,
+  people: { individual: true, role: true },
+  evidence: EVIDENCE_ROW_FIELDS,
+  references: { ...SOURCE_ROW_FIELDS, stance: true },
+  changeNote: true,
+  readyForReview: true,
+  archived: true,
+  slug: true,
 };
 
 /**
@@ -501,24 +368,9 @@ const ROW_FIELDS: Record<string, ReadonlySet<string>> = {
  * it. Null for anything else, such as `_status`, shown above the form.
  */
 export function topicFieldOf(path: string): string | null {
-  if (TOP_LEVEL_FIELDS.has(path)) return path;
   if (path.startsWith("body.")) return "body";
-  const [array, index, field, ...rest] = path.split(".");
-  if (
-    array &&
-    ROW_FIELDS[array] &&
-    index !== undefined &&
-    /^\d+$/.test(index) &&
-    rest.length === 0
-  ) {
-    if (field === undefined) return array;
-    if (ROW_FIELDS[array].has(field)) return `${array}.${index}.${field}`;
-  }
-  return null;
+  return fieldOfTree(TOPIC_FIELDS, path);
 }
-
-/** Payload's message for a required field left empty. */
-export const REQUIRED_MESSAGE = "This field is required.";
 
 /**
  * What a publish needs filled in, checked in the browser before sending, as
@@ -546,23 +398,12 @@ export function topicPublishChecks(
   values.people.forEach((row, index) => {
     if (!row.individual) need(`people.${index}.individual`);
   });
-  values.evidence.forEach((row, index) => {
-    const at = `evidence.${index}`;
-    if (!row.title.trim() && row.kind !== "snippet") {
-      need(`${at}.title`, "Give the evidence a title.");
-    }
-    if ((row.kind === "document" || row.kind === "image") && !row.file) {
-      need(`${at}.file`);
-    }
-    if (row.kind === "snippet" && !row.snippet) need(`${at}.snippet`);
-    if (row.kind === "link" && !row.url.trim()) {
-      need(`${at}.url`, "Enter the page's link.");
-    }
-  });
-  values.references.forEach((row, index) => {
-    if (!row.reference) need(`references.${index}.reference`);
-    if (!row.passage.trim()) need(`references.${index}.passage`);
-  });
+  values.evidence.forEach((row, index) =>
+    evidenceRowChecks(row, `evidence.${index}`, need),
+  );
+  values.references.forEach((row, index) =>
+    sourceRowChecks(row, `references.${index}`, need),
+  );
   return problems;
 }
 
@@ -605,13 +446,7 @@ export const topicVersionsPageSchema = adminPageSchema(topicVersionRowSchema);
 
 /** The query string of `GET /api/topics/versions/<id>`, for one version shown whole. */
 export function topicVersionSearchParams(): URLSearchParams {
-  const params = new URLSearchParams({ depth: "1" });
-  for (const [collection, fields] of Object.entries(RELATED_FIELDS)) {
-    for (const field of fields) {
-      params.set(`populate[${collection}][${field}]`, "true");
-    }
-  }
-  return params;
+  return recordSearchParams([]);
 }
 
 export const topicVersionSchema = z.looseObject({

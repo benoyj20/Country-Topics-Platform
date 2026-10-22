@@ -1012,6 +1012,71 @@ Left for later phases:
   preview, comparing versions, document locking, duplicating a topic, and
   making a related record, or uploading a file, from inside the topic.
 
+### Phase 9 results (2026-10-22)
+
+The admin edits the records topics are built from: countries, categories,
+tags, individuals, references, files, and snippets, and shows videos and
+archived links, each at Payload's address
+(`/admin/collections/<slug>/<id>`, and `.../create` from each list's
+Create new). Checked on production builds of both apps, against the local
+database, with new TEST accounts:
+
+| Check                                   | Result                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Each made, edited, and checked as today | In headless Chrome, 66 of 66 checks with a new TEST admin and moderator: a category refused, made, renamed, saved with Ctrl+S, kept while a topic uses it, then deleted; a tag with a taken slug refused; a country's grouping changed and put back; a reference refused, a DOI looked up, made, and its check shown; a file refused without one and as a text file, an image uploaded and shown, then replaced by a PDF; an individual with an alias, a country, a photo, a statement with its evidence and source, and a link, and a second of the same name warned about and refused until ticked as another person; a snippet cut with the clip editor, its transcript's lines counted, previewed as visitors see it, and its video's check shown; the video's page with its snippets, kept while one uses it; an archived link's page |
+| Every refusal is shown                  | The backend's integration test (`admin-records.test.ts`, 30 tests) sends each editor's requests: every refusal its fields and hooks give, in rows of rows too (an individual's statement's evidence and sources), lands on a field the form shows, and a refused delete says what uses the record. In the browser each message is beside its field and in the list at the top, named by its rows ("Statement 1, Evidence 1, Link"), and the list's links go to the fields                                                                                                                                                                                                                                                                                                                                                                  |
+| Moderators                              | Read every editor, with no buttons and nothing to type in, are offered no Create new, and the backend refuses their writes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Public pages load no editor             | The nine editors are one 44 KB chunk (13 KB compressed), loaded only by the admin's record pages; the site's pages load none of it. The Worker is 1.86 MB compressed (8.8 MB raw), against 1.85 MB at phase 8                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Accessibility and layout                | Twelve screens (refusals, each editor with its rows, the duplicate warning, a video, an archived link) at 1280 px (light and dark), 768 px, and 390 px (light and dark): axe-core finds nothing, and none scrolls sideways                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| The rest                                | All 272 integration tests pass (30 new), with every package's unit tests, lint, and typecheck; phase 5's site checks give 24 of 25, the one failure being the old `/admin/collections/comments/x` placeholder, as at phases 7 and 8                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+
+How it works, where the plan left details open:
+
+- **One form for every record.** `RecordForm` holds what the topic editor
+  showed every editor needs: the save bar, the refusal list, the leave
+  guard, Ctrl+S, and keeping what is typed while a save runs; each record
+  type gives it its fields and its save. The topic editor now shares the
+  same pieces, and the evidence and source rows are the same component in
+  a topic and in an individual's statements.
+- **A save is answered as the record is read.** Payload's REST saves take
+  the same `select` and `populate` as reads, so each editor's request
+  (`packages/contracts`: `admin-taxonomy.ts`, `admin-individuals.ts`,
+  `admin-references.ts`, `admin-media.ts`, `admin-snippets.ts`,
+  `admin-checks.ts`) reads the record and answers its saves, related
+  records with their titles. A refusal's path names its field through one
+  tree per editor (`fieldOfTree`).
+- **No checks in the browser this time.** Payload returns every field's
+  message at once, except where a hook refuses first: a possible duplicate,
+  or a snippet's video or speaker that published topics rely on. Those come
+  first, and the fields' messages with the next save; nothing is left
+  unshown. Payload's panel checked the fields first.
+- **Files go up as a form** through the frontend's `/api`, streamed, as
+  Payload takes uploads; the editor refuses one over 20 MB before sending.
+  A stored file is opened at its path on this site (`mediaFilePath`):
+  Payload names it under its serverURL, which locally is the backend's own
+  address. The lists' thumbnails now do the same.
+- **The snippet editor** is Payload's panel's, moved into the frontend:
+  its thumbnail comes from `/thumbnails`, and YouTube is reached only once
+  the player is opened, as phase 5 planned.
+- **Field limits and labels** that only the backend had (names, roles,
+  captions, the duplicate box's label, the upload limit) moved to
+  `packages/domain`, shared with `apps/web`'s collections.
+
+Found on the way:
+
+- **A refusal's list did not always take the focus.** It was focused on a
+  timer, which can run before React draws it; it is now focused once
+  drawn, in the topic editor too.
+
+Left for later phases:
+
+- **Versions of references and snippets**, which the backend keeps and
+  Payload's panel lists, and comparing them: phase 11, with the topics'
+  comparison. Uploading several files at once, and a file's focal point:
+  phase 11.
+- **Phase 10:** comments, reports, feedback, invitations, users, and the
+  audit log.
+
 ## Consequences
 
 **Gains:**

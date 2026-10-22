@@ -52,7 +52,11 @@ export default async function TopicEditor({ params, searchParams }: Props) {
           values={topic.values}
           status={topic.status}
           canEdit={gate.account.role === "admin"}
-          notice={typeof saved === "string" ? NOTICES[saved] : undefined}
+          notice={
+            typeof saved === "string" && Object.hasOwn(NOTICES, saved)
+              ? NOTICES[saved]
+              : undefined
+          }
           changeLog={<TopicChangeLog changes={changes} />}
         />
       </section>

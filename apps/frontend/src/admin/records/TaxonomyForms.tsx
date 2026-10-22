@@ -94,8 +94,7 @@ export function CountryForm({
       values={values}
       status={status}
       noun="country"
-      listHref="/admin/collections/countries"
-      recordHref={(saved) => `/admin/collections/countries/${saved}`}
+      collection="countries"
       canEdit={canEdit}
       readOnlyNotice="You can read this country. Only admins edit countries."
       notice={notice}
@@ -172,6 +171,7 @@ export function TermForm({
   status,
   canEdit,
   notice,
+  onCreated,
 }: {
   collection: TermCollection;
   id: string | null;
@@ -179,6 +179,8 @@ export function TermForm({
   status: RecordDates | null;
   canEdit: boolean;
   notice?: string;
+  /** Made from another record's field: called with the new record's id. */
+  onCreated?: (id: string) => void;
 }) {
   const noun = NOUNS[collection];
   const saveBody = useCallback(
@@ -191,12 +193,12 @@ export function TermForm({
       values={values}
       status={status}
       noun={noun}
-      listHref={`/admin/collections/${collection}`}
-      recordHref={(saved) => `/admin/collections/${collection}/${saved}`}
+      collection={collection}
       canEdit={canEdit}
       canDelete
       readOnlyNotice={`You can read this ${noun}. Only admins edit ${collection}.`}
       notice={notice}
+      onCreated={onCreated}
       texts={TERM_TEXTS[collection]}
       order={["name", "description", "slug"]}
       saveBody={saveBody}

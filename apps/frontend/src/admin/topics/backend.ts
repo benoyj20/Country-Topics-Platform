@@ -3,6 +3,8 @@ import "server-only";
 import {
   type EditorTopic,
   editorTopic,
+  isRecordId,
+  PREVIEW_PATHS,
   storedBodySchema,
   storedTopicSchema,
   topicBodySearchParams,
@@ -15,6 +17,7 @@ import {
   topicVersionSearchParams,
   topicVersionsPageSchema,
   topicVersionsSearchParams,
+  TopicPage,
 } from "@countrytopics/contracts";
 import * as z from "zod";
 
@@ -94,4 +97,14 @@ export async function readTopicChange(id: string) {
     `/api/topic-changes/${id}?${topicChangeSearchParams()}`,
     topicChangeSchema,
   );
+}
+
+/**
+ * A topic's newest draft as its page will show it once published (the
+ * live preview), or null when there is no such topic. Read afresh each
+ * time, as the staff member: drafts are staff-only.
+ */
+export async function readTopicPreview(id: string): Promise<TopicPage | null> {
+  if (!isRecordId(id)) return null;
+  return readAsStaff(PREVIEW_PATHS.topic(id), TopicPage);
 }

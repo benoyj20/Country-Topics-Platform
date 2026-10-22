@@ -963,13 +963,16 @@ describe("a file", () => {
     licence: "own_work",
     credit: "TEST credit",
     sourceUrl: "https://example.org/records-file",
+    focalX: null,
+    focalY: null,
   };
 
   it("is uploaded, read back as its editor reads it, and changed", async () => {
     const made = editorMedia(
       await saved(await upload(adminJar, null, values, png), storedMediaSchema),
     );
-    expect(made.values).toEqual(values);
+    // Payload centres an image's focal point when none is sent.
+    expect(made.values).toEqual({ ...values, focalX: 50, focalY: 50 });
     expect(made.file).toMatchObject({
       mimeType: "image/png",
       width: 1,

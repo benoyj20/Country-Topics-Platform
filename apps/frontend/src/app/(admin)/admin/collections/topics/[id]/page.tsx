@@ -25,6 +25,8 @@ const NOTICES: Record<string, string> = {
   published: "Published.",
   restored:
     "The version was restored as the newest draft. Check it, then publish it with a change note.",
+  duplicated:
+    "This is a copy, saved as a new draft. Change what differs, then publish it.",
 };
 
 /** A topic's editor, at the address Payload's panel uses. */

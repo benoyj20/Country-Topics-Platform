@@ -10,6 +10,7 @@ import {
   STANCE_LABELS,
   TOPIC_PERSON_ROLES,
   TOPIC_STATE_LABELS,
+  TOPIC_AUTOSAVE_INTERVAL_MS,
   TOPIC_STATES,
   TOPIC_SUMMARY_MAX_LENGTH,
   TOPIC_TITLE_MAX_LENGTH,
@@ -73,6 +74,8 @@ const AUDITED_FIELDS = [
 type PendingChange = { kind: TopicChangeKind; note: string };
 const PENDING_CHANGES = "topicChanges";
 const NEW_TOPIC = "new";
+/** Set by guardLiveVersion when the save is an autosave. */
+const AUTOSAVE = "topicAutosave";
 
 /**
  * Change log entries waiting for afterChange, keyed by topic: a bulk publish
@@ -98,7 +101,7 @@ function pendingChanges(req: PayloadRequest): Map<string, PendingChange> {
  * - Restoring a version over a published topic. It may be restored only as a
  *   draft, and then published with a change note.
  * A duplicate becomes a fresh draft; applyWorkflow gives it no publication
- * history.
+ * history. An autosave is marked for recordChange.
  */
 const guardLiveVersion: CollectionBeforeOperationHook = async ({
   args,
@@ -106,6 +109,8 @@ const guardLiveVersion: CollectionBeforeOperationHook = async ({
   req,
 }) => {
   const draft = "draft" in args && args.draft === true;
+  if ("autosave" in args && args.autosave === true)
+    req.context[AUTOSAVE] = true;
   const data: unknown = "data" in args ? args.data : undefined;
   const status =
     data && typeof data === "object" && "_status" in data
@@ -484,6 +489,10 @@ const recordChange: CollectionAfterChangeHook = async ({
     });
     return;
   }
+  // Autosaves update one version in place (Payload keeps it as the newest
+  // draft), each with what it changed: at most every
+  // TOPIC_AUTOSAVE_INTERVAL_MS while an editor types.
+  const autosave = req.context[AUTOSAVE] === true;
   const fields = AUDITED_FIELDS.filter(
     (field) =>
       !isDeepStrictEqual(
@@ -494,7 +503,12 @@ const recordChange: CollectionAfterChangeHook = async ({
   await recordAudit(req, {
     action: "topic.draft_saved",
     ...target,
-    details: { title: doc.title, fields, version },
+    details: {
+      title: doc.title,
+      fields,
+      version,
+      ...(autosave && { autosave }),
+    },
   });
 };
 
@@ -558,8 +572,13 @@ export const Topics: CollectionConfig = {
   },
   defaultSort: "-updatedAt",
   versions: {
-    // Draft saves skip the required-field checks; publishing runs them.
-    drafts: { validate: false },
+    drafts: {
+      // Draft saves skip the required-field checks; publishing runs them.
+      validate: false,
+      // The editor's own drafts while they type, kept as one version that
+      // each autosave updates, until they save or publish.
+      autosave: { interval: TOPIC_AUTOSAVE_INTERVAL_MS },
+    },
     // Keep every version: published content and its history are never lost.
     maxPerDoc: 0,
   },

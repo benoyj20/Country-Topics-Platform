@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 
 import { SignOutButton } from "@/components/SignOutButton";
 
+import { AdminAccountProvider } from "../account-context";
 import { ADMIN_GROUPS, COLLECTION_TEXT } from "../collections";
 import { readableIn } from "../gate";
 import { NavToggle } from "./NavToggle";
@@ -73,7 +74,19 @@ export function AdminShell({
           </nav>
         )}
         <main id="main" className="admin-main" tabIndex={-1}>
-          {children}
+          {account ? (
+            <AdminAccountProvider
+              account={{
+                id: account.id,
+                email: account.email,
+                role: account.role,
+              }}
+            >
+              {children}
+            </AdminAccountProvider>
+          ) : (
+            children
+          )}
         </main>
       </div>
     </div>

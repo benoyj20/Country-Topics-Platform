@@ -18,7 +18,6 @@ import {
   snippetTranscript,
   TRANSCRIPT_MAX_LENGTH,
   type TranscriptSegment,
-  type TranscriptTimebase,
   VIDEO_CHECK_LABELS,
   type VideoCheckStatus,
   YOUTUBE_ID_PATTERN,
@@ -31,11 +30,12 @@ import { SnippetPlayer } from "@/components/snippets/SnippetPlayer";
 
 import { Field } from "../components/Field";
 import { RelationPicker } from "../components/RelationPicker";
-import { type FieldTexts, pickerAria } from "../field-text";
+import { pickerAria } from "../field-text";
 import { deleteRecord, saveRecord } from "../write";
 import { ClipEditor } from "./ClipEditor";
 import { TextArea, TextInput } from "./inputs";
 import { type FormApi, RecordForm } from "./RecordForm";
+import { SNIPPET_TEXTS, TIMEBASE_LABELS } from "./record-texts";
 import { type SnippetVideoState, useSnippetVideo } from "./snippet-video";
 
 // The snippet editor, as Payload's panel edits a snippet
@@ -44,37 +44,7 @@ import { type SnippetVideoState, useSnippetVideo } from "./snippet-video";
 // YouTube with what it keeps, a preview as visitors will see it, and the
 // worker's check of the video.
 
-const TEXTS: FieldTexts = {
-  caption: {
-    label: "Caption",
-    description:
-      "What the clip shows, such as 'Minister announces the budget, 3 May 2024'.",
-  },
-  youtubeId: { label: "YouTube video" },
-  startS: { label: "Start" },
-  endS: { label: "End" },
-  speaker: {
-    label: "Speaker",
-    description: "Who speaks in the clip, if listed.",
-  },
-  language: {
-    label: "Language",
-    description: "Of what is said, such as en or sw.",
-  },
-  transcriptText: {
-    label: "Transcript",
-    description:
-      "Optional. Paste lines from YouTube's '…more → Show transcript' panel, lines like '1:35 some text', or an SRT or WebVTT file. Lines outside the clip are left out. Never paste text that was not said in the video.",
-  },
-  transcriptTimebase: { label: "Transcript timestamps count from" },
-};
-
-const ORDER = Object.keys(TEXTS);
-
-const TIMEBASE_LABELS: Record<TranscriptTimebase, string> = {
-  video: "The start of the video",
-  clip: "The start of the clip",
-};
+const ORDER = Object.keys(SNIPPET_TEXTS);
 
 /** One array for "no lines", so the preview's timer is not reset on every render. */
 const NO_SEGMENTS: TranscriptSegment[] = [];
@@ -93,12 +63,15 @@ export function SnippetForm({
   status,
   canEdit,
   notice,
+  onCreated,
 }: {
   id: string | null;
   values: SnippetValues;
   status: SnippetStatus | null;
   canEdit: boolean;
   notice?: string;
+  /** Made from another record's field: called with the new record's id. */
+  onCreated?: (id: string) => void;
 }) {
   return (
     <RecordForm
@@ -106,13 +79,13 @@ export function SnippetForm({
       values={values}
       status={status}
       noun="snippet"
-      listHref="/admin/collections/snippets"
-      recordHref={(saved) => `/admin/collections/snippets/${saved}`}
+      collection="snippets"
       canEdit={canEdit}
       canDelete
       readOnlyNotice="You can read this snippet. Only admins edit snippets."
       notice={notice}
-      texts={TEXTS}
+      onCreated={onCreated}
+      texts={SNIPPET_TEXTS}
       order={ORDER}
       saveBody={snippetSaveBody}
       save={(saving, sent) =>

@@ -27,16 +27,18 @@ import { Field } from "../components/Field";
 import type { FieldTexts } from "../field-text";
 import { safeHref } from "../safe-href";
 import { deleteRecord, saveRecord, type Written } from "../write";
+import { FocalPoint, useObjectUrl } from "./FocalPoint";
 import { SelectInput, TextInput } from "./inputs";
 import { RecordForm, type Saved } from "./RecordForm";
 
 // The file editor, as Payload's panel edits a file
 // (apps/web/src/collections/Media.ts): a document or image uploaded from
 // the admin's computer, which a later save may replace, with its
-// description and licence. Payload checks the file's content against the
-// types it takes; only the admin's own file is ever uploaded.
+// description and licence, and an image's focal point. Payload checks the
+// file's content against the types it takes; only the admin's own file is
+// ever uploaded. Several files at once are uploaded by MediaUploads.
 
-const TEXTS: FieldTexts = {
+export const MEDIA_TEXTS: FieldTexts = {
   file: {
     label: "File",
     description:
@@ -61,9 +63,26 @@ const TEXTS: FieldTexts = {
     label: "Source link",
     description: "Where the file came from, so others can check it.",
   },
+  focalX: {
+    label: "Focal point",
+    description:
+      "Where the image's subject is: a cropped copy, such as a round profile photo, keeps it in view.",
+  },
 };
 
-const ORDER = Object.keys(TEXTS);
+const ORDER = Object.keys(MEDIA_TEXTS);
+
+/** The image a focal point is set on: the file chosen, else the one stored. */
+function focalImage(
+  chosen: File | null,
+  chosenUrl: string | null,
+  stored: MediaFile | null,
+): string | null {
+  if (chosen) return chosen.type.startsWith("image/") ? chosenUrl : null;
+  return stored?.mimeType?.startsWith("image/")
+    ? (safeHref(stored.url) ?? null)
+    : null;
+}
 
 const LICENCE_OPTIONS = LICENCES.map((value) => ({
   value,
@@ -133,12 +152,15 @@ export function MediaForm({
   file: stored,
   canEdit,
   notice,
+  onCreated,
 }: {
   id: string | null;
   values: MediaValues;
   file: MediaFile | null;
   canEdit: boolean;
   notice?: string;
+  /** Made from another record's field: called with the new record's id. */
+  onCreated?: (id: string) => void;
 }) {
   const [chosen, setChosen] = useState<File | null>(null);
   // The file chosen now, and the one the save running sent: one chosen
@@ -151,19 +173,20 @@ export function MediaForm({
     chosenRef.current = file;
     setChosen(file);
   };
+  const chosenUrl = useObjectUrl(chosen);
   return (
     <RecordForm
       id={id}
       values={values}
       status={stored}
       noun="file"
-      listHref="/admin/collections/media"
-      recordHref={(saved) => `/admin/collections/media/${saved}`}
+      collection="media"
       canEdit={canEdit}
       canDelete
       readOnlyNotice="You can read this file's details. Only admins upload and edit files."
       notice={notice}
-      texts={TEXTS}
+      onCreated={onCreated}
+      texts={MEDIA_TEXTS}
       order={ORDER}
       saveBody={mediaSaveBody}
       save={(saving, sent) => {
@@ -180,8 +203,10 @@ export function MediaForm({
       side={(_, current) => current && <StoredFile file={current} />}
       details={(current) => ({ rows: fileDetails(current) })}
     >
-      {(form) => {
+      {(form, current) => {
         const field = form.field("file");
+        const focal = form.field("focalX");
+        const image = focalImage(chosen, chosenUrl, current);
         return (
           <>
             {!form.readOnly && (
@@ -232,6 +257,19 @@ export function MediaForm({
               type="url"
               maxLength={URL_MAX_LENGTH}
             />
+            {image && (
+              <Field {...focal}>
+                <FocalPoint
+                  id={focal.id}
+                  src={image}
+                  x={form.values.focalX}
+                  y={form.values.focalY}
+                  disabled={form.readOnly}
+                  describedBy={focal.aria["aria-describedby"]}
+                  onChange={(focalX, focalY) => form.set({ focalX, focalY })}
+                />
+              </Field>
+            )}
           </>
         );
       }}

@@ -5,9 +5,11 @@ import {
   type AdminCollection,
   type AdminPage,
   type AdminRow,
+  type ListPreference,
   mediaFilePath,
   relatedTitle,
 } from "@countrytopics/contracts";
+import type { Role } from "@countrytopics/domain";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -16,17 +18,22 @@ import { formatDateTime } from "@/format";
 import { COLLECTION_TEXT, fieldLabel, valueLabel } from "../collections";
 import {
   type FilterValue,
-  listHref,
+  listLink,
+  listQuery,
   type ListState,
   sortableFields,
   sortAfter,
 } from "../list-state";
+import { BulkTable } from "./BulkTable";
 import { FilterForm } from "./FilterForm";
+import { ColumnPicker, RememberList } from "./ListSettings";
 import { SearchBox } from "./SearchBox";
 
 // One collection's list, as Payload's panel shows it: search, filters,
-// columns that sort, page sizes, and pages. Everything is a link or a
-// form, so it works before scripts load; the search box follows typing.
+// columns that sort, page sizes, and pages, with the columns each staff
+// member chose and the list as they last left it; rows are selected for
+// bulk actions, and those someone else is editing say so. Links and forms
+// work before scripts load; the search box follows typing.
 
 const RELATED_SHOWN = 3;
 
@@ -103,11 +110,14 @@ function Cell({
   field,
   row,
   isFirst,
+  editing,
 }: {
   collection: AdminCollection;
   field: string;
   row: AdminRow;
   isFirst: boolean;
+  /** Someone else has the record open: their address, when it may be shown. */
+  editing?: string | null;
 }) {
   const text = cellText(collection, field, row);
   if (!isFirst) {
@@ -125,12 +135,27 @@ function Cell({
       <span className="admin-title-cell">
         {collection === "media" && <Thumbnail row={row} />}
         <Link href={recordHref(collection, row.id)}>
-          {text ??
-            title ??
-            `Untitled ${COLLECTION_TEXT[collection].singular.toLowerCase()}`}
+          {rowTitle(collection, row, text ?? title)}
         </Link>
+        {editing !== undefined && (
+          <span className="admin-badge">
+            {editing ? `${editing} is editing` : "Being edited"}
+          </span>
+        )}
       </span>
     </th>
+  );
+}
+
+function rowTitle(
+  collection: AdminCollection,
+  row: AdminRow,
+  shown: string | null,
+): string {
+  return (
+    shown ??
+    cellText(collection, ADMIN_LISTS[collection].title, row) ??
+    `Untitled ${COLLECTION_TEXT[collection].singular.toLowerCase()}`
   );
 }
 
@@ -153,7 +178,7 @@ function SortHeader({
       : state.sort === `-${field}`
         ? "descending"
         : undefined;
-  const href = listHref(collection, {
+  const href = listLink(collection, {
     ...state,
     sort: sortAfter(state, field),
     page: 1,
@@ -309,7 +334,7 @@ function Filters({
           </button>
           {active > 0 && (
             <Link
-              href={listHref(collection, { ...state, filters: [], page: 1 })}
+              href={listLink(collection, { ...state, filters: [], page: 1 })}
             >
               Clear filters
             </Link>
@@ -354,7 +379,7 @@ function Pages({
 }) {
   const first = page.totalDocs === 0 ? 0 : (page.page - 1) * page.limit + 1;
   const last = Math.min(page.page * page.limit, page.totalDocs);
-  const at = (n: number) => listHref(collection, { ...state, page: n });
+  const at = (n: number) => listLink(collection, { ...state, page: n });
   return (
     <div className="admin-pages">
       <p className="admin-muted" aria-live="polite">
@@ -413,7 +438,7 @@ function Pages({
           ) : (
             <Link
               key={limit}
-              href={listHref(collection, { ...state, limit, page: 1 })}
+              href={listLink(collection, { ...state, limit, page: 1 })}
               aria-label={`${limit} per page`}
             >
               {limit}
@@ -425,12 +450,15 @@ function Pages({
   );
 }
 
-/** The parameters the search box keeps while it changes the search. */
+/**
+ * The parameters the search box keeps while it changes the search: at
+ * least the page, so a cleared search never leaves the bare address.
+ */
 function keptParams(
   collection: AdminCollection,
   state: ListState,
 ): Record<string, string> {
-  const href = listHref(collection, { ...state, search: "", page: 1 });
+  const href = listLink(collection, { ...state, search: "", page: 1 });
   return Object.fromEntries(new URL(href, "http://admin").searchParams);
 }
 
@@ -441,6 +469,11 @@ export function ListView({
   capped,
   notice,
   createHref,
+  columns,
+  settings,
+  role,
+  matching,
+  editing,
 }: {
   collection: AdminCollection;
   state: ListState;
@@ -449,6 +482,16 @@ export function ListView({
   notice?: ReactNode;
   /** Where a new record is made, for those who may make one. */
   createHref?: string;
+  /** The columns shown: the staff member's choice, or the list's own. */
+  columns: readonly string[];
+  /** What the staff member remembers of the list. */
+  settings: ListPreference;
+  /** The reader's role, for the bulk actions they may run. */
+  role: Role;
+  /** Every record the list matches, for a bulk action over all of them. */
+  matching: Record<string, unknown> | null;
+  /** The records someone else is editing, by id: their address, when shown. */
+  editing: Record<string, string | null>;
 }) {
   const text = COLLECTION_TEXT[collection];
   const list = ADMIN_LISTS[collection];
@@ -474,9 +517,21 @@ export function ListView({
         kept={keptParams(collection, state)}
       />
       <Filters
-        key={listHref(collection, { ...state, page: 1 })}
+        key={listLink(collection, { ...state, page: 1 })}
         collection={collection}
         state={state}
+      />
+      <ColumnPicker
+        key={columns.join(",")}
+        collection={collection}
+        columns={columns}
+        query={settings.query}
+      />
+      <RememberList
+        collection={collection}
+        query={listQuery(collection, state)}
+        remembered={settings.query}
+        columns={settings.columns}
       />
       {capped.length > 0 && (
         <p className="admin-notice">
@@ -495,49 +550,54 @@ export function ListView({
           </p>
           {(state.search || state.filters.length > 0 || state.page > 1) && (
             <p>
-              <Link href={`/admin/collections/${collection}`}>
+              <Link
+                href={listLink(collection, {
+                  ...state,
+                  search: "",
+                  filters: [],
+                  page: 1,
+                })}
+              >
                 Show all {text.plural.toLowerCase()}
               </Link>
             </p>
           )}
         </div>
       ) : (
-        <div
-          className="admin-table-wrap"
-          role="region"
-          aria-label={text.plural}
-          tabIndex={0}
-        >
-          <table className="admin-table">
-            <thead>
-              <tr>
-                {list.columns.map((field) => (
-                  <SortHeader
-                    key={field}
-                    collection={collection}
-                    field={field}
-                    state={state}
-                  />
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {page.docs.map((row) => (
-                <tr key={row.id}>
-                  {list.columns.map((field, index) => (
-                    <Cell
-                      key={field}
-                      collection={collection}
-                      field={field}
-                      row={row}
-                      isFirst={index === 0}
-                    />
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <BulkTable
+          collection={collection}
+          role={role}
+          label={text.plural}
+          head={columns.map((field) => (
+            <SortHeader
+              key={field}
+              collection={collection}
+              field={field}
+              state={state}
+            />
+          ))}
+          rows={page.docs.map((row) => ({
+            id: row.id,
+            label: rowTitle(
+              collection,
+              row,
+              cellText(collection, columns[0] ?? list.title, row),
+            ),
+            cells: columns.map((field, index) => (
+              <Cell
+                key={field}
+                collection={collection}
+                field={field}
+                row={row}
+                isFirst={index === 0}
+                editing={index === 0 ? editing[row.id] : undefined}
+              />
+            )),
+          }))}
+          matching={
+            matching ? { total: page.totalDocs, where: matching } : null
+          }
+        />
       )}
       <Pages collection={collection} state={state} page={page} />
     </section>

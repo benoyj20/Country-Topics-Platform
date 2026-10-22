@@ -70,6 +70,13 @@ export const PublicFile = z.object({
   licence: z.enum(LICENCES),
   credit: z.string().nullable(),
   sourceUrl: z.string().nullable(),
+  /**
+   * Where an image's subject is, in percent from its left and top edges:
+   * a cropped image keeps it in view. Null for documents and for images
+   * whose focal point was never set.
+   */
+  focalX: z.number().nullable(),
+  focalY: z.number().nullable(),
 });
 export type PublicFile = z.infer<typeof PublicFile>;
 

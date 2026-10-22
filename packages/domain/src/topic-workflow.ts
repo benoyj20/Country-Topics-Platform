@@ -79,3 +79,11 @@ export function topicChangeKind(save: TopicSave): TopicChangeKind | null {
 export function changeNoteRequired(save: TopicSave): boolean {
   return save.publishing && save.previouslyPublished;
 }
+
+/**
+ * How often a topic being edited is saved as a draft on its own, at most:
+ * the admin's autosave and Payload's panel both wait this long. Each
+ * autosave counts against the staff write limit (60 a minute, 2,000 a day),
+ * so this keeps a full day's editing inside it.
+ */
+export const TOPIC_AUTOSAVE_INTERVAL_MS = 20_000;

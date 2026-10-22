@@ -44,6 +44,7 @@ import {
   rowId,
   storedText as text,
 } from "./admin-records.ts";
+import { versionsSearchParams } from "./admin-versions.ts";
 
 // The admin's topic editor (ADR 0014, phase 8), through Payload's REST API:
 // how a topic is read for editing, the body a save sends, and which of the
@@ -287,10 +288,18 @@ export function topicSaveBody(
   };
 }
 
-/** The query string of a save; the answer holds the topic at depth 0. */
-export function topicSaveSearchParams(publish: boolean): URLSearchParams {
+/**
+ * The query string of a save; the answer holds the topic at depth 0. An
+ * autosave updates the editor's own newest draft in place, as Payload's
+ * panel autosaves, instead of keeping another version.
+ */
+export function topicSaveSearchParams(
+  publish: boolean,
+  { autosave = false }: { autosave?: boolean } = {},
+): URLSearchParams {
   const params = new URLSearchParams({ depth: "0" });
   if (!publish) params.set("draft", "true");
+  if (!publish && autosave) params.set("autosave", "true");
   return params;
 }
 
@@ -407,27 +416,14 @@ export function topicPublishChecks(
   return problems;
 }
 
-/** How many versions a page of a topic's history lists. */
-export const TOPIC_VERSIONS_PER_PAGE = 20;
-
 /** The query string of `GET /api/topics/versions` for a page of a topic's history. */
 export function topicVersionsSearchParams(
   topic: string,
   page: number,
 ): URLSearchParams {
-  return new URLSearchParams({
-    "where[parent][equals]": topic,
-    sort: "-updatedAt",
-    depth: "0",
-    limit: String(TOPIC_VERSIONS_PER_PAGE),
-    page: String(page),
-    "select[createdAt]": "true",
-    "select[updatedAt]": "true",
-    "select[latest]": "true",
-    "select[version][title]": "true",
-    "select[version][_status]": "true",
-    "select[version][archived]": "true",
-  });
+  const params = versionsSearchParams("topics", topic, page);
+  params.set("select[version][archived]", "true");
+  return params;
 }
 
 export const topicVersionRowSchema = z.looseObject({
@@ -458,11 +454,6 @@ export const topicVersionSchema = z.looseObject({
     .omit({ id: true })
     .extend({ body: z.unknown(), createdAt: text, updatedAt: text }),
 });
-
-/** A restore of `version` saves it as the topic's newest draft. */
-export function topicRestoreSearchParams(): URLSearchParams {
-  return new URLSearchParams({ depth: "0", draft: "true" });
-}
 
 /** How many change log entries the editor lists. */
 export const TOPIC_CHANGES_SHOWN = 50;

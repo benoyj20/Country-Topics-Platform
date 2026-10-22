@@ -1120,6 +1120,69 @@ Left for later phases:
   everything else Payload's panel still has. Moderating from the topic
   page itself stays a later idea (week 10).
 
+### Phase 11 results (2026-10-22)
+
+The new admin has its counterpart of every feature staff use in Payload's
+panel: bulk actions, autosave, live preview, version comparison, document
+locks, duplicating, chosen columns and remembered lists, related records
+made from a field, several files uploaded at once with a focal point, and
+a dashboard. Payload's panel can be removed without loss (phase 12).
+Checked on production builds of both apps, against the local database,
+with new TEST accounts:
+
+| Check                       | Result                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Every feature, in a browser | In headless Chrome, 53 of 53 checks, with two TEST admins and a TEST moderator. The dashboard lists drafts ready for review, open reports, new feedback, the admin's recent topics, and the latest changes. A change to a saved topic is autosaved within 20 seconds; two autosaves keep one version, and each is audited with what it changed. The live preview shows the newest draft in the site's layout, beside the form, at a desktop's, tablet's, or phone's width, and follows each autosave; visitors get none. A second admin sees who is editing, reads without changing, and sees it in the list; once the first leaves they edit, and when the first takes over, the second's save is refused (423) saying why. A tag is made from a topic's Tags field without leaving it, and chosen. Duplicate opens a copy as a new draft. A topic's version is compared with the one before it, or another chosen, words added and removed marked; a reference's versions are listed, compared, and one restored. Two topics are marked ready for review at once, a copy is deleted, a draft published, and a published topic left alone by Delete, saying why; a moderator is offered no bulk action on topics. Chosen columns, and the search, are remembered for the admin alone. Two images are uploaded at once with one licence for both, a focal point set by clicking, then moved with the keyboard; the site's round profile photo keeps it in view |
+| The backend                 | A new integration test (`admin-parity.test.ts`, 20 tests): autosave keeps one version; the preview is staff-only (401 for visitors, 403 for members and unverified staff, 404 for an unknown or malformed id), never cached, from the draft, with its new files linked where Payload serves them to staff; locks are staff-only, name whoever took them, refuse anyone else's save and bulk edit until taken over or stale, clear on each save, and last 300 seconds in every collection; bulk publish, archive, ready for review, delete, hide, lock, dismiss, and mark done, each within its scope and the access rules, with the hooks after each change (change log, audit, search index) seeing the whole record; duplicates of topics (a fresh draft with its own slug), tags, categories, and references; references' versions listed, read, and restored (admins only); snippets' versions read; each staff member's own list settings; a focal point saved and changed. All 308 integration tests pass                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Accessibility and layout    | Eleven screens (the dashboard, a list with rows selected and with its columns open, a bulk action's dialog, the live preview, another admin's lock, a topic's and a reference's versions compared, a tag made from a field, several files to upload, a file's focal point) at 1280 px (light and dark), 768 px, and 390 px (light and dark): axe-core finds nothing, and none scrolls sideways                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| The rest                    | Every package's unit tests, lint, and typecheck pass. The Worker is 1.94 MB compressed (9.3 MB raw), against 1.87 MB at phase 10; the comparison and the uploads load in the browser only. Phase 9's and phase 10's browser checks still pass (67 of 67, with phase 9's file checks moved to the new upload, and 42 of 42); phase 5's give 24 of 25, the same old placeholder failure as at phase 10                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+
+How it works, where the plan left details open:
+
+- **Autosave** is Payload's own: topics' drafts now have
+  `autosave: { interval: 20 seconds }` (a migration adds the versions'
+  `autosave` column), and the editor saves with `?autosave=true` at most
+  every 20 seconds while it has changes, so a day's editing stays inside
+  the staff write limit (60 a minute, 2,000 a day). Payload updates the
+  editor's autosaved version in place; each autosave is audited with the
+  fields it changed. A topic is autosaved once it has been saved once.
+- **The live preview** is the topic page's data built from the newest
+  draft (`GET /api/v1/previews/topics/:id`, staff only, never cached),
+  shown at `/preview/topics/:id` in the site's own layout, framed beside
+  the editor and reloaded after each save. It shows the draft as saved,
+  so the newest typing appears with the next autosave.
+- **Locks** are Payload's (`payload-locked-documents`), so the panel and
+  the new admin respect each other's: the editor takes the lock when it
+  opens, refreshes it every minute, takes it again after each save
+  (which clears it), and gives it up when it closes. Freshness is judged
+  by the backend's clock (its answer's Date header). Payload opens its
+  lock records to anyone signed in; they are now for verified staff only,
+  and always name whoever took them.
+- **Bulk actions** are Payload's bulk REST writes, as its panel sends
+  them, one request for up to 100 selected records or every match (up to
+  1,000), counted against the staff bulk-write limit. Payload's panel can
+  set any field on many records; the admin offers the edits staff make in
+  bulk (publish, archive, ready for review, hide or show, lock, dismiss,
+  mark done, delete), each with the scope its rules need.
+- **Remembered lists** are kept in Payload's preferences, which only each
+  account reads: the bare address of a list opens it as last left, and
+  links within a list never use it.
+- **Duplicating** is offered for topics, references, snippets,
+  categories, and tags; not for files and invitations (the same file or
+  address) or individuals (the same person, which the check for possible
+  duplicates refuses).
+- **The focal point** is Payload's `focalX` and `focalY`; the site now
+  uses it to crop individuals' round photos. Payload centres it when an
+  image is uploaded without one. Cropping, which needs an image library
+  Payload is not given here, was not available in its panel either.
+- **Not rebuilt:** Payload's API tab, which shows a record's JSON. Staff
+  do not use it; the REST API answers the same.
+
+Left for later phases:
+
+- **Phase 12:** remove Payload's panel, its local-only allowance, and the
+  public pages from the backend.
+
 ## Consequences
 
 **Gains:**

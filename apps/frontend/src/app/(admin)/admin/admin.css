@@ -1273,3 +1273,347 @@ textarea.admin-input {
 .admin-main h1 {
   overflow-wrap: anywhere;
 }
+
+/* Admin parity (ADR 0014, phase 11) */
+
+/* Someone else's lock on the record open here. */
+
+.admin-lock > * + * {
+  margin-top: 0.5rem;
+}
+
+/* A list's selected rows and what can be done to them. */
+
+.admin-bulk-bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-small);
+  background: var(--accent-soft);
+}
+
+.admin-table .admin-select {
+  width: 2.75rem;
+  min-width: 0;
+  text-align: center;
+}
+
+.admin-select input {
+  width: 1.125rem;
+  height: 1.125rem;
+  margin: 0;
+}
+
+.admin-table tbody tr.selected > * {
+  background: var(--accent-soft);
+}
+
+.admin-title-cell .admin-badge {
+  flex: none;
+  margin-left: 0;
+}
+
+/* The columns a list shows, chosen by each staff member. */
+
+.admin-columns {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+.admin-columns > summary {
+  padding: 0.625rem 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.admin-columns > :not(summary) {
+  margin: 0 1rem 1rem;
+}
+
+.admin-column-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: 0.25rem 1rem;
+}
+
+/* A record made from a field, in a dialog with its whole editor. */
+
+.admin-dialog.wide {
+  width: min(72rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+}
+
+/* The topic editor's live preview: beside the form on wide screens,
+   over the whole screen on narrow ones. */
+
+.live-preview {
+  position: fixed;
+  z-index: 30;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem var(--gutter);
+  background: var(--background);
+}
+
+.live-preview-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.live-preview-bar h2 {
+  margin: 0;
+}
+
+.live-preview-widths {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.live-preview-frame {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-small);
+  background: var(--surface);
+}
+
+.live-preview-frame iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  margin: 0 auto;
+  border: 0;
+  background: var(--card);
+}
+
+@media (min-width: 64rem) {
+  .live-preview {
+    inset: 0 0 0 auto;
+    width: min(50vw, 60rem);
+    border-left: 1px solid var(--line-strong);
+    box-shadow: var(--shadow);
+  }
+
+  /* The main area is as wide as its column: padding, not a margin, makes
+     the form give up the panel's room. */
+  .admin-main:has(.live-preview) {
+    padding-right: calc(min(50vw, 60rem) + var(--gutter));
+  }
+
+  .admin-main:has(.live-preview) .record-editor-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Two versions compared. */
+
+.admin-compare-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.admin-compare-form label {
+  font-weight: 600;
+}
+
+.admin-compare-form .admin-input {
+  width: auto;
+  max-width: 100%;
+}
+
+.admin-compare tbody th[scope="row"] {
+  min-width: 9rem;
+  width: 12rem;
+}
+
+.admin-compare td {
+  width: 44%;
+  max-width: none;
+}
+
+.admin-compare tr.changed > th[scope="row"] {
+  box-shadow: inset 4px 0 0 var(--warning);
+}
+
+/* On narrow screens each field's two versions stack, each named. */
+@media (max-width: 40rem) {
+  .admin-compare thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .admin-compare,
+  .admin-compare tbody,
+  .admin-compare tr,
+  .admin-compare th,
+  .admin-compare td {
+    display: block;
+    width: auto;
+  }
+
+  .admin-compare tbody th[scope="row"] {
+    width: auto;
+    border-bottom: 0;
+  }
+
+  .admin-compare td::before {
+    content: attr(data-version);
+    display: block;
+    color: var(--muted);
+    font-size: 0.8125rem;
+    font-weight: 650;
+  }
+}
+
+.admin-diff {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.admin-diff del {
+  background: var(--contradicts);
+  color: var(--contradicts-text);
+  text-decoration: line-through;
+}
+
+.admin-diff ins {
+  background: var(--supports);
+  color: var(--supports-text);
+  text-decoration: underline;
+}
+
+/* An image's focal point, set by clicking it. */
+
+.admin-focal-image {
+  position: relative;
+  display: block;
+  max-width: 100%;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-small);
+  background: var(--surface);
+  line-height: 0;
+  cursor: crosshair;
+}
+
+.admin-focal-image:disabled {
+  cursor: default;
+}
+
+.admin-focal-image img {
+  display: block;
+  max-width: 100%;
+  max-height: 24rem;
+  height: auto;
+  border-radius: inherit;
+}
+
+.admin-focal-mark {
+  position: absolute;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin: -0.75rem 0 0 -0.75rem;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 2px #0b1526,
+    0 0 0 5px rgb(255 255 255 / 60%);
+  pointer-events: none;
+}
+
+/* Several files uploaded at once. */
+
+.admin-dropzone {
+  padding: 2rem 1rem;
+  border: 2px dashed var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--card);
+  text-align: center;
+}
+
+.admin-dropzone.dragging {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.admin-uploads {
+  display: grid;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-upload-name {
+  margin: 0;
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+
+.admin-upload-fields {
+  display: grid;
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (min-width: 48rem) {
+  .admin-upload-fields {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 18rem);
+  }
+}
+
+.admin-uploads-bar {
+  top: auto;
+  bottom: 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 0;
+}
+
+/* The dashboard: what waits for staff, and what they did lately. */
+
+.admin-dashboard {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+  gap: 0.75rem;
+}
+
+.admin-dashboard h2 {
+  margin: 0;
+  font-size: 1.0625rem;
+}
+
+.admin-dashboard-list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-dashboard-list li {
+  overflow-wrap: anywhere;
+}

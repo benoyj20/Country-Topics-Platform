@@ -15,7 +15,10 @@ import {
 } from "react";
 import * as z from "zod";
 
+import { useAdminAccount } from "../account-context";
+import { COLLECTION_TEXT } from "../collections";
 import { recordName } from "../record-name";
+import { CREATED_FROM_FIELDS, CreateRecordDialog } from "./CreateRecordDialog";
 
 /** How long typing pauses before the picker searches. */
 const SEARCH_DELAY_MS = 250;
@@ -55,7 +58,9 @@ export type PickerProps<T extends RelatedRecord> = {
 /**
  * Chooses related records by searching their collection, through the
  * same REST API and access rules as the lists: a combobox whose options
- * follow the typing, and the chosen records, each with a Remove button.
+ * follow the typing, and the chosen records, each linked and with a
+ * Remove button. Admins can make a new record from the field, as in
+ * Payload's panel, and it is chosen once saved.
  */
 export function RelationPicker<T extends RelatedRecord>({
   id,
@@ -77,6 +82,13 @@ export function RelationPicker<T extends RelatedRecord>({
   const [search, setSearch] = useState<Search>({ kind: "idle" });
   const [active, setActive] = useState(0);
   const input = useRef<HTMLInputElement>(null);
+  const [creating, setCreating] = useState(false);
+  const [createFailed, setCreateFailed] = useState(false);
+  const account = useAdminAccount();
+  const canCreate =
+    !disabled &&
+    account?.role === "admin" &&
+    CREATED_FROM_FIELDS.has(collection);
   const extraKey = (extra ?? []).join(",");
   // Records already chosen are left out by the backend, so a page of
   // matches is never used up by them.
@@ -134,6 +146,31 @@ export function RelationPicker<T extends RelatedRecord>({
     input.current?.focus();
   }
 
+  /** Chooses a record just made in the dialog, read as a search would find it. */
+  async function chooseCreated(created: string) {
+    setCreating(false);
+    setCreateFailed(false);
+    const params = adminPickerSearchParams(collection, "", {
+      extra: extraKey ? extraKey.split(",") : [],
+      where: { id: { equals: created } },
+    });
+    try {
+      const response = await fetch(`/api/${collection}?${params}`, {
+        credentials: "same-origin",
+      });
+      const match = response.ok
+        ? Matches.parse(await response.json()).docs[0]
+        : undefined;
+      if (match) {
+        choose(match);
+        return;
+      }
+    } catch {
+      // Said below: the record was made, but is not chosen.
+    }
+    setCreateFailed(true);
+  }
+
   function remove(record: T) {
     onChange(value.filter((item) => item.id !== record.id));
     input.current?.focus();
@@ -182,7 +219,17 @@ export function RelationPicker<T extends RelatedRecord>({
           {value.map((record) => (
             <li key={record.id}>
               <span>
-                {recordName(record)}
+                {record.title === null ? (
+                  recordName(record)
+                ) : (
+                  <a
+                    href={`/admin/collections/${collection}/${encodeURIComponent(record.id)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {recordName(record)}
+                  </a>
+                )}
                 {describe?.(record)}
               </span>
               {!disabled && (
@@ -250,6 +297,30 @@ export function RelationPicker<T extends RelatedRecord>({
             {open ? status : ""}
           </p>
         </div>
+      )}
+      {canCreate && (
+        <p>
+          <button
+            type="button"
+            className="admin-link-button"
+            onClick={() => setCreating(true)}
+          >
+            Create a new {COLLECTION_TEXT[collection].singular.toLowerCase()}
+          </button>
+        </p>
+      )}
+      {createFailed && (
+        <p className="admin-field-error" role="alert">
+          The new {COLLECTION_TEXT[collection].singular.toLowerCase()} was saved
+          but could not be chosen here. Search for it above.
+        </p>
+      )}
+      {creating && (
+        <CreateRecordDialog
+          collection={collection}
+          onCreated={(created) => void chooseCreated(created)}
+          onClose={() => setCreating(false)}
+        />
       )}
       {disabled && value.length === 0 && <p className="admin-muted">None</p>}
     </div>

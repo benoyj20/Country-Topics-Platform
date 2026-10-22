@@ -37,6 +37,7 @@ export async function accountFor(
   const twoFactorEnabled = session.user.twoFactorEnabled === true;
   const verifiedAt = session.session.twoFactorVerifiedAt;
   return {
+    id: String(profile.id),
     email: profile.email,
     name: profile.name ?? null,
     displayName: profile.displayName ?? null,

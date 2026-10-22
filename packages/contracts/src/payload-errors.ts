@@ -31,6 +31,23 @@ const PayloadErrors = z.object({
 const FrontendError = z.object({ error: z.string() });
 
 /**
+ * Payload's answer to a save or delete of a document that someone else
+ * has open (ADR 0014, phase 11: document locks).
+ */
+export const LOCKED_STATUS = 423;
+
+/** Payload's message for each locked document in a bulk answer. */
+const LOCKED_PAYLOAD_MESSAGE = /is currently locked by another user/;
+
+export const LOCKED_MESSAGE =
+  "Someone else is editing this, so it was not saved. Take over editing to save your changes.";
+
+/** A message from Payload, with its lock refusal said plainly. */
+export function payloadMessage(message: string): string {
+  return LOCKED_PAYLOAD_MESSAGE.test(message) ? LOCKED_MESSAGE : message;
+}
+
+/**
  * The messages of a refused write. `fieldOf` names the form's field for a
  * path Payload's error gives, such as `people.0.individual`, or null when
  * the form does not show it; its messages are then listed above the form.
@@ -41,6 +58,10 @@ export function payloadRefusal(
   fieldOf: (path: string) => string | null,
 ): Refusal {
   const refusal: Refusal = { fields: {}, general: [] };
+  if (status === LOCKED_STATUS) {
+    refusal.general.push(LOCKED_MESSAGE);
+    return refusal;
+  }
   const payload = PayloadErrors.safeParse(answer);
   for (const error of payload.success ? payload.data.errors : []) {
     let placed = false;

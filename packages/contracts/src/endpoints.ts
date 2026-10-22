@@ -64,3 +64,23 @@ export const PAGE_DATA_PATHS = {
   country: (slug: string) => slugPath("/api/v1/pages/countries", slug),
   individual: (slug: string) => slugPath("/api/v1/pages/individuals", slug),
 } as const;
+
+const RECORD_ID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Whether `value` is a record's id: Payload's ids here are UUIDs. */
+export function isRecordId(value: string): boolean {
+  return RECORD_ID.test(value);
+}
+
+/**
+ * Where staff read a draft's page data (ADR 0014, live preview): by the
+ * record's id, since a draft's slug may change or be taken, and never
+ * cached. A value that is not an id is refused, as slugs are above.
+ */
+export const PREVIEW_PATHS = {
+  topic: (id: string) => {
+    if (!isRecordId(id)) throw new Error("Previews are requested by id only.");
+    return `/api/v1/previews/topics/${id}`;
+  },
+} as const;

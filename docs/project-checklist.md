@@ -1576,10 +1576,41 @@ and 31 GB), 2026-10-18 and 2026-10-19.
   and accounts are admins' alone.
 - [x] Every screen is axe-clean at 1280, 768, and 390 px, light and dark,
   with no sideways scrolling; 288 integration tests pass.
-- [ ] Bulk actions, and the rest of Payload's panel: phase 11.
+- [x] Bulk actions, and the rest of Payload's panel: phase 11 (2026-10-22).
 - [x] The local database has more TEST records from the browser checks:
   9 accounts `test-*-p10*@example.test` (admins, moderators, and members
   Alice and Bob), with their invitations; 6 comments on the TEST topic
   `test-phase-8-topic-p8mvizfcaf`, two of them removed with their text
   erased, and 6 reports on them; and 2 feedback messages
   `TEST idea from the phase 10 check ...`.
+
+### The split, phase 11: admin parity (ADR 0014)
+
+- [x] Every feature staff use in Payload's panel has its counterpart in
+  the new admin (2026-10-22): bulk actions on lists (publish, archive,
+  ready for review, hide or show, lock, dismiss, mark done, delete), the
+  autosave of topics' drafts, a live preview of a topic as visitors will
+  see it, versions compared and restored (topics, references, snippets),
+  document locks with taking over, duplicating, chosen columns and lists
+  remembered per staff member, related records made from a field, several
+  files uploaded at once with a focal point, and a dashboard of what waits
+  and of recent work. Payload's panel can now be removed (phase 12).
+- [x] Topics' drafts autosave through Payload (a migration adds the
+  versions' `autosave` column): one version while an editor types, saved
+  at most every 20 seconds, each autosave audited with what it changed.
+- [x] Payload's document locks are for verified staff only, and name
+  whoever took them; the account answer carries its id.
+- [x] The live preview's data (`/api/v1/previews/topics/:id`) is for
+  verified staff only and never cached.
+- [x] The site crops individuals' photos around their focal point.
+- [x] 53 checks in headless Chrome, a new integration test (20 tests; 308
+  in all), and eleven screens axe-clean at 1280, 768, and 390 px, light
+  and dark, with no sideways scrolling.
+- [ ] Removing Payload's panel, its local-only allowance, and the public
+  pages from the backend: phase 12.
+- [x] The local database has more TEST records from the browser checks:
+  42 accounts `test-*@example.test` (admins and moderators of runs
+  `p11*`, and phase 9's and 10's reruns), with their invitations; 14
+  topics, 8 tags, 8 references, and 8 files `TEST ...`; the records phase
+  9's and 10's reruns add; and the TEST individual
+  `test-phase8-person-p8mvizfcaf` now has a TEST photo.

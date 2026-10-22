@@ -12,7 +12,9 @@ import { SEARCH_TEXT_MAX_LENGTH } from "@countrytopics/domain";
 // Payload's panel's names (`search`, `sort`, `page`, `limit`), so its links
 // keep working, plus one parameter per filter: the field's name, or
 // `<field>.from` and `<field>.to` for dates. Anything it does not
-// recognise is ignored, never passed on.
+// recognise is ignored, never passed on. The bare address, with nothing
+// after the path, opens the list as the staff member last left it (ADR
+// 0014, phase 11); links within a list never use it.
 
 export type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -47,10 +49,15 @@ function isDay(value: string): boolean {
   return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(value);
 }
 
-/** The fields a list can be sorted by: its columns, except relations. */
+/**
+ * The fields a list can be sorted by: any it can show as a column, except
+ * relations, as in Payload's panel.
+ */
 export function sortableFields(collection: AdminCollection): string[] {
-  const { columns, fields } = ADMIN_LISTS[collection];
-  return columns.filter((name) => fields[name]?.kind !== "relationship");
+  const { fields } = ADMIN_LISTS[collection];
+  return Object.keys(fields).filter(
+    (name) => fields[name]?.kind !== "relationship",
+  );
 }
 
 function readSort(collection: AdminCollection, value: string): string {
@@ -132,6 +139,29 @@ export function listHref(
   if (state.page > 1) params.set("page", String(state.page));
   const query = params.toString();
   return `/admin/collections/${collection}${query ? `?${query}` : ""}`;
+}
+
+/**
+ * A link to `state` from within its list: its address, but never the bare
+ * one, which would open the list as last left instead.
+ */
+export function listLink(
+  collection: AdminCollection,
+  state: ListState,
+): string {
+  const href = listHref(collection, state);
+  return href.includes("?") ? href : `${href}?page=1`;
+}
+
+/** What a list remembers of `state`: its address's query, without the page. */
+export function listQuery(
+  collection: AdminCollection,
+  state: ListState,
+): string {
+  return new URL(
+    listHref(collection, { ...state, page: 1 }),
+    "http://admin",
+  ).search.slice(1);
 }
 
 /** The sort after choosing `field`'s column: ascending, then descending. */

@@ -281,6 +281,8 @@ function publicFile(media: Media): PublicFile | null {
     licence: media.licence satisfies Licence,
     credit: media.credit ?? null,
     sourceUrl: media.sourceUrl ?? null,
+    focalX: media.focalX ?? null,
+    focalY: media.focalY ?? null,
   };
 }
 
@@ -294,6 +296,8 @@ const FILE_FIELDS = {
   licence: true,
   credit: true,
   sourceUrl: true,
+  focalX: true,
+  focalY: true,
 } as const;
 
 /** Whether a published topic names any of the individuals. */
@@ -688,6 +692,22 @@ async function changesOf(
   }));
 }
 
+const TOPIC_PAGE_FIELDS = {
+  ...SUMMARY_FIELDS,
+  body: true,
+  category: true,
+  tags: true,
+  people: true,
+  evidence: true,
+  references: true,
+} as const;
+
+type TopicPageFields = SummaryFields &
+  Pick<
+    Topic,
+    "body" | "category" | "tags" | "people" | "evidence" | "references"
+  >;
+
 /** A published topic's page, or null when no published topic has the slug. */
 export async function loadTopicPage(slug: string): Promise<TopicPage | null> {
   const payload = await loadPayload();
@@ -695,23 +715,61 @@ export async function loadTopicPage(slug: string): Promise<TopicPage | null> {
     collection: "topics",
     draft: false,
     where: { and: [PUBLISHED, { slug: { equals: slug } }] },
-    select: {
-      ...SUMMARY_FIELDS,
-      body: true,
-      category: true,
-      tags: true,
-      people: true,
-      evidence: true,
-      references: true,
-    },
+    select: TOPIC_PAGE_FIELDS,
     limit: 1,
     pagination: false,
     depth: 0,
     overrideAccess: true,
   });
   const topic = docs[0];
-  if (!topic) return null;
+  return topic ? topicPageOf(payload, topic) : null;
+}
 
+/**
+ * A topic's newest draft as its page will show it once published, for
+ * staff previewing it (ADR 0014, live preview), or null when there is no
+ * such topic. Its files are linked where Payload serves them to staff:
+ * /files serves only what visitors may see, and a draft's new evidence is
+ * not that yet. Never cached: each preview reads the draft as it is.
+ */
+export async function loadTopicPreview(id: string): Promise<TopicPage | null> {
+  const payload = await loadPayload();
+  const topic = await payload.findByID({
+    collection: "topics",
+    id,
+    draft: true,
+    select: { ...TOPIC_PAGE_FIELDS, archived: true },
+    depth: 0,
+    disableErrors: true,
+    overrideAccess: true,
+  });
+  if (!topic) return null;
+  const page = await topicPageOf(payload, {
+    ...topic,
+    // Archiving takes effect when the draft is published.
+    state: topic.archived ? "archived" : topic.state,
+  });
+  return {
+    ...page,
+    evidence: page.evidence.map((item) =>
+      item.kind === "image" || item.kind === "document"
+        ? {
+            ...item,
+            file: {
+              ...item.file,
+              url: `/api/media/file/${encodeURIComponent(item.file.filename)}`,
+            },
+          }
+        : item,
+    ),
+  };
+}
+
+/** A topic's page, from the version of it given. */
+async function topicPageOf(
+  payload: Payload,
+  topic: TopicPageFields,
+): Promise<TopicPage> {
   // Independent reads, outside any transaction: run together, so the first
   // visit after a purge waits for the slowest rather than for all of them.
   const people = rows(topic.people);

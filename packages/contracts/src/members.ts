@@ -229,6 +229,8 @@ export const RECENT_SIGN_IN_MS = 10 * 60 * 1_000;
 
 /** The signed-in person, for the pages the frontend renders for them. */
 export const Account = z.object({
+  /** Their account's id, which records name them by, such as a lock's holder. */
+  id: z.string(),
   email: z.string(),
   name: z.string().nullable(),
   /** Shown publicly with their comments; null until they choose one. */

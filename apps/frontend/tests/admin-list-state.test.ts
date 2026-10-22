@@ -4,6 +4,8 @@ import { describe, it } from "node:test";
 import {
   listConditions,
   listHref,
+  listLink,
+  listQuery,
   readListState,
   sortAfter,
 } from "../src/admin/list-state.ts";
@@ -89,6 +91,29 @@ describe("a list's address", () => {
       listHref("topics", readListState("topics", {})),
       "/admin/collections/topics",
     );
+  });
+
+  it("links within a list never use the bare address, which opens it as last left", () => {
+    const state = readListState("topics", {});
+    assert.equal(listLink("topics", state), "/admin/collections/topics?page=1");
+    assert.equal(
+      listLink("topics", { ...state, sort: "title" }),
+      "/admin/collections/topics?sort=title",
+    );
+    // What is remembered leaves the page out.
+    assert.equal(
+      listQuery("topics", { ...state, search: "ghana", page: 3 }),
+      "search=ghana",
+    );
+    assert.equal(listQuery("topics", state), "");
+  });
+
+  it("sorts by any field it can show as a column, except relations", () => {
+    assert.equal(
+      readListState("topics", { sort: "-summary" }).sort,
+      "-summary",
+    );
+    assert.equal(readListState("topics", { sort: "tags" }).sort, "-updatedAt");
   });
 
   it("sorts a column ascending, then descending", () => {

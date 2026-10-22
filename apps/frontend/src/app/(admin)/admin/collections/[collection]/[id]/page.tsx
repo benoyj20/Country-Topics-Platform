@@ -19,7 +19,11 @@ type Props = {
 };
 
 /** What the save that led here did, said once. */
-const NOTICES: Record<string, string> = { created: "Created." };
+const NOTICES: Record<string, string> = {
+  created: "Created.",
+  duplicated: "This is a copy. Change what differs, then save it.",
+  restored: "The version was restored.",
+};
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { collection, id } = await params;

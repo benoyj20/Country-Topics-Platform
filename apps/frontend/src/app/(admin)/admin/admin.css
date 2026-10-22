@@ -1244,3 +1244,32 @@ textarea.admin-input {
 .clip-warning::marker {
   color: var(--warning);
 }
+
+/* What a member wrote, shown to staff as written. */
+
+.admin-quote {
+  margin: 0;
+  padding: 0.5rem 0 0.5rem 0.875rem;
+  border-left: 3px solid var(--line-strong);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.admin-code-block {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+  background: var(--surface);
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* A record named by a long address, such as an account's email, wraps. */
+
+.admin-main h1 {
+  overflow-wrap: anywhere;
+}

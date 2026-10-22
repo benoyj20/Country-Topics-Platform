@@ -4,6 +4,7 @@ import {
   type Account,
   type AdminCollection,
   EMPTY_INDIVIDUAL,
+  EMPTY_INVITATION,
   EMPTY_MEDIA,
   EMPTY_REFERENCE,
   EMPTY_SNIPPET,
@@ -11,9 +12,16 @@ import {
 } from "@countrytopics/contracts";
 import type { ReactNode } from "react";
 
+import { AuditEntryView } from "./AuditEntryView";
 import {
+  readAuditEntry,
+  readComment,
   readCountry,
+  readFeedback,
   readIndividual,
+  readInvitation,
+  readReport,
+  readUser,
   readLinkArchive,
   readMedia,
   readReference,
@@ -23,13 +31,15 @@ import {
 } from "./backend";
 import { IndividualForm } from "./IndividualForm";
 import { MediaForm } from "./MediaForm";
+import { CommentForm, FeedbackForm, ReportForm } from "./ModerationForms";
+import { InvitationForm, UserForm } from "./PeopleForms";
 import { ReferenceForm } from "./ReferenceForm";
 import { SnippetForm } from "./SnippetForm";
 import { CountryForm, TermForm } from "./TaxonomyForms";
 import { LinkArchiveView, VideoView } from "./WorkerRecords";
 
-// The editor of each collection built in ADR 0014's phase 9, for the
-// generic record page (app/(admin)/admin/collections/[collection]/[id]):
+// The editor of each collection built in ADR 0014's phases 9 and 10, for
+// the generic record page (app/(admin)/admin/collections/[collection]/[id]):
 // a record's page, by its id, and a new record's, where staff may make one.
 
 /** A record's page: what it is titled, and its editor. */
@@ -80,7 +90,13 @@ function termEditor(collection: "categories" | "tags"): Editor {
   };
 }
 
-export const EDITORS: Partial<Record<AdminCollection, Editor>> = {
+/** The collections edited on the generic record page: all but these. */
+export type EditedCollection = Exclude<
+  AdminCollection,
+  "topics" | "topic-changes"
+>;
+
+export const EDITORS: Record<EditedCollection, Editor> = {
   countries: {
     record: async (id, account, notice) => {
       const country = await readCountry(id);
@@ -230,4 +246,126 @@ export const EDITORS: Partial<Record<AdminCollection, Editor>> = {
       );
     },
   },
+  comments: {
+    record: async (id, account, notice) => {
+      const found = await readComment(id);
+      return (
+        found && {
+          title: found.comment.status.body
+            ? `Comment: ${shortened(found.comment.status.body)}`
+            : "A comment whose text was erased",
+          body: (
+            <CommentForm
+              id={found.comment.id}
+              values={found.comment.values}
+              status={found.comment.status}
+              topicSlug={found.topicSlug}
+              reports={found.reports.docs}
+              totalReports={found.reports.totalDocs}
+              admin={isAdmin(account)}
+              notice={notice}
+            />
+          ),
+        }
+      );
+    },
+  },
+  "comment-reports": {
+    record: async (id, account, notice) => {
+      const report = await readReport(id);
+      return (
+        report && {
+          title: "A report on a comment",
+          body: (
+            <ReportForm
+              id={report.id}
+              values={report.values}
+              status={report.status}
+              admin={isAdmin(account)}
+              notice={notice}
+            />
+          ),
+        }
+      );
+    },
+  },
+  feedback: {
+    record: async (id, account, notice) => {
+      const feedback = await readFeedback(id);
+      return (
+        feedback && {
+          title: `Feedback: ${shortened(feedback.status.message)}`,
+          body: (
+            <FeedbackForm
+              id={feedback.id}
+              values={feedback.values}
+              status={feedback.status}
+              admin={isAdmin(account)}
+              notice={notice}
+            />
+          ),
+        }
+      );
+    },
+  },
+  invitations: {
+    record: async (id, _account, notice) => {
+      const invitation = await readInvitation(id);
+      return (
+        invitation && {
+          title: invitation.values.email,
+          body: (
+            <InvitationForm
+              id={invitation.id}
+              values={invitation.values}
+              status={invitation.status}
+              notice={notice}
+            />
+          ),
+        }
+      );
+    },
+    create: () => (
+      <InvitationForm id={null} values={EMPTY_INVITATION} status={null} />
+    ),
+  },
+  users: {
+    record: async (id, account, notice) => {
+      const user = await readUser(id);
+      return (
+        user && {
+          title: user.status.email,
+          body: (
+            <UserForm
+              id={user.id}
+              values={user.values}
+              status={user.status}
+              canEdit={isAdmin(account)}
+              self={
+                user.status.email.toLowerCase() === account.email.toLowerCase()
+              }
+              notice={notice}
+            />
+          ),
+        }
+      );
+    },
+  },
+  "audit-log": {
+    record: async (id) => {
+      const entry = await readAuditEntry(id);
+      return (
+        entry && { title: entry.action, body: <AuditEntryView entry={entry} /> }
+      );
+    },
+  },
 };
+
+/** The start of what a member wrote, for a page's title. */
+function shortened(text: string, length = 60): string {
+  // By characters, so an emoji is never cut in half.
+  const characters = Array.from(text.replace(/\s+/g, " ").trim());
+  return characters.length > length
+    ? `${characters.slice(0, length - 1).join("")}…`
+    : characters.join("");
+}

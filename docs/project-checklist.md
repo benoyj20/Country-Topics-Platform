@@ -1481,9 +1481,9 @@ and 31 GB), 2026-10-18 and 2026-10-19.
 - [x] Found while building it: Payload's client-hint headers made Chrome
   fetch email sign-in links twice, so signing in always ended on
   `/account`; the pass-through now drops them.
-- [ ] A record's page only names it, and locally opens it in Payload's
-  panel, until its editor comes in phases 8 to 10 (topics and topic
-  changes: phase 8; the records topics are built from: phase 9).
+- [x] A record's page only named it, and locally opened it in Payload's
+  panel, until its editor came: topics and topic changes in phase 8, the
+  records topics are built from in phase 9, and the rest in phase 10.
 - [x] The local database has more TEST accounts:
   `test-member-p7*@example.test`, `test-admin-p7*@example.test`,
   `test-moderator-p7*@example.test`, and `test-member-trace*@example.test`
@@ -1555,3 +1555,31 @@ and 31 GB), 2026-10-18 and 2026-10-19.
   or `TEST Phase9 Person ...`: 1 category, 3 tags, 3 individuals, 3
   references, 6 files, and 2 snippets. Ghana's subregion was changed and
   put back.
+
+### The split, phase 10: moderation and people (ADR 0014)
+
+- [x] Comments, comment reports, and feedback are moderated in the new
+  admin, and invitations, accounts, and the audit log are managed there,
+  at Payload's addresses; every record of the 17 collections now opens in
+  the new admin (2026-10-22).
+- [x] The moderation manual tests of weeks 9 and 10 pass in the new admin
+  (42 checks in headless Chrome, with two new TEST members, a TEST admin,
+  and a TEST moderator): a report found and acted on by hiding the advert
+  with a reason, a thread locked, a report dismissed, a comment removed
+  with its text erased, the members seeing the result and being told, and
+  staff's Moderate links opening the new editor.
+- [x] Every refusal is shown beside its field or above the form: the
+  backend's integration test sends each editor's requests (16 tests) and
+  checks what follows each save.
+- [x] Moderators are offered no removal, see members' accounts only as "a
+  member", and read only their own account; the audit log, invitations,
+  and accounts are admins' alone.
+- [x] Every screen is axe-clean at 1280, 768, and 390 px, light and dark,
+  with no sideways scrolling; 288 integration tests pass.
+- [ ] Bulk actions, and the rest of Payload's panel: phase 11.
+- [x] The local database has more TEST records from the browser checks:
+  9 accounts `test-*-p10*@example.test` (admins, moderators, and members
+  Alice and Bob), with their invitations; 6 comments on the TEST topic
+  `test-phase-8-topic-p8mvizfcaf`, two of them removed with their text
+  erased, and 6 reports on them; and 2 feedback messages
+  `TEST idea from the phase 10 check ...`.

@@ -342,7 +342,12 @@ export const ADMIN_LISTS: Record<AdminCollection, AdminList> = {
     },
     columns: ["comment", "reason", "note", "status", "createdAt"],
     search: ["note"],
-    filters: { status: "equals", reason: "equals", createdAt: "dates" },
+    filters: {
+      status: "equals",
+      reason: "equals",
+      comment: "related",
+      createdAt: "dates",
+    },
     defaultSort: "status,-createdAt",
     defaultLimit: DEFAULT_LIMIT,
     drafts: false,
@@ -657,6 +662,11 @@ export function recordOf(
   if (typeof value === "string") return { id: value, title: null };
   const title = value[ADMIN_LISTS[collection].title];
   return { id: value.id, title: typeof title === "string" ? title : "" };
+}
+
+/** A related account, by its address; null when there is none. */
+export function personOf(value: RelatedValue | null | undefined) {
+  return value ? recordOf("users", value) : null;
 }
 
 /** recordOf for a value of any shape, or null when it is not a related record. */

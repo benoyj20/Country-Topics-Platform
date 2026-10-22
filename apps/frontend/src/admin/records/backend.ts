@@ -1,7 +1,27 @@
 import "server-only";
 
 import {
+  auditEntrySearchParams,
+  commentReportsSchema,
+  commentReportsSearchParams,
+  commentSearchParams,
+  commentTopicSlug,
   countrySearchParams,
+  editorComment,
+  editorFeedback,
+  editorInvitation,
+  editorReport,
+  editorUser,
+  feedbackSearchParams,
+  invitationSearchParams,
+  reportSearchParams,
+  storedAuditEntrySchema,
+  storedCommentSchema,
+  storedFeedbackSchema,
+  storedInvitationSchema,
+  storedReportSchema,
+  storedUserSchema,
+  userSearchParams,
   editorCountry,
   editorIndividual,
   editorMedia,
@@ -129,5 +149,71 @@ export function readLinkArchive(id: string) {
     id,
     linkArchiveSearchParams(),
     storedLinkArchiveSchema,
+  );
+}
+
+/** A comment, with its topic's public address and its reports. */
+export async function readComment(id: string) {
+  if (!isUuid(id)) return null;
+  const path = `/api/comment-reports?${commentReportsSearchParams(id)}`;
+  const [stored, reports] = await Promise.all([
+    readRecord("comments", id, commentSearchParams(), storedCommentSchema),
+    readAsStaff(path, commentReportsSchema),
+  ]);
+  if (!stored) return null;
+  if (!reports) throw new BackendError(path, 404);
+  return {
+    comment: editorComment(stored),
+    topicSlug: commentTopicSlug(stored),
+    reports,
+  };
+}
+
+export async function readReport(id: string) {
+  const stored = await readRecord(
+    "comment-reports",
+    id,
+    reportSearchParams(),
+    storedReportSchema,
+  );
+  return stored && editorReport(stored);
+}
+
+export async function readFeedback(id: string) {
+  const stored = await readRecord(
+    "feedback",
+    id,
+    feedbackSearchParams(),
+    storedFeedbackSchema,
+  );
+  return stored && editorFeedback(stored);
+}
+
+export async function readInvitation(id: string) {
+  const stored = await readRecord(
+    "invitations",
+    id,
+    invitationSearchParams(),
+    storedInvitationSchema,
+  );
+  return stored && editorInvitation(stored);
+}
+
+export async function readUser(id: string) {
+  const stored = await readRecord(
+    "users",
+    id,
+    userSearchParams(),
+    storedUserSchema,
+  );
+  return stored && editorUser(stored);
+}
+
+export function readAuditEntry(id: string) {
+  return readRecord(
+    "audit-log",
+    id,
+    auditEntrySearchParams(),
+    storedAuditEntrySchema,
   );
 }

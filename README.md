@@ -75,7 +75,7 @@ Open `http://localhost:4173` and click **Try demo**. See
 
 ## Repository layout
 
-- `apps/frontend` — the site (ADR 0014): the public and member pages, the new admin at `/admin` (its lists, and the editors of topics and the records they are built from so far; Payload's panel still edits comments, people, and the rest), video thumbnails, and `/api` and `/files` passed on to `apps/web`, signed; built for Cloudflare Workers
+- `apps/frontend` — the site (ADR 0014): the public and member pages, the new admin at `/admin` (its lists, and an editor for every collection; Payload's panel remains for what phase 11 still adds), video thumbnails, and `/api` and `/files` passed on to `apps/web`, signed; built for Cloudflare Workers
 - `apps/web` — the backend: Payload and its admin panel, sign-in, `/api/v1`, and `/files`; it answers only requests the frontend signed. Its copies of the pages are no longer served and go in phase 12
 - `apps/worker` — background jobs on BullMQ: sign-in emails, reference checks, link archiving, video checks, the search index, purges of the site's cache
 - `packages/contracts` — what the backend's API accepts and answers (ADR 0014): the public pages' data at `/api/v1/pages/*` and `/api/v1/topics`, the browse parameters, and the member API (comments, votes, reports, notifications, the account, feedback, sign-in), and the site's purge: zod schemas, the types made from them, the endpoints' paths, and their cache tags

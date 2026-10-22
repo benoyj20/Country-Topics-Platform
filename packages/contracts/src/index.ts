@@ -3,6 +3,8 @@ export * from "./admin-evidence.ts";
 export * from "./admin-individuals.ts";
 export * from "./admin-lists.ts";
 export * from "./admin-media.ts";
+export * from "./admin-moderation.ts";
+export * from "./admin-people.ts";
 export * from "./admin-records.ts";
 export * from "./admin-references.ts";
 export * from "./admin-snippets.ts";

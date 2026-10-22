@@ -77,6 +77,8 @@ export type RecordFormProps<V, S extends RecordDates> = {
   canEdit: boolean;
   /** Offers Delete for a record that exists. */
   canDelete?: boolean;
+  /** What Delete asks first; by default, whether to delete the record. */
+  deleteQuestion?: string;
   /** Said when the reader may not edit. */
   readOnlyNotice: string;
   /** Shown once, after the save that led here. */
@@ -90,13 +92,18 @@ export type RecordFormProps<V, S extends RecordDates> = {
    */
   saveBody: (values: V) => unknown;
   save: (id: string | null, values: V) => Promise<Written<Saved<V, S>>>;
+  /**
+   * What to ask before a save that cannot be undone, such as erasing a
+   * comment's text; null to save without asking.
+   */
+  confirmSave?: (values: V, status: S | null) => string | null;
   remove?: (id: string) => Promise<Written<null>>;
   /** Something besides the values is waiting to be saved, such as a file. */
   pending?: boolean;
   /** After each save the backend took, with the record as it is now. */
   onSaved?: (saved: Saved<V, S>) => void;
-  /** The fields. */
-  children: (form: FormApi<V>) => ReactNode;
+  /** The fields, with the record as the last save left it. */
+  children: (form: FormApi<V>, status: S | null) => ReactNode;
   /** Beside the fields, before the record's details. */
   side?: (form: FormApi<V>, status: S | null) => ReactNode;
   /** The saved record's details, besides its dates, and links about it. */
@@ -115,12 +122,14 @@ export function RecordForm<V, S extends RecordDates>({
   recordHref,
   canEdit,
   canDelete = false,
+  deleteQuestion,
   readOnlyNotice,
   notice: arrivedNotice,
   texts,
   order,
   saveBody,
   save: send,
+  confirmSave,
   remove: sendDelete,
   pending = false,
   onSaved,
@@ -201,6 +210,8 @@ export function RecordForm<V, S extends RecordDates>({
 
   async function save() {
     if (busy.current || readOnly) return;
+    const question = confirmSave?.(values, status);
+    if (question && !window.confirm(question)) return;
     busy.current = true;
     setNotice(null);
     setWorking("save");
@@ -237,7 +248,11 @@ export function RecordForm<V, S extends RecordDates>({
 
   async function remove() {
     if (!id || !sendDelete || busy.current) return;
-    if (!window.confirm(`Delete this ${noun}? It cannot be brought back.`)) {
+    if (
+      !window.confirm(
+        deleteQuestion ?? `Delete this ${noun}? It cannot be brought back.`,
+      )
+    ) {
       return;
     }
     busy.current = true;
@@ -331,7 +346,7 @@ export function RecordForm<V, S extends RecordDates>({
         </p>
       )}
       <div className="record-editor-columns">
-        <div className="record-editor-main">{children(form)}</div>
+        <div className="record-editor-main">{children(form, status)}</div>
         <aside className="record-editor-side" aria-label="Details">
           {side?.(form, status)}
           {status && <RecordDetails dates={status} {...details?.(status)} />}

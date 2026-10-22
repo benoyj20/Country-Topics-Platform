@@ -22,7 +22,7 @@ export default async function NewTopic() {
   return (
     <AdminShell account={gate.account} current="topics">
       <section className="admin-stack">
-        <p className="admin-muted">
+        <p className="admin-muted admin-crumbs">
           <Link href="/admin/collections/topics">Topics</Link>
         </p>
         <h1>New topic</h1>

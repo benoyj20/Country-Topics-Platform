@@ -70,7 +70,7 @@ export default async function TopicChange({ params }: Props) {
   return (
     <AdminShell account={gate.account} current="topic-changes">
       <section className="admin-stack">
-        <p className="admin-muted">
+        <p className="admin-muted admin-crumbs">
           <Link href="/admin/collections/topic-changes">Topic changes</Link>
         </p>
         <h1>{change.note}</h1>

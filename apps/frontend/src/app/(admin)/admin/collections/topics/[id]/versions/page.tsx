@@ -57,7 +57,7 @@ export default async function TopicVersions({ params, searchParams }: Props) {
   return (
     <AdminShell account={gate.account} current="topics">
       <section className="admin-stack">
-        <p className="admin-muted">
+        <p className="admin-muted admin-crumbs">
           <Link href="/admin/collections/topics">Topics</Link> /{" "}
           <Link href={`/admin/collections/topics/${id}`}>{title}</Link>
         </p>

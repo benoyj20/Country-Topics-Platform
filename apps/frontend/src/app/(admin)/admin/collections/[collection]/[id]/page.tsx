@@ -84,7 +84,7 @@ export default async function RecordPage({ params, searchParams }: Props) {
   return (
     <AdminShell account={gate.account} current={collection}>
       <section className="admin-stack">
-        <p className="admin-muted">
+        <p className="admin-muted admin-crumbs">
           <Link href={`/admin/collections/${collection}`}>{text.plural}</Link>
         </p>
         <h1>{title}</h1>

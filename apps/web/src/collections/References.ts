@@ -2,10 +2,10 @@ import {
   isPartialDate,
   normalizeDoi,
   normalizeIsbn,
+  REFERENCE_CHECK_LABELS,
   REFERENCE_CHECK_STATUSES,
   REFERENCE_KIND_LABELS,
   REFERENCE_KINDS,
-  type ReferenceCheckStatus,
   URL_MAX_LENGTH,
 } from "@countrytopics/domain";
 import { SourceUnavailableError } from "@countrytopics/sources";
@@ -30,13 +30,6 @@ import { keepWhileUsed } from "./topic-references";
 import { httpUrl } from "./url-field";
 
 const NO_STORE = { "Cache-Control": "no-store" };
-
-const CHECK_LABELS: Record<ReferenceCheckStatus, string> = {
-  pending: "Being checked",
-  resolved: "Confirmed",
-  not_found: "Not found",
-  failed: "Check could not finish",
-};
 
 // Set only by the hooks below and the worker; never from the request.
 const systemField = {
@@ -314,7 +307,7 @@ export const References: CollectionConfig = {
       index: true,
       options: REFERENCE_CHECK_STATUSES.map((value) => ({
         value,
-        label: CHECK_LABELS[value],
+        label: REFERENCE_CHECK_LABELS[value],
       })),
       ...systemField,
       admin: {

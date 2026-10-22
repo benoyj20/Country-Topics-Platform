@@ -48,7 +48,10 @@ const DROPPED_REQUEST_HEADERS = new Set([
 ]);
 const DROPPED_REQUEST_PREFIXES = ["cf-", "x-forwarded-"];
 
-// Response headers that describe the connection, not the answer.
+// Response headers that describe the connection, not the answer, and the
+// client hints Payload asks for on every answer, for its panel's colour
+// scheme. With Critical-CH, Chrome fetches a sign-in link a second time to
+// send the hint, and that second fetch finds the link's token spent.
 const DROPPED_RESPONSE_HEADERS = new Set([
   "connection",
   "keep-alive",
@@ -57,6 +60,8 @@ const DROPPED_RESPONSE_HEADERS = new Set([
   "transfer-encoding",
   "upgrade",
   "set-cookie",
+  "accept-ch",
+  "critical-ch",
 ]);
 
 /** How long the backend may take to start answering. */

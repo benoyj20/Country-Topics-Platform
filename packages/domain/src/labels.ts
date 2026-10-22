@@ -1,10 +1,14 @@
 import type { CommentReportReason } from "./comments.ts";
 import type { FeedbackKind, FeedbackStatus } from "./feedback.ts";
 import type { CommentReportStatus, CommentStatus } from "./moderation.ts";
+import type { Role } from "./roles.ts";
+import type { VideoCheckStatus } from "./snippets.ts";
 import type {
   ClaimStance,
   EvidenceKind,
   Licence,
+  LinkArchiveStatus,
+  ReferenceCheckStatus,
   ReferenceKind,
 } from "./topic-evidence.ts";
 import type {
@@ -103,4 +107,31 @@ export const FEEDBACK_KIND_LABELS: Record<FeedbackKind, string> = {
 export const FEEDBACK_STATUS_LABELS: Record<FeedbackStatus, string> = {
   new: "New",
   done: "Done",
+};
+
+export const REFERENCE_CHECK_LABELS: Record<ReferenceCheckStatus, string> = {
+  pending: "Being checked",
+  resolved: "Confirmed",
+  not_found: "Not found",
+  failed: "Check could not finish",
+};
+
+export const VIDEO_CHECK_LABELS: Record<VideoCheckStatus, string> = {
+  pending: "Being checked",
+  playable: "Playable",
+  not_embeddable: "Cannot be embedded",
+  unavailable: "Removed or private",
+  failed: "Check could not finish",
+};
+
+export const LINK_ARCHIVE_STATUS_LABELS: Record<LinkArchiveStatus, string> = {
+  archived: "Archived",
+  not_archived: "No copy",
+  failed: "Could not check",
+};
+
+export const ROLE_LABELS: Record<Role, string> = {
+  member: "Member",
+  moderator: "Moderator",
+  admin: "Admin",
 };

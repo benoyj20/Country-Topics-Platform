@@ -1,4 +1,8 @@
-import { LICENCE_LABELS, URL_MAX_LENGTH } from "@countrytopics/domain";
+import {
+  LICENCE_LABELS,
+  MEDIA_MIME_TYPES,
+  URL_MAX_LENGTH,
+} from "@countrytopics/domain";
 import type { CollectionConfig } from "payload";
 
 import { verifiedAdminsOnly, verifiedStaffOnly } from "@/access";
@@ -9,9 +13,6 @@ import { reindexTopicsOnChange } from "@/search-index";
 import { keepWhileUsed } from "./topic-references";
 import { optionalHttpUrl } from "./url-field";
 
-/** Photos and pictures; no SVG, which can carry scripts. */
-export const IMAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
-export const DOCUMENT_MIME_TYPES = ["application/pdf"];
 /** Larger files belong on their publisher's site, linked and archived. */
 export const UPLOAD_MAX_BYTES = 20 * 1024 * 1024;
 
@@ -51,7 +52,7 @@ export const Media: CollectionConfig = {
   },
   upload: {
     // Payload checks the file's content, not just its name, against these.
-    mimeTypes: [...IMAGE_MIME_TYPES, ...DOCUMENT_MIME_TYPES],
+    mimeTypes: [...MEDIA_MIME_TYPES],
     // Uploads come from the admin's computer only; the server never fetches
     // a pasted URL.
     pasteURL: false,

@@ -164,6 +164,9 @@ describe("the pass-through", () => {
         "content-type": "text/plain",
         "cache-control": "private, no-store",
         connection: "keep-alive",
+        // Payload's, for its panel's colour scheme.
+        "accept-ch": "Sec-CH-Prefers-Color-Scheme",
+        "critical-ch": "Sec-CH-Prefers-Color-Scheme",
       });
       headers.append("set-cookie", "__Host-a=1; Path=/; Secure; HttpOnly");
       headers.append("set-cookie", "__Host-b=2; Path=/; Secure; HttpOnly");
@@ -186,6 +189,9 @@ describe("the pass-through", () => {
     );
     assert.equal(response.headers.get("cache-control"), "private, no-store");
     assert.equal(response.headers.get("connection"), null);
+    // A browser would fetch the sign-in link again to send the hint.
+    assert.equal(response.headers.get("accept-ch"), null);
+    assert.equal(response.headers.get("critical-ch"), null);
     assert.equal(await response.text(), "moved");
 
     for (const location of [

@@ -1,17 +1,11 @@
 import {
+  LINK_ARCHIVE_STATUS_LABELS,
   LINK_ARCHIVE_STATUSES,
-  type LinkArchiveStatus,
   URL_MAX_LENGTH,
 } from "@countrytopics/domain";
 import type { CollectionConfig } from "payload";
 
 import { nobody, verifiedStaffOnly } from "@/access";
-
-const STATUS_LABELS: Record<LinkArchiveStatus, string> = {
-  archived: "Archived",
-  not_archived: "No copy",
-  failed: "Could not check",
-};
 
 // Wayback Machine copies of links that topics use as evidence or that
 // references point to, one record per link. Only the worker writes them
@@ -48,7 +42,7 @@ export const LinkArchives: CollectionConfig = {
       required: true,
       options: LINK_ARCHIVE_STATUSES.map((value) => ({
         value,
-        label: STATUS_LABELS[value],
+        label: LINK_ARCHIVE_STATUS_LABELS[value],
       })),
     },
     { name: "archiveUrl", label: "Archived copy", type: "text" },

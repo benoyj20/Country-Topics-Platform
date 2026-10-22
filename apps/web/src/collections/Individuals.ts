@@ -1,4 +1,5 @@
 import {
+  IMAGE_MIME_TYPES,
   isPartialDate,
   isPartialDateRangeValid,
   isWikidataId,
@@ -37,7 +38,6 @@ import {
   evidenceLinkUrls,
   tidyEvidenceRows,
 } from "./evidence-field";
-import { IMAGE_MIME_TYPES } from "./Media";
 import { fillSlug, slugField } from "./slug";
 import { keepWhileUsed } from "./topic-references";
 import { httpUrl } from "./url-field";

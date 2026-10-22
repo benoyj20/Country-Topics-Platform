@@ -1,6 +1,6 @@
 import {
+  VIDEO_CHECK_LABELS,
   VIDEO_CHECK_STATUSES,
-  type VideoCheckStatus,
 } from "@countrytopics/domain";
 import type { CollectionConfig } from "payload";
 
@@ -8,14 +8,6 @@ import { nobody, verifiedAdminsOnly, verifiedStaffOnly } from "@/access";
 import { auditHooks } from "@/audit";
 
 import { keepWhileUsed } from "./topic-references";
-
-export const VIDEO_CHECK_LABELS: Record<VideoCheckStatus, string> = {
-  pending: "Being checked",
-  playable: "Playable",
-  not_embeddable: "Cannot be embedded",
-  unavailable: "Removed or private",
-  failed: "Check could not finish",
-};
 
 const audit = auditHooks({
   collection: "videos",

@@ -14,6 +14,23 @@ const MONTH = new Intl.DateTimeFormat("en-GB", {
   timeZone: "UTC",
 });
 
+const DAY_AND_TIME = new Intl.DateTimeFormat("en-GB", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  timeZone: "UTC",
+});
+
+/** "17 Oct 2026, 14:05 UTC" for a stored timestamp, for the admin. */
+export function formatDateTime(iso: string): string {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime())
+    ? iso
+    : `${DAY_AND_TIME.format(date)} UTC`;
+}
+
 /** "17 October 2026" for a stored timestamp. */
 export function formatDate(iso: string): string {
   const date = new Date(iso);

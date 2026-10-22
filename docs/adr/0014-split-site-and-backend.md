@@ -886,6 +886,75 @@ Left for later phases:
   and link checks) still purge nothing, as before the split; their pages
   refresh within the hour.
 
+### Phase 7 results (2026-10-22)
+
+The admin at `/admin` has its shell and a list for each of the 17
+collections Payload's panel lists. Checked on production builds of both
+apps, against the local database, with new TEST accounts:
+
+| Check                                     | Result                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Finding a record, against Payload's panel | As the same verified admin, the time until the record looked for is on screen, median of five: the topics list 159 ms (the panel 261 ms), a topic search 145 ms (265), comments by status 165 ms (264), the second page of countries 146 ms (263), a user by email 144 ms (232), a reference by title 147 ms (256). Typing in the search box until the match is listed: 382 ms (385); both wait 300 ms after the last key. An earlier run gave the panel 151–200 ms and the new admin 133–165 ms |
+| The gate                                  | A visitor is sent to sign in and back to the same list; a member is told the admin is for staff; staff without an authenticator set one up and confirm a code in the admin itself, and the page they asked for opens                                                                                                                                                                                                                                                                             |
+| Lists                                     | Search as you type, as the panel does, keeping the focus; columns that sort, ascending then descending; filters, which go into the address without the empty ones; 5 to 100 a page, countries 50 as in the panel; pages; a row opens its record at the panel's address                                                                                                                                                                                                                           |
+| Who sees what                             | Admins see all 17 collections; moderators 15, without the audit log and invitations, which they are refused, and only their own account among users                                                                                                                                                                                                                                                                                                                                              |
+| Never cached                              | Every admin screen is sent with `private, no-cache, no-store`                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Accessibility and layout                  | 12 screens at 1280 px (light and dark), 768 px, and 390 px (light and dark): axe-core (WCAG 2.1 A and AA, best practices) finds nothing, and no screen scrolls sideways; on narrow screens the navigation folds behind a Menu button                                                                                                                                                                                                                                                             |
+| The backend                               | An integration test checks every list's fields against the backend's collections (names, kinds, choices, relations, who may read them) and asks Payload's REST API for each list, with its search and every filter, as the admin does                                                                                                                                                                                                                                                            |
+
+How it works, where the plan left details open:
+
+- **What a list reads is a contract.** `packages/contracts`
+  (`admin-lists.ts`) names, for each collection, the fields its list shows
+  or filters by, their kinds, its search fields, filters, and default sort
+  and page size, as Payload's panel has them, and builds the REST request:
+  only those fields (`select`), related records by their titles only
+  (`populate`), and the newest versions where a collection has drafts.
+  Answers are parsed against the same definitions. Phase 3 planned
+  Payload's generated types here instead; types alone would not have
+  caught a renamed field at run time, and the backend's test does.
+- **Lists are rendered on the server** for each request, with the staff
+  member's cookie and address, so the backend's access rules decide what
+  each person sees, as they do for the panel. They are links and forms
+  first: sorting, filters, page sizes, and pages work before the page's
+  scripts load, and the search box then follows typing.
+- **Addresses are Payload's** (`/admin/collections/<slug>`, `search`,
+  `sort`, `page`, `limit`), so links into the panel keep working, such as a
+  comment's "moderate" link; filters add one parameter each. Anything the
+  address names that a list does not know is ignored, never passed on.
+- **Lists page by number, not by cursor.** AGENTS.md asks lists for
+  cursor pagination. Payload's REST API pages only by number, as its panel
+  does, so the admin's lists do too, up to page 1,000, and every default
+  sort is on an indexed `createdAt` or `updatedAt`. Cursors would need an
+  endpoint of the backend's own for each list; this exception is for the
+  developer to confirm.
+- **A related filter takes a title or an id.** A title is first matched
+  against the related collection, at most 100 records, and the list says
+  so when that limit is reached.
+- **A record's page names it and, locally, opens it in Payload's panel**
+  until its editor comes (phases 8 to 10). The same goes for any other
+  address under `/admin`.
+- **The authenticator check is shared** by the account page and the admin
+  (`use-authenticator-check.ts`).
+- **The names of stored values** that only the backend had (link archive,
+  reference, and video check statuses, roles) and the file types Media
+  accepts moved to `packages/domain`.
+
+Found on the way:
+
+- **Email sign-in always lost its return address in Chrome.** Payload asks
+  for a client hint (`Accept-CH` with `Critical-CH`) on every answer, for
+  its panel's colour scheme. Chrome then fetched the sign-in link a second
+  time to send the hint; the first fetch had already spent the token, so
+  the second failed, and the signed-in person landed on `/account` instead
+  of the page they came from. The pass-through now drops those headers.
+
+Left for later phases:
+
+- **Creating, editing, and bulk actions**: phases 8 to 11. The lists'
+  columns are fixed until phase 11 lets staff choose them and remembers
+  their filters.
+
 ## Consequences
 
 **Gains:**

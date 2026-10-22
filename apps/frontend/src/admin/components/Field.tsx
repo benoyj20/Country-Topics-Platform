@@ -1,19 +1,11 @@
 import type { ReactNode } from "react";
 
+import { describedBy } from "./field-ids";
+
 // A form field as the admin's editors show it: its label, what it is for,
 // and the backend's messages about it, which its input points to.
 
-/** The ids an input's aria-describedby lists: its description and its messages. */
-export function describedBy(
-  id: string,
-  { description, invalid }: { description?: string; invalid?: boolean },
-): string | undefined {
-  const ids = [
-    description ? `${id}-description` : null,
-    invalid ? `${id}-error` : null,
-  ].filter(Boolean);
-  return ids.length > 0 ? ids.join(" ") : undefined;
-}
+export { describedBy };
 
 export function FieldMessages({
   id,

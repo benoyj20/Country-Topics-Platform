@@ -15,11 +15,11 @@ import { RichTextView } from "@/components/RichTextView";
 
 import { recordName } from "../record-name";
 import { safeHref } from "../safe-href";
-import { TOPIC_FIELDS } from "./topic-text";
+import { TOPIC_TEXTS } from "./topic-text";
 
 // A topic's fields, read only, as a version kept them.
 
-const label = (key: string) => TOPIC_FIELDS[key]?.label ?? key;
+const label = (key: string) => TOPIC_TEXTS[key]?.label ?? key;
 
 const none = <span className="admin-muted">None</span>;
 

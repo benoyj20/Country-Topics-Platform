@@ -26,6 +26,21 @@ export function canRead(
 }
 
 /**
+ * The collections whose records are made in the admin: verified admins
+ * make them (apps/web's access rules); countries are a fixed list, and the
+ * worker adds videos and archived links.
+ */
+const CREATED_HERE: ReadonlySet<AdminCollection> = new Set([
+  "topics",
+  "references",
+  "snippets",
+  "media",
+  "individuals",
+  "categories",
+  "tags",
+]);
+
+/**
  * Where `account` makes a new record of `collection`: only collections
  * whose editor is built, for those the backend lets create them.
  */
@@ -33,9 +48,8 @@ export function createHref(
   collection: AdminCollection,
   account: Account,
 ): string | undefined {
-  // Topics: verified admins only (apps/web's Topics access).
-  return collection === "topics" && account.role === "admin"
-    ? "/admin/collections/topics/create"
+  return CREATED_HERE.has(collection) && account.role === "admin"
+    ? `/admin/collections/${collection}/create`
     : undefined;
 }
 

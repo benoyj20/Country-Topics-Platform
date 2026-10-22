@@ -7,6 +7,7 @@ export * from "./labels.ts";
 export * from "./moderation.ts";
 export * from "./names.ts";
 export * from "./partial-dates.ts";
+export * from "./record-fields.ts";
 export * from "./rich-text.ts";
 export * from "./roles.ts";
 export * from "./sign-up.ts";

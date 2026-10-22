@@ -280,6 +280,25 @@ export async function payloadRest(
   return handler(request, { params: Promise.resolve({ slug }) });
 }
 
+/**
+ * Sends a form to Payload's REST API, as the admin uploads a file: the
+ * browser sets the form's type, with its boundary.
+ */
+export async function payloadUpload(
+  method: "PATCH" | "POST",
+  slug: string[],
+  jar: CookieJar,
+  form: FormData,
+  search = "",
+): Promise<Response> {
+  const request = new Request(`${SITE_URL}/api/${slug.join("/")}${search}`, {
+    method,
+    headers: { cookie: jar.header(), origin: SITE_URL },
+    body: form,
+  });
+  return restHandlers[method](request, { params: Promise.resolve({ slug }) });
+}
+
 export async function canAccessAdmin(jar: CookieJar): Promise<boolean> {
   const response = await payloadRest("GET", ["access"], jar);
   const body = z

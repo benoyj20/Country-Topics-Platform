@@ -2,10 +2,14 @@ import {
   isPartialDate,
   normalizeDoi,
   normalizeIsbn,
+  PARTIAL_DATE_MESSAGE,
+  REFERENCE_AUTHORS_MAX_LENGTH,
   REFERENCE_CHECK_LABELS,
   REFERENCE_CHECK_STATUSES,
   REFERENCE_KIND_LABELS,
   REFERENCE_KINDS,
+  REFERENCE_SOURCE_MAX_LENGTH,
+  REFERENCE_TITLE_MAX_LENGTH,
   URL_MAX_LENGTH,
 } from "@countrytopics/domain";
 import { SourceUnavailableError } from "@countrytopics/sources";
@@ -274,16 +278,21 @@ export const References: CollectionConfig = {
             value === "" ||
             (typeof value === "string" && isPartialDate(value))
               ? true
-              : "Use YYYY, YYYY-MM, or YYYY-MM-DD, only as precise as the source.",
+              : PARTIAL_DATE_MESSAGE,
           admin: { placeholder: "YYYY, YYYY-MM, or YYYY-MM-DD" },
         },
       ],
     },
-    { name: "title", type: "text", required: true, maxLength: 500 },
+    {
+      name: "title",
+      type: "text",
+      required: true,
+      maxLength: REFERENCE_TITLE_MAX_LENGTH,
+    },
     {
       name: "authors",
       type: "textarea",
-      maxLength: 2000,
+      maxLength: REFERENCE_AUTHORS_MAX_LENGTH,
       admin: { description: "One per line, as printed." },
     },
     {
@@ -293,9 +302,13 @@ export const References: CollectionConfig = {
           name: "containerTitle",
           label: "Journal, book, or website",
           type: "text",
-          maxLength: 300,
+          maxLength: REFERENCE_SOURCE_MAX_LENGTH,
         },
-        { name: "publisher", type: "text", maxLength: 300 },
+        {
+          name: "publisher",
+          type: "text",
+          maxLength: REFERENCE_SOURCE_MAX_LENGTH,
+        },
       ],
     },
     {

@@ -138,7 +138,7 @@ const values: TopicValues = {
         id: FILE,
         title: "TEST.png",
         mimeType: "image/png",
-        url: "/files/TEST.png",
+        url: "/api/media/file/TEST.png",
       },
       snippet: null,
       url: "",
@@ -234,7 +234,7 @@ describe("a stored topic", () => {
           id: FILE,
           filename: "TEST.png",
           mimeType: "image/png",
-          url: "/files/TEST.png",
+          url: "/api/media/file/TEST.png",
         },
         snippet: null,
         url: null,
@@ -282,7 +282,7 @@ describe("a stored topic", () => {
       id: FILE,
       title: "TEST.png",
       mimeType: "image/png",
-      url: "/files/TEST.png",
+      url: "/api/media/file/TEST.png",
     });
     assert.equal(shown.evidence[0]?.title, "");
     assert.equal(shown.references[0]?.reference?.checkStatus, "pending");

@@ -1,3 +1,4 @@
+import { TAG_NAME_MAX_LENGTH } from "@countrytopics/domain";
 import type { CollectionConfig } from "payload";
 
 import { verifiedAdminsOnly, verifiedStaffOnly } from "@/access";
@@ -30,7 +31,13 @@ export const Tags: CollectionConfig = {
     delete: verifiedAdminsOnly,
   },
   fields: [
-    { name: "name", type: "text", required: true, unique: true, maxLength: 60 },
+    {
+      name: "name",
+      type: "text",
+      required: true,
+      unique: true,
+      maxLength: TAG_NAME_MAX_LENGTH,
+    },
     slugField,
   ],
   hooks: purgeOnChange(PUBLIC_TAGS.tags, {

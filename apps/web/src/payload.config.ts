@@ -1,3 +1,7 @@
+import {
+  UPLOAD_MAX_BYTES,
+  UPLOAD_TOO_LARGE_MESSAGE,
+} from "@countrytopics/domain";
 import { postgresAdapter } from "@payloadcms/db-postgres";
 import { s3Storage } from "@payloadcms/storage-s3";
 import path from "node:path";
@@ -14,7 +18,7 @@ import { Feedback } from "./collections/Feedback";
 import { Individuals } from "./collections/Individuals";
 import { Invitations } from "./collections/Invitations";
 import { LinkArchives } from "./collections/LinkArchives";
-import { Media, UPLOAD_MAX_BYTES } from "./collections/Media";
+import { Media } from "./collections/Media";
 import { Notifications } from "./collections/Notifications";
 import { References } from "./collections/References";
 import { Snippets } from "./collections/Snippets";
@@ -95,7 +99,7 @@ export default buildConfig({
     // Refuse oversized files instead of storing them cut short.
     limits: { fileSize: UPLOAD_MAX_BYTES },
     abortOnLimit: true,
-    responseOnLimit: "Files can be at most 20 MB.",
+    responseOnLimit: UPLOAD_TOO_LARGE_MESSAGE,
   },
   // Payload's panel calls its API at serverURL: locally that is the
   // backend's own address, where the panel is used until ADR 0014's phase

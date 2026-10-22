@@ -1,3 +1,7 @@
+import {
+  CATEGORY_DESCRIPTION_MAX_LENGTH,
+  CATEGORY_NAME_MAX_LENGTH,
+} from "@countrytopics/domain";
 import type { CollectionConfig } from "payload";
 
 import { verifiedAdminsOnly, verifiedStaffOnly } from "@/access";
@@ -35,8 +39,18 @@ export const Categories: CollectionConfig = {
     delete: verifiedAdminsOnly,
   },
   fields: [
-    { name: "name", type: "text", required: true, unique: true, maxLength: 80 },
-    { name: "description", type: "textarea", maxLength: 500 },
+    {
+      name: "name",
+      type: "text",
+      required: true,
+      unique: true,
+      maxLength: CATEGORY_NAME_MAX_LENGTH,
+    },
+    {
+      name: "description",
+      type: "textarea",
+      maxLength: CATEGORY_DESCRIPTION_MAX_LENGTH,
+    },
     slugField,
   ],
   hooks: purgeOnChange(PUBLIC_TAGS.categories, {

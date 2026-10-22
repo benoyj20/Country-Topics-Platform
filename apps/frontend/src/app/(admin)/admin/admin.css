@@ -903,16 +903,16 @@ textarea.admin-input {
   background: rgb(15 23 42 / 45%);
 }
 
-/* The topic editor: a bar with its state and buttons, kept in view, then
-   the fields, with publishing and the topic's history beside them on wide
-   screens and after them on narrow ones. */
+/* An editor: a bar with its state and buttons, kept in view, then the
+   fields, with the record's details (a topic's publishing and history)
+   beside them on wide screens and after them on narrow ones. */
 
-.topic-editor {
+.record-editor {
   display: grid;
   gap: 1rem;
 }
 
-.topic-editor-bar {
+.record-editor-bar {
   position: sticky;
   top: 0;
   z-index: 15;
@@ -927,25 +927,25 @@ textarea.admin-input {
   background: var(--background);
 }
 
-.topic-editor-state {
+.record-editor-state {
   font-weight: 600;
 }
 
-.topic-editor-columns {
+.record-editor-columns {
   display: grid;
   gap: 1.5rem;
   align-items: start;
 }
 
-.topic-editor-main,
-.topic-editor-side {
+.record-editor-main,
+.record-editor-side {
   display: grid;
   gap: 1.25rem;
   min-width: 0;
 }
 
 @media (min-width: 64rem) {
-  .topic-editor-columns {
+  .record-editor-columns {
     grid-template-columns: minmax(0, 1fr) 20rem;
   }
 }
@@ -1083,4 +1083,164 @@ textarea.admin-input {
 
 .editor-underline-strikethrough {
   text-decoration: underline line-through;
+}
+
+/* A file's preview, and a video's thumbnail. */
+
+.admin-preview {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+  background: var(--surface);
+}
+
+/* The snippet editor's clip: the player at 16:9, a scrubber with the clip
+   shaded between --clip-from and --clip-to, and the times. */
+
+.clip-editor {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.clip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.clip-grow {
+  flex: 1 1 15rem;
+  min-width: 0;
+}
+
+.clip-frame {
+  position: relative;
+  max-width: 45rem;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: var(--radius-small);
+  background: #000;
+}
+
+.clip-player,
+.clip-player iframe,
+.clip-facade,
+.clip-empty {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.clip-player iframe {
+  border: 0;
+}
+
+.clip-facade {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: #000;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.clip-facade img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.6;
+}
+
+.clip-facade span {
+  position: relative;
+  padding: 0.5rem 0.875rem;
+  border-radius: var(--radius-small);
+  background: rgb(0 0 0 / 75%);
+}
+
+.clip-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  color: rgb(255 255 255 / 80%);
+}
+
+.clip-scrub-row {
+  flex-wrap: nowrap;
+  max-width: 45rem;
+}
+
+.clip-scrub {
+  flex: 1;
+  min-width: 0;
+  height: 0.5rem;
+  border-radius: 0.25rem;
+  appearance: none;
+  background: linear-gradient(
+    to right,
+    var(--line-strong) var(--clip-from, 0%),
+    var(--accent) var(--clip-from, 0%),
+    var(--accent) var(--clip-to, 0%),
+    var(--line-strong) var(--clip-to, 0%)
+  );
+}
+
+.clip-scrub::-webkit-slider-thumb {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  appearance: none;
+  background: var(--heading);
+}
+
+.clip-scrub::-moz-range-thumb {
+  width: 1rem;
+  height: 1rem;
+  border: 0;
+  border-radius: 50%;
+  background: var(--heading);
+}
+
+.clip-mono {
+  font-family: var(--font-mono);
+}
+
+.clip-row > .admin-input.clip-mono {
+  flex: 0 0 auto;
+  width: 8rem;
+}
+
+.clip-time {
+  display: inline-flex;
+  gap: 0.375rem;
+  align-items: center;
+  font-weight: 600;
+}
+
+.clip-problems {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.clip-problems:empty {
+  display: none;
+}
+
+.clip-warning {
+  color: var(--text);
+}
+
+.clip-warning::marker {
+  color: var(--warning);
 }

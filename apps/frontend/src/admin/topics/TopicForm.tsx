@@ -23,34 +23,27 @@ import type { LexicalEditor, SerializedEditorState } from "lexical";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  type FormEvent,
-  type ReactNode,
-  useEffect,
-  useEffectEvent,
-  useRef,
-  useState,
-} from "react";
+import { type FormEvent, type ReactNode, useRef, useState } from "react";
 
 import { formatDateTime } from "@/format";
 
-import { CheckField, describedBy, Field } from "../components/Field";
+import { EvidenceFields } from "../components/EvidenceFields";
+import { CheckField, Field } from "../components/Field";
+import { RefusalSummary } from "../components/RefusalSummary";
 import { RelationPicker } from "../components/RelationPicker";
+import { ArrayField, RowList } from "../components/Rows";
+import {
+  useArrivedNotice,
+  useLeaveGuard,
+  useRefusalFocus,
+  useSaveShortcut,
+} from "../editor-guards";
+import { arrayProps, fieldProps, pickerAria, rowNameAt } from "../field-text";
 import { recordName } from "../record-name";
-import {
-  clearMessages,
-  fieldMessages,
-  savedForm,
-  valuesAfterAnswer,
-} from "./form-state";
+import { clearMessages, savedForm, valuesAfterAnswer } from "./form-state";
 import { deleteTopic, saveTopic } from "./save";
-import { fieldName, TOPIC_FIELDS } from "./topic-text";
-import {
-  CitationFields,
-  EvidenceFields,
-  PersonFields,
-  RowList,
-} from "./TopicRows";
+import { fieldName, TOPIC_TEXTS } from "./topic-text";
+import { CitationFields, PersonFields } from "./TopicRows";
 
 // A topic's editor (ADR 0014, phase 8): every field Payload's panel shows,
 // saved as a draft or published through Payload's REST API. The backend's
@@ -143,57 +136,13 @@ export function TopicForm({
   const bodyEdits = useRef(0);
   const [bodyChanged, setBodyChanged] = useState(false);
   const [savedValues, setSavedValues] = useState(() => savedForm(loaded));
-  const summary = useRef<HTMLDivElement>(null);
+  const [summaryRef, refused] = useRefusalFocus();
   const readOnly = !canEdit;
   const refusal = outcome?.kind === "refused" ? outcome.refusal : null;
   const dirty = !readOnly && (bodyChanged || savedForm(values) !== savedValues);
 
-  // The address no longer says what was just saved, so a reload shows no notice.
-  useEffect(() => {
-    if (arrivedNotice) {
-      window.history.replaceState(null, "", window.location.pathname);
-    }
-  }, [arrivedNotice]);
-
-  // Unsaved changes: the browser asks before leaving, and so do the admin's links.
-  useEffect(() => {
-    if (!dirty) return;
-    const beforeUnload = (event: BeforeUnloadEvent) => event.preventDefault();
-    const onClick = (event: MouseEvent) => {
-      const link =
-        event.target instanceof Element
-          ? event.target.closest("a[href]")
-          : null;
-      if (
-        !(link instanceof HTMLAnchorElement) ||
-        link.target === "_blank" ||
-        event.metaKey ||
-        event.ctrlKey ||
-        event.shiftKey
-      ) {
-        return;
-      }
-      const to = new URL(link.href);
-      const here = window.location;
-      // Another site, or a field on this page, such as a message's link.
-      if (
-        to.origin !== here.origin ||
-        (to.hash && to.pathname === here.pathname && to.search === here.search)
-      ) {
-        return;
-      }
-      if (!window.confirm("Leave without saving? Your changes will be lost.")) {
-        event.preventDefault();
-        event.stopPropagation();
-      }
-    };
-    window.addEventListener("beforeunload", beforeUnload);
-    document.addEventListener("click", onClick, true);
-    return () => {
-      window.removeEventListener("beforeunload", beforeUnload);
-      document.removeEventListener("click", onClick, true);
-    };
-  }, [dirty]);
+  useArrivedNotice(arrivedNotice);
+  useLeaveGuard(dirty);
 
   /** Changes a field; a whole array's rows may have moved. */
   function change<K extends keyof TopicValues>(key: K, value: TopicValues[K]) {
@@ -230,8 +179,7 @@ export function TopicForm({
 
   function refuse(publish: boolean | null, refusal: Refusal) {
     setOutcome({ kind: "refused", publish, refusal });
-    // After the messages render.
-    setTimeout(() => summary.current?.focus(), 0);
+    refused();
   }
 
   async function save(publish: boolean) {
@@ -319,45 +267,22 @@ export function TopicForm({
   }
 
   // Ctrl+S saves a draft, as in Payload's panel.
-  const saveDraft = useEffectEvent(() => void save(false));
-  useEffect(() => {
-    if (readOnly) return;
-    const onKey = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
-        event.preventDefault();
-        saveDraft();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [readOnly]);
+  useSaveShortcut(() => void save(false), !readOnly);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     void save(false);
   }
 
-  const messages = (key: string) => refusal?.fields[key];
-  const aria = (key: string) => ({
-    "aria-invalid": messages(key)?.length ? true : undefined,
-    "aria-describedby": describedBy(key, {
-      description: TOPIC_FIELDS[key]?.description,
-      invalid: Boolean(messages(key)?.length),
-    }),
-  });
-  const field = (key: string) => ({
-    id: key,
-    label: TOPIC_FIELDS[key]?.label ?? key,
-    description: TOPIC_FIELDS[key]?.description,
-    messages: messages(key),
-  });
+  const field = (key: string) => fieldProps(TOPIC_TEXTS, key, refusal);
+  const aria = (key: string) => field(key).aria;
+  const array = (key: string) => arrayProps(field(key));
   const published = Boolean(status?.firstPublishedAt);
-  const listed = refusal ? fieldMessages(refusal, FIELD_ORDER) : [];
 
   return (
-    <form className="topic-editor" onSubmit={submit} noValidate>
-      <div className="topic-editor-bar">
-        <p className="topic-editor-state">
+    <form className="record-editor" onSubmit={submit} noValidate>
+      <div className="record-editor-bar">
+        <p className="record-editor-state">
           <span>{stateText(status)}</span>
           {dirty && <span className="admin-badge">Unsaved changes</span>}
         </p>
@@ -421,39 +346,26 @@ export function TopicForm({
         </p>
       )}
       {refusal && (
-        <div
-          ref={summary}
-          className="admin-error-summary"
-          role="alert"
-          tabIndex={-1}
-        >
-          <h2>
-            {outcome?.kind === "refused" && outcome.publish === true
+        <RefusalSummary
+          ref={summaryRef}
+          heading={
+            outcome?.kind === "refused" && outcome.publish === true
               ? "Not published"
               : outcome?.kind === "refused" && outcome.publish === null
                 ? "Not deleted"
-                : "Not saved"}
-          </h2>
-          <ul>
-            {refusal.general.map((message) => (
-              <li key={message}>{message}</li>
-            ))}
-            {listed.map(([key, message]) => (
-              <li key={`${key}:${message}`}>
-                <a href={`#${key}`}>
-                  {fieldName(key)}: {message}
-                </a>
-              </li>
-            ))}
-          </ul>
-        </div>
+                : "Not saved"
+          }
+          refusal={refusal}
+          order={FIELD_ORDER}
+          fieldName={fieldName}
+        />
       )}
 
       <p className="admin-muted">
         <span aria-hidden="true">*</span> Needed to publish.
       </p>
-      <div className="topic-editor-columns">
-        <div className="topic-editor-main">
+      <div className="record-editor-columns">
+        <div className="record-editor-main">
           <Field {...field("title")} required>
             <input
               id="title"
@@ -487,7 +399,7 @@ export function TopicForm({
                 clear("body");
               }}
               readOnly={readOnly}
-              invalid={Boolean(messages("body")?.length)}
+              invalid={Boolean(field("body").messages?.length)}
               describedBy={aria("body")["aria-describedby"]}
             />
           </Field>
@@ -501,7 +413,7 @@ export function TopicForm({
                 onChange={(chosen) => change("countries", chosen)}
                 toRecord={(match) => recordOf("countries", match)}
                 disabled={readOnly}
-                {...pickerAria(aria("countries"))}
+                {...pickerAria(field("countries"))}
               />
             </Field>
             <Field {...field("category")}>
@@ -512,7 +424,7 @@ export function TopicForm({
                 onChange={(chosen) => change("category", chosen.at(-1) ?? null)}
                 toRecord={(match) => recordOf("categories", match)}
                 disabled={readOnly}
-                {...pickerAria(aria("category"))}
+                {...pickerAria(field("category"))}
               />
             </Field>
           </div>
@@ -525,13 +437,13 @@ export function TopicForm({
               onChange={(chosen) => change("tags", chosen)}
               toRecord={(match) => recordOf("tags", match)}
               disabled={readOnly}
-              {...pickerAria(aria("tags"))}
+              {...pickerAria(field("tags"))}
             />
           </Field>
 
-          <ArrayField name="people" messages={messages("people")}>
+          <ArrayField {...array("people")}>
             <RowList
-              array="people"
+              name={rowNameAt(TOPIC_TEXTS, "people")}
               rows={values.people}
               readOnly={readOnly}
               onRows={(rows) => change("people", rows)}
@@ -541,8 +453,8 @@ export function TopicForm({
             >
               {(row, index) => (
                 <PersonFields
-                  array="people"
-                  index={index}
+                  texts={TOPIC_TEXTS}
+                  at={`people.${index}`}
                   row={row}
                   refusal={refusal}
                   readOnly={readOnly}
@@ -551,9 +463,9 @@ export function TopicForm({
               )}
             </RowList>
           </ArrayField>
-          <ArrayField name="evidence" messages={messages("evidence")}>
+          <ArrayField {...array("evidence")}>
             <RowList
-              array="evidence"
+              name={rowNameAt(TOPIC_TEXTS, "evidence")}
               rows={values.evidence}
               readOnly={readOnly}
               onRows={(rows) => change("evidence", rows)}
@@ -563,8 +475,8 @@ export function TopicForm({
             >
               {(row, index) => (
                 <EvidenceFields
-                  array="evidence"
-                  index={index}
+                  texts={TOPIC_TEXTS}
+                  at={`evidence.${index}`}
                   row={row}
                   refusal={refusal}
                   readOnly={readOnly}
@@ -573,9 +485,9 @@ export function TopicForm({
               )}
             </RowList>
           </ArrayField>
-          <ArrayField name="references" messages={messages("references")}>
+          <ArrayField {...array("references")}>
             <RowList
-              array="references"
+              name={rowNameAt(TOPIC_TEXTS, "references")}
               rows={values.references}
               readOnly={readOnly}
               onRows={(rows) => change("references", rows)}
@@ -585,8 +497,8 @@ export function TopicForm({
             >
               {(row, index) => (
                 <CitationFields
-                  array="references"
-                  index={index}
+                  texts={TOPIC_TEXTS}
+                  at={`references.${index}`}
                   row={row}
                   refusal={refusal}
                   readOnly={readOnly}
@@ -597,7 +509,7 @@ export function TopicForm({
           </ArrayField>
         </div>
 
-        <aside className="topic-editor-side" aria-label="Publishing">
+        <aside className="record-editor-side" aria-label="Publishing">
           {!readOnly && (
             <Field {...field("changeNote")} required={published}>
               <textarea
@@ -641,55 +553,6 @@ export function TopicForm({
         </aside>
       </div>
     </form>
-  );
-}
-
-/** A picker's ARIA, from a field's. */
-function pickerAria(aria: {
-  "aria-invalid"?: boolean;
-  "aria-describedby"?: string;
-}) {
-  return {
-    invalid: Boolean(aria["aria-invalid"]),
-    describedBy: aria["aria-describedby"],
-  };
-}
-
-/** An array field: its rows, with the messages about the whole array. */
-function ArrayField({
-  name,
-  messages,
-  children,
-}: {
-  name: string;
-  messages?: readonly string[];
-  children: ReactNode;
-}) {
-  const text = TOPIC_FIELDS[name];
-  return (
-    <section
-      id={name}
-      tabIndex={-1}
-      className={messages?.length ? "admin-array invalid" : "admin-array"}
-      aria-labelledby={`${name}-heading`}
-      aria-describedby={describedBy(name, {
-        description: text?.description,
-        invalid: Boolean(messages?.length),
-      })}
-    >
-      <h2 id={`${name}-heading`}>{text?.label ?? name}</h2>
-      {text?.description && (
-        <p id={`${name}-description`} className="admin-muted">
-          {text.description}
-        </p>
-      )}
-      {messages?.length ? (
-        <p id={`${name}-error`} className="admin-field-error">
-          {messages.join(" ")}
-        </p>
-      ) : null}
-      {children}
-    </section>
   );
 }
 

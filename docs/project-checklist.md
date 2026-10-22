@@ -526,8 +526,9 @@ See [ADR 0007](adr/0007-public-pages-and-caching.md) for the design.
 - [x] Paging past 50 topics, filters, and search came in week 8 (below):
   lists that stop short link to `/topics` with their filter.
 - [x] Video thumbnails come through the site since ADR 0014's phase 5
-  (`/thumbnails/:id` in `apps/frontend`); Payload's panel's snippet editor
-  moves onto it in phase 9.
+  (`/thumbnails/:id` in `apps/frontend`); the new admin's snippet editor
+  uses it since phase 9. Payload's panel's still loads YouTube's until the
+  panel goes in phase 12.
 
 ### Week 8: browsing, filters, search, shareable links
 
@@ -1482,7 +1483,7 @@ and 31 GB), 2026-10-18 and 2026-10-19.
   `/account`; the pass-through now drops them.
 - [ ] A record's page only names it, and locally opens it in Payload's
   panel, until its editor comes in phases 8 to 10 (topics and topic
-  changes: phase 8).
+  changes: phase 8; the records topics are built from: phase 9).
 - [x] The local database has more TEST accounts:
   `test-member-p7*@example.test`, `test-admin-p7*@example.test`,
   `test-moderator-p7*@example.test`, and `test-member-trace*@example.test`
@@ -1523,3 +1524,34 @@ and 31 GB), 2026-10-18 and 2026-10-19.
   `TEST Phase8 Person p8*`, and 20 topics titled `TEST phase 8 ...`: four
   published, with their versions and change logs, and drafts from runs
   stopped part way.
+
+### The split, phase 9: the other editors (ADR 0014)
+
+- [x] Countries, categories, tags, individuals, references, files, and
+  snippets are created (except countries), edited, and deleted (except
+  countries) in the new admin, at Payload's addresses; videos and archived
+  links are shown with what the worker found, and a video no snippet uses
+  can be deleted (2026-10-22).
+- [x] Each is checked as today: the reference lookup and the worker's
+  check, an individual's duplicate warning and "This is a different
+  person", the snippet clip editor with its player, transcript summary,
+  preview, and video check, a file's upload and replacement, and a refused
+  delete saying what still uses the record.
+- [x] Every refusal is shown beside its field and in the list at the top,
+  in rows of rows too: the backend's integration test sends each editor's
+  requests (30 tests), and a new TEST admin and moderator went through
+  every editor in headless Chrome (66 checks).
+- [x] The nine editors load only on the admin's record pages (44 KB, 13 KB
+  compressed); every screen is axe-clean at 1280, 768, and 390 px, light
+  and dark, with no sideways scrolling. 272 integration tests pass.
+- [x] Found on the way: a refusal's list did not always take the focus
+  after the backend refused a save; fixed in the topic editor too.
+- [ ] Versions of references and snippets, uploading several files at
+  once, and a file's focal point: phase 11. Comments, reports, feedback,
+  invitations, users, and the audit log: phase 10.
+- [x] The local database has more TEST records from the browser checks: 9
+  accounts `test-admin-p9*@example.test` and
+  `test-moderator-p9*@example.test`, and records named `TEST phase 9 ...`
+  or `TEST Phase9 Person ...`: 1 category, 3 tags, 3 individuals, 3
+  references, 6 files, and 2 snippets. Ghana's subregion was changed and
+  put back.

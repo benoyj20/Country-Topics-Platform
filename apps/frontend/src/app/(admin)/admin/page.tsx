@@ -8,6 +8,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { ADMIN_GROUPS, COLLECTION_TEXT, valueLabel } from "@/admin/collections";
+import { AdminIcon } from "@/admin/components/AdminIcon";
 import { AdminRefusal } from "@/admin/components/AdminRefusal";
 import { AdminShell } from "@/admin/components/AdminShell";
 import { readDashboard } from "@/admin/dashboard";
@@ -29,6 +30,40 @@ function shortened(value: unknown, length = 90): string {
 
 function recordLink(collection: AdminCollection, id: string) {
   return `/admin/collections/${collection}/${encodeURIComponent(id)}`;
+}
+
+/** A count of what waits for staff, opening the list of it. */
+function Waiting({
+  icon,
+  label,
+  count,
+  href,
+}: {
+  icon: "review" | "report" | "inbox";
+  label: string;
+  count: number;
+  href: string;
+}) {
+  return (
+    <li>
+      <Link
+        href={href}
+        className="admin-stat"
+        data-waiting={count > 0 ? "" : undefined}
+      >
+        <span className="admin-stat-icon">
+          <AdminIcon name={icon} />
+        </span>
+        <span className="admin-stat-count">{count}</span>
+        <span className="admin-stat-label">{label}</span>
+      </Link>
+    </li>
+  );
+}
+
+/** The part of an address before the @, to greet its owner by. */
+function greetingName(email: string): string {
+  return email.split("@")[0] ?? email;
 }
 
 /** One of the dashboard's lists, with a link to the whole of it. */
@@ -64,8 +99,11 @@ function Panel({
           ))}
         </ul>
       )}
-      <p>
-        <Link href={all.href}>{all.label}</Link>
+      <p className="admin-panel-more">
+        <Link href={all.href}>
+          {all.label}
+          <AdminIcon name="arrow" />
+        </Link>
       </p>
     </section>
   );
@@ -82,10 +120,51 @@ export default async function AdminHome() {
   if (!gate.ok) return <AdminRefusal {...gate} />;
   const { account } = gate;
   const dashboard = await readDashboard(account);
+  const newTopic = createHref("topics", account);
   return (
-    <AdminShell account={account}>
+    <AdminShell account={account} home>
       <section className="admin-stack">
-        <h1>Dashboard</h1>
+        <div className="admin-welcome">
+          <div className="admin-welcome-text">
+            <h1>Dashboard</h1>
+            <p>
+              Welcome back, {greetingName(account.email)}. Here is what waits
+              for you, and what changed lately.
+            </p>
+          </div>
+          <div className="admin-welcome-actions">
+            {newTopic && (
+              <Link href={newTopic} className="admin-button light">
+                <AdminIcon name="plus" />
+                New topic
+              </Link>
+            )}
+            <Link href="/" className="admin-button ghost">
+              <AdminIcon name="external" />
+              Open the site
+            </Link>
+          </div>
+        </div>
+        <ul className="admin-stats" aria-label="Waiting for staff">
+          <Waiting
+            icon="review"
+            label="Ready for review"
+            count={dashboard.review.totalDocs}
+            href="/admin/collections/topics?readyForReview=yes&page=1"
+          />
+          <Waiting
+            icon="report"
+            label="Open reports"
+            count={dashboard.reports.totalDocs}
+            href="/admin/collections/comment-reports?status=open&page=1"
+          />
+          <Waiting
+            icon="inbox"
+            label="New feedback"
+            count={dashboard.feedback.totalDocs}
+            href="/admin/collections/feedback?status=new&page=1"
+          />
+        </ul>
         <div className="admin-dashboard">
           <Panel
             title="Ready for review"
@@ -201,6 +280,9 @@ export default async function AdminHome() {
                   return (
                     <li key={collection} className="admin-card">
                       <h3>
+                        <span className="admin-card-icon">
+                          <AdminIcon name={collection} />
+                        </span>
                         <Link href={`/admin/collections/${collection}`}>
                           {COLLECTION_TEXT[collection].plural}
                         </Link>
@@ -212,7 +294,8 @@ export default async function AdminHome() {
                       )}
                       {create && (
                         <p>
-                          <Link href={create}>
+                          <Link href={create} className="admin-card-create">
+                            <AdminIcon name="plus" />
                             Create new
                             <span className="admin-visually-hidden">
                               {" "}

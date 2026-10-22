@@ -1,5 +1,7 @@
-/* The admin's styles, on the shared tokens (styles/tokens.css): a header,
-   the collections down the side, and the screen beside them. On narrow
+/* The admin's styles, on the shared tokens (styles/tokens.css) and in the
+   site's look: its mark and blurred header, white cards with soft shadows,
+   serif headings, and the same buttons and fields. A header, the
+   collections down the side, and the screen beside them; on narrow
    screens the collections fold away behind the Menu button. */
 
 *,
@@ -15,19 +17,38 @@ body {
   font-family: var(--font-sans);
   font-size: 0.9375rem;
   line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 a {
   color: var(--accent);
+  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+  transition:
+    color 0.15s ease,
+    text-decoration-color 0.15s ease;
 }
 
 a:hover {
   color: var(--accent-hover);
+  text-decoration-color: currentColor;
 }
 
 :focus-visible {
   outline: 3px solid var(--focus-ring);
   outline-offset: 2px;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.admin-icon {
+  flex: none;
+  width: 1.125rem;
+  height: 1.125rem;
 }
 
 h1,
@@ -40,13 +61,15 @@ h3 {
 
 h1 {
   font-family: var(--font-serif);
-  font-size: 1.75rem;
+  font-size: clamp(1.6rem, 1.4rem + 0.8vw, 2rem);
   font-weight: 650;
+  letter-spacing: -0.015em;
 }
 
 h2 {
   font-size: 1.05rem;
   font-weight: 650;
+  letter-spacing: -0.005em;
 }
 
 h3 {
@@ -110,81 +133,183 @@ code {
 
 /* The frame */
 
+/* The header: the site's mark and name, as on the site, then the account. */
 .admin-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem 1.25rem;
   align-items: center;
   justify-content: space-between;
-  padding: 0.625rem var(--gutter);
+  min-height: var(--header-height);
+  padding: 0.5rem var(--gutter);
   border-bottom: 1px solid var(--line);
-  background: var(--card);
+  background: color-mix(in srgb, var(--card) 85%, transparent);
+  backdrop-filter: saturate(1.5) blur(12px);
 }
 
 .admin-name {
+  display: inline-flex;
+  gap: 0.6rem;
+  align-items: center;
   color: var(--heading);
-  font-weight: 650;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
   text-decoration: none;
+}
+
+.admin-name:hover {
+  color: var(--heading);
+}
+
+.admin-name svg {
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+}
+
+/* As the site's "Pilot" label. */
+.admin-tag {
+  padding: 0.05rem 0.45rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .admin-header-tools {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem 1rem;
+  gap: 0.5rem 0.75rem;
   align-items: center;
   min-width: 0;
 }
 
-.admin-header-tools .admin-muted {
+.admin-account {
+  display: inline-flex;
+  gap: 0.5rem;
+  align-items: center;
+  min-width: 0;
+}
+
+.admin-avatar {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #2f63e6, var(--brand-deep));
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.admin-account-text {
+  min-width: 0;
+  color: var(--text);
+  font-size: 0.875rem;
+  line-height: 1.3;
   overflow-wrap: anywhere;
+}
+
+.admin-account-role {
+  color: var(--muted);
+}
+
+.admin-header-link {
+  display: inline-flex;
+  gap: 0.375rem;
+  align-items: center;
+  padding: 0.4rem 0.7rem;
+  border-radius: var(--radius-small);
+  color: var(--text);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.admin-header-link:hover {
+  background: var(--surface);
+  color: var(--heading);
 }
 
 .admin-frame {
   display: grid;
-  grid-template-columns: 14rem minmax(0, 1fr);
-  min-height: calc(100vh - 3.5rem);
+  grid-template-columns: 15rem minmax(0, 1fr);
+  min-height: calc(100vh - var(--header-height));
 }
 
 .admin-frame.single {
   grid-template-columns: minmax(0, 1fr);
 }
 
+/* The collections, down the side: they stay in view while a list scrolls. */
 .admin-nav {
-  padding: 1.25rem 0.75rem;
+  position: sticky;
+  top: var(--header-height);
+  align-self: start;
+  max-height: calc(100vh - var(--header-height));
+  overflow-y: auto;
+  padding: 1.25rem 0.75rem 2rem;
   border-right: 1px solid var(--line);
   background: var(--card);
 }
 
-.admin-nav-group + .admin-nav-group {
+.admin-nav-group {
   margin-top: 1.25rem;
 }
 
 .admin-nav h2 {
-  margin: 0 0 0.25rem 0.5rem;
+  margin: 0 0 0.375rem 0.625rem;
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   font-weight: 650;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 .admin-nav ul {
+  display: grid;
+  gap: 0.125rem;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .admin-nav a {
-  display: block;
-  padding: 0.3rem 0.5rem;
+  display: flex;
+  gap: 0.625rem;
+  align-items: center;
+  padding: 0.4rem 0.625rem;
   border-radius: var(--radius-small);
   color: var(--text);
+  font-weight: 500;
   text-decoration: none;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.admin-nav a .admin-icon {
+  color: var(--muted);
+  transition: color 0.15s ease;
 }
 
 .admin-nav a:hover {
   background: var(--surface);
   color: var(--heading);
+}
+
+.admin-nav a:hover .admin-icon,
+.admin-nav a[aria-current="page"] .admin-icon {
+  color: var(--accent);
 }
 
 .admin-nav a[aria-current="page"] {
@@ -200,7 +325,7 @@ code {
 .admin-main {
   width: 100%;
   max-width: 80rem;
-  padding: 1.5rem var(--gutter) 3rem;
+  padding: 1.75rem var(--gutter) 4rem;
 }
 
 .admin-main:focus {
@@ -218,12 +343,34 @@ code {
   }
 
   .admin-nav {
+    position: static;
+    max-height: none;
     border-right: 0;
     border-bottom: 1px solid var(--line);
   }
 
+  /* The account shows on the dashboard's greeting and in Sign out; the
+     header keeps to two lines. */
+  .admin-account {
+    display: none;
+  }
+
+  .admin-header-tools {
+    gap: 0.5rem;
+  }
+
   .admin-header .admin-nav-toggle {
     display: inline-block;
+  }
+
+  /* On phones the header may wrap onto two lines, so it scrolls away and
+     the editor's bar takes the top. */
+  .admin-header {
+    position: static;
+  }
+
+  .record-editor-bar {
+    top: 0;
   }
 
   :root[data-admin-nav-closed] .admin-nav {
@@ -234,7 +381,7 @@ code {
 /* Cards, buttons, fields */
 
 .admin-card {
-  padding: 1.25rem;
+  padding: 1.25rem 1.375rem;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--card);
@@ -252,32 +399,97 @@ code {
 .admin-cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
-  gap: 0.75rem;
+  gap: 0.875rem;
   margin: 0.75rem 0 0;
   padding: 0;
   list-style: none;
+}
+
+.admin-cards .admin-card {
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+
+.admin-cards .admin-card:hover {
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow);
+  transform: translateY(-1px);
 }
 
 .admin-cards .admin-card > * + * {
   margin-top: 0.375rem;
 }
 
+.admin-cards h3 {
+  display: flex;
+  gap: 0.625rem;
+  align-items: center;
+  font-size: 1.0625rem;
+}
+
+.admin-cards h3 a {
+  color: var(--heading);
+  text-decoration: none;
+}
+
+.admin-cards h3 a:hover {
+  color: var(--accent);
+}
+
+.admin-card-icon {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--radius-small);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.admin-card-create {
+  display: inline-flex;
+  gap: 0.25rem;
+  align-items: center;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.admin-card-create .admin-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
 .admin-button {
-  display: inline-block;
-  padding: 0.45rem 0.9rem;
+  display: inline-flex;
+  gap: 0.4rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1rem;
   border: 1px solid var(--accent);
   border-radius: var(--radius-small);
   background: var(--accent);
+  box-shadow: var(--shadow-small);
   color: var(--accent-text);
   font: inherit;
   font-weight: 600;
+  line-height: 1.3;
   text-decoration: none;
   cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    color 0.15s ease;
 }
 
 .admin-button:hover {
   border-color: var(--accent-hover);
   background: var(--accent-hover);
+  box-shadow: var(--shadow);
   color: var(--accent-text);
 }
 
@@ -288,24 +500,39 @@ code {
 }
 
 .admin-button.secondary:hover {
+  border-color: var(--field-border);
   background: var(--surface);
   color: var(--heading);
 }
 
 .admin-button:disabled {
   opacity: 0.6;
+  box-shadow: none;
   cursor: default;
 }
 
 .admin-input {
   width: 100%;
-  min-height: 2.375rem;
-  padding: 0.4rem 0.6rem;
+  min-height: 2.5rem;
+  padding: 0.45rem 0.7rem;
   border: 1px solid var(--field-border);
   border-radius: var(--radius-small);
   background: var(--card);
   color: var(--text);
   font: inherit;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.admin-input:hover {
+  border-color: var(--muted);
+}
+
+.admin-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+  outline: none;
 }
 
 .admin-input.code {
@@ -337,22 +564,92 @@ code {
   max-width: 36rem;
 }
 
-.admin-filters {
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--card);
+/* A magnifying glass in the list's search box, in the muted grey of both
+   themes. */
+.admin-search .admin-input {
+  padding-left: 2.25rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a94a6' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E");
+  background-position: 0.7rem center;
+  background-repeat: no-repeat;
+  background-size: 1.05rem;
 }
 
-.admin-filters > summary {
-  padding: 0.625rem 1rem;
+/* Filters and Columns: two buttons side by side; an open one takes the
+   whole row. */
+.admin-list-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.admin-list-tools > details {
+  flex: 0 0 auto;
+}
+
+.admin-list-tools > details[open] {
+  flex: 1 1 100%;
+  border-color: var(--line);
+  border-radius: var(--radius);
+}
+
+.admin-filters,
+.admin-columns {
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-small);
+  background: var(--card);
+  box-shadow: var(--shadow-small);
+}
+
+.admin-filters > summary,
+.admin-columns > summary {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.45rem 0.9rem;
+  border-radius: inherit;
+  color: var(--heading);
   font-weight: 600;
+  list-style: none;
   cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.admin-filters > summary::-webkit-details-marker,
+.admin-columns > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* A chevron, turned down when open. */
+.admin-filters > summary::after,
+.admin-columns > summary::after {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  content: "";
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform 0.15s ease;
+}
+
+.admin-list-tools > details[open] > summary::after {
+  transform: translateY(1px) rotate(-135deg);
+}
+
+.admin-filters > summary:hover,
+.admin-columns > summary:hover {
+  background: var(--surface);
+}
+
+.admin-list-tools > details[open] > summary {
+  border-bottom: 1px solid var(--line);
+  border-radius: var(--radius) var(--radius) 0 0;
 }
 
 .admin-filter-form {
   display: grid;
   gap: 1rem;
-  padding: 0 1rem 1rem;
+  padding: 1rem;
 }
 
 .admin-filter-grid {
@@ -389,6 +686,7 @@ code {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--card);
+  box-shadow: var(--shadow-small);
 }
 
 .admin-table {
@@ -398,10 +696,10 @@ code {
 
 .admin-table th,
 .admin-table td {
-  padding: 0.55rem 0.75rem;
+  padding: 0.7rem 0.875rem;
   border-bottom: 1px solid var(--line);
   text-align: left;
-  vertical-align: top;
+  vertical-align: middle;
 }
 
 .admin-table tbody tr:last-child > * {
@@ -413,6 +711,7 @@ code {
   color: var(--muted);
   font-size: 0.8125rem;
   font-weight: 650;
+  letter-spacing: 0.01em;
   white-space: nowrap;
 }
 
@@ -459,7 +758,15 @@ code {
   overflow: hidden;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
+  color: var(--heading);
+  font-weight: 600;
+  text-decoration: none;
   overflow-wrap: break-word;
+}
+
+.admin-title-cell a:hover {
+  color: var(--accent);
+  text-decoration: underline;
 }
 
 .admin-thumb {
@@ -493,9 +800,15 @@ code {
 .admin-limits > [aria-current] {
   display: inline-block;
   min-width: 2rem;
-  padding: 0.2rem 0.5rem;
+  padding: 0.25rem 0.55rem;
   border-radius: var(--radius-small);
   text-align: center;
+  text-decoration: none;
+}
+
+.admin-pages li > a:hover,
+.admin-limits > a:hover {
+  background: var(--surface);
 }
 
 .admin-pages [aria-current],
@@ -513,11 +826,15 @@ code {
    backgrounds. */
 :root {
   --admin-danger-text: var(--danger);
+  --admin-waiting-soft: #fdf1dc;
+  --admin-waiting-text: #8a4f00;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --admin-danger-text: #ff8f87;
+    --admin-waiting-soft: #3a2a10;
+    --admin-waiting-text: #f2c47a;
   }
 }
 
@@ -548,6 +865,50 @@ code {
 .admin-badge.good {
   background: var(--supports);
   color: var(--supports-text);
+}
+
+/* A stored status, coloured by what it means (status-tone.ts); its text
+   says the status. */
+.admin-pill {
+  display: inline-flex;
+  gap: 0.375rem;
+  align-items: center;
+  padding: 0.1rem 0.6rem;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.admin-pill::before {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: currentColor;
+  content: "";
+  opacity: 0.8;
+}
+
+.admin-pill[data-tone="good"] {
+  background: var(--supports);
+  color: var(--supports-text);
+}
+
+.admin-pill[data-tone="waiting"] {
+  background: var(--admin-waiting-soft);
+  color: var(--admin-waiting-text);
+}
+
+.admin-pill[data-tone="problem"] {
+  background: var(--contradicts);
+  color: var(--contradicts-text);
+}
+
+.admin-pill[data-tone="info"] {
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 .admin-actions {
@@ -912,9 +1273,10 @@ textarea.admin-input {
   gap: 1rem;
 }
 
+/* Under the sticky header, which it stays below while the form scrolls. */
 .record-editor-bar {
   position: sticky;
-  top: 0;
+  top: var(--header-height);
   z-index: 15;
   display: flex;
   flex-wrap: wrap;
@@ -922,9 +1284,10 @@ textarea.admin-input {
   align-items: center;
   justify-content: space-between;
   margin: 0 calc(-1 * var(--gutter));
-  padding: 0.625rem var(--gutter);
+  padding: 0.75rem var(--gutter);
   border-bottom: 1px solid var(--line);
-  background: var(--background);
+  background: color-mix(in srgb, var(--background) 88%, transparent);
+  backdrop-filter: saturate(1.4) blur(10px);
 }
 
 .record-editor-state {
@@ -942,6 +1305,35 @@ textarea.admin-input {
   display: grid;
   gap: 1.25rem;
   min-width: 0;
+}
+
+/* The form's fields on white cards, as the site's content is; in a dialog,
+   which is a card already, they sit on it plainly. */
+.record-editor-main,
+.record-editor-side {
+  padding: 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  box-shadow: var(--shadow-small);
+}
+
+.record-editor-side:empty {
+  display: none;
+}
+
+.record-editor-main .admin-card,
+.record-editor-side .admin-card {
+  background: var(--surface);
+  box-shadow: none;
+}
+
+.admin-dialog .record-editor-main,
+.admin-dialog .record-editor-side {
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
 }
 
 @media (min-width: 64rem) {
@@ -983,12 +1375,25 @@ textarea.admin-input {
   min-width: 2rem;
   min-height: 2rem;
   padding: 0.15rem 0.5rem;
-  border: 1px solid var(--line-strong);
+  border: 1px solid transparent;
   border-radius: var(--radius-small);
-  background: var(--card);
+  background: transparent;
   color: var(--text);
   font: inherit;
   cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.editor-toolbar select {
+  border-color: var(--line-strong);
+  background: var(--card);
+}
+
+.editor-toolbar button:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  background: var(--card);
 }
 
 .editor-toolbar button[aria-pressed="true"] {
@@ -1270,6 +1675,20 @@ textarea.admin-input {
 
 /* A record named by a long address, such as an account's email, wraps. */
 
+/* The way back above a record's title: "Topics", or "Topics / its title". */
+.admin-stack > p.admin-muted:first-child {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.admin-stack > p.admin-muted:first-child a {
+  text-decoration: none;
+}
+
+.admin-stack > p.admin-muted:first-child a:hover {
+  text-decoration: underline;
+}
+
 .admin-main h1 {
   overflow-wrap: anywhere;
 }
@@ -1322,20 +1741,8 @@ textarea.admin-input {
 
 /* The columns a list shows, chosen by each staff member. */
 
-.admin-columns {
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--card);
-}
-
-.admin-columns > summary {
-  padding: 0.625rem 1rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-
 .admin-columns > :not(summary) {
-  margin: 0 1rem 1rem;
+  margin: 1rem;
 }
 
 .admin-column-grid {
@@ -1595,25 +2002,206 @@ textarea.admin-input {
 
 /* The dashboard: what waits for staff, and what they did lately. */
 
+/* The dashboard: a welcome in the site's hero colours, what waits as
+   counts, then the lists and the collections. */
+.admin-welcome {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem 2rem;
+  align-items: flex-end;
+  justify-content: space-between;
+  overflow: hidden;
+  padding: 2rem clamp(1.25rem, 3vw, 2.5rem);
+  border-radius: calc(var(--radius) + 0.25rem);
+  background:
+    radial-gradient(circle at 85% 20%, rgb(255 255 255 / 14%), transparent 45%),
+    linear-gradient(135deg, #1d4ed8, var(--brand-deep));
+  box-shadow: var(--shadow);
+  color: #e8eefc;
+}
+
+.admin-welcome h1 {
+  color: #fff;
+  font-size: clamp(1.9rem, 1.5rem + 1.4vw, 2.6rem);
+}
+
+.admin-welcome-text {
+  display: grid;
+  gap: 0.5rem;
+  max-width: 38rem;
+}
+
+.admin-welcome-text p {
+  font-size: 1.0625rem;
+}
+
+.admin-welcome-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* Buttons on the welcome's blue. */
+.admin-button.light {
+  border-color: #fff;
+  background: #fff;
+  color: #1d3fae;
+}
+
+.admin-button.light:hover {
+  border-color: #e8eefc;
+  background: #e8eefc;
+  color: #0b2545;
+}
+
+.admin-button.ghost {
+  border-color: rgb(255 255 255 / 45%);
+  background: rgb(255 255 255 / 8%);
+  box-shadow: none;
+  color: #fff;
+}
+
+.admin-button.ghost:hover {
+  border-color: #fff;
+  background: rgb(255 255 255 / 16%);
+  color: #fff;
+}
+
+.admin-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 0.875rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-stat {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0 0.875rem;
+  align-items: center;
+  height: 100%;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  box-shadow: var(--shadow-small);
+  color: var(--text);
+  text-decoration: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+
+.admin-stat:hover {
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  transform: translateY(-1px);
+}
+
+.admin-stat-icon {
+  display: grid;
+  grid-row: span 2;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: var(--radius-small);
+  background: var(--surface);
+  color: var(--muted);
+}
+
+.admin-stat-icon .admin-icon {
+  width: 1.375rem;
+  height: 1.375rem;
+}
+
+/* Something waits: the count stands out. */
+.admin-stat[data-waiting] .admin-stat-icon {
+  background: var(--admin-waiting-soft);
+  color: var(--admin-waiting-text);
+}
+
+.admin-stat-count {
+  color: var(--heading);
+  font-family: var(--font-serif);
+  font-size: 1.75rem;
+  font-weight: 650;
+  line-height: 1.1;
+}
+
+.admin-stat-label {
+  color: var(--muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
 .admin-dashboard {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
-  gap: 0.75rem;
+  gap: 0.875rem;
 }
 
 .admin-dashboard h2 {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
   margin: 0;
   font-size: 1.0625rem;
 }
 
 .admin-dashboard-list {
   display: grid;
-  gap: 0.5rem;
+  gap: 0;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .admin-dashboard-list li {
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--line);
   overflow-wrap: anywhere;
+}
+
+.admin-dashboard-list li:last-child {
+  border-bottom: 0;
+}
+
+.admin-dashboard-list a {
+  color: var(--heading);
+  font-weight: 550;
+  text-decoration: none;
+}
+
+.admin-dashboard-list a:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.admin-panel-more a {
+  display: inline-flex;
+  gap: 0.3rem;
+  align-items: center;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.admin-panel-more .admin-icon {
+  width: 1rem;
+  height: 1rem;
+  transition: transform 0.15s ease;
+}
+
+.admin-panel-more a:hover .admin-icon {
+  transform: translateX(2px);
+}
+
+.admin-stack > section > h2 {
+  font-family: var(--font-serif);
+  font-size: 1.35rem;
 }

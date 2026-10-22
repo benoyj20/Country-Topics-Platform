@@ -3,28 +3,39 @@ import { ROLE_LABELS } from "@countrytopics/domain";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { Logo } from "@/components/Logo";
 import { SignOutButton } from "@/components/SignOutButton";
 
 import { AdminAccountProvider } from "../account-context";
 import { ADMIN_GROUPS, COLLECTION_TEXT } from "../collections";
 import { readableIn } from "../gate";
+import { AdminIcon } from "./AdminIcon";
 import { NavToggle } from "./NavToggle";
 import { RefreshSession } from "./RefreshSession";
 
+/** The first letter of an address, for the account's round badge. */
+function initial(email: string): string {
+  return (Array.from(email.trim())[0] ?? "?").toUpperCase();
+}
+
 /**
- * Every admin screen's frame: the header, and, for staff who passed the
- * gate, the collections grouped as Payload's panel groups them. Lists an
- * account may not read are left out; the backend refuses them anyway.
+ * Every admin screen's frame: the header, with the site's mark, and, for
+ * staff who passed the gate, the collections grouped as Payload's panel
+ * groups them. Lists an account may not read are left out; the backend
+ * refuses them anyway.
  */
 export function AdminShell({
   account,
   current,
+  home = false,
   children,
 }: {
   /** Staff who passed the gate; the navigation is shown only to them. */
   account?: Account;
   /** The collection on screen, marked in the navigation. */
   current?: AdminCollection;
+  /** The dashboard, marked in the navigation. */
+  home?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -34,15 +45,29 @@ export function AdminShell({
       </a>
       <header className="admin-header">
         <Link href="/admin" className="admin-name">
-          Country Topics admin
+          <Logo />
+          <span>Country Topics</span>
+          <span className="admin-tag">Admin</span>
         </Link>
         <div className="admin-header-tools">
           {account && (
-            <span className="admin-muted">
-              {account.email} ({ROLE_LABELS[account.role]})
+            <span className="admin-account">
+              <span className="admin-avatar" aria-hidden="true">
+                {initial(account.email)}
+              </span>
+              <span className="admin-account-text">
+                <span className="admin-account-email">{account.email}</span>
+                <span className="admin-account-role">
+                  {" "}
+                  ({ROLE_LABELS[account.role]})
+                </span>
+              </span>
             </span>
           )}
-          <Link href="/">View the site</Link>
+          <Link href="/" className="admin-header-link">
+            <AdminIcon name="external" />
+            View the site
+          </Link>
           {account && <SignOutButton className="admin-button secondary" />}
           {account && <NavToggle />}
           {account && <RefreshSession />}
@@ -51,6 +76,14 @@ export function AdminShell({
       <div className={account ? "admin-frame" : "admin-frame single"}>
         {account && (
           <nav id="admin-nav" className="admin-nav" aria-label="Collections">
+            <Link
+              href="/admin"
+              className="admin-nav-home"
+              aria-current={home ? "page" : undefined}
+            >
+              <AdminIcon name="dashboard" />
+              Dashboard
+            </Link>
             {ADMIN_GROUPS.map((group) => {
               const collections = readableIn(group, account);
               return (
@@ -65,6 +98,7 @@ export function AdminShell({
                             collection === current ? "page" : undefined
                           }
                         >
+                          <AdminIcon name={collection} />
                           {COLLECTION_TEXT[collection].plural}
                         </Link>
                       </li>

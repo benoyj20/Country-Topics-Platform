@@ -16,6 +16,7 @@ import type { ReactNode } from "react";
 import { formatDateTime } from "@/format";
 
 import { COLLECTION_TEXT, fieldLabel, valueLabel } from "../collections";
+import { statusTone } from "../status-tone";
 import {
   type FilterValue,
   listLink,
@@ -24,6 +25,7 @@ import {
   sortableFields,
   sortAfter,
 } from "../list-state";
+import { AdminIcon } from "./AdminIcon";
 import { BulkTable } from "./BulkTable";
 import { FilterForm } from "./FilterForm";
 import { ColumnPicker, RememberList } from "./ListSettings";
@@ -122,9 +124,22 @@ function Cell({
   const text = cellText(collection, field, row);
   if (!isFirst) {
     const kind = ADMIN_LISTS[collection].fields[field]?.kind;
+    const value = row[field];
+    const tone =
+      kind === "select" && typeof value === "string"
+        ? statusTone(collection, value)
+        : null;
     return (
       <td className={kind && SHORT_KINDS.has(kind) ? "short" : undefined}>
-        {text ?? <span className="admin-none">None</span>}
+        {text === null ? (
+          <span className="admin-none">None</span>
+        ) : tone ? (
+          <span className="admin-pill" data-tone={tone}>
+            {text}
+          </span>
+        ) : (
+          text
+        )}
       </td>
     );
   }
@@ -503,6 +518,7 @@ export function ListView({
           <h1>{text.plural}</h1>
           {createHref && (
             <Link href={createHref} className="admin-button">
+              <AdminIcon name="plus" />
               Create new
             </Link>
           )}
@@ -516,17 +532,19 @@ export function ListView({
         value={state.search}
         kept={keptParams(collection, state)}
       />
-      <Filters
-        key={listLink(collection, { ...state, page: 1 })}
-        collection={collection}
-        state={state}
-      />
-      <ColumnPicker
-        key={columns.join(",")}
-        collection={collection}
-        columns={columns}
-        query={settings.query}
-      />
+      <div className="admin-list-tools">
+        <Filters
+          key={listLink(collection, { ...state, page: 1 })}
+          collection={collection}
+          state={state}
+        />
+        <ColumnPicker
+          key={columns.join(",")}
+          collection={collection}
+          columns={columns}
+          query={settings.query}
+        />
+      </div>
       <RememberList
         collection={collection}
         query={listQuery(collection, state)}

@@ -52,6 +52,7 @@ import { arrayProps, fieldProps, pickerAria, rowNameAt } from "../field-text";
 import { LockNotice } from "../locks/LockNotice";
 import { useDocumentLock } from "../locks/use-document-lock";
 import { recordName } from "../record-name";
+import { statusTone } from "../status-tone";
 import { clearMessages, savedForm, valuesAfterAnswer } from "./form-state";
 import { deleteTopic, saveTopic } from "./save";
 import { LivePreview } from "./LivePreview";
@@ -359,7 +360,14 @@ export function TopicForm({
     <form ref={formRef} className="record-editor" onSubmit={submit} noValidate>
       <div className="record-editor-bar">
         <p className="record-editor-state">
-          <span>{stateText(status)}</span>
+          <span
+            className="admin-pill"
+            data-tone={
+              (status && statusTone("topics", status.state)) ?? "plain"
+            }
+          >
+            {stateText(status)}
+          </span>
           {working === "autosave" ? (
             <span className="admin-badge">Autosaving…</span>
           ) : dirty ? (

@@ -2,7 +2,6 @@ import {
   savedTopicSchema,
   type StoredTopic,
   topicFieldOf,
-  topicRestoreSearchParams,
   topicSaveBody,
   topicSaveSearchParams,
   type TopicValues,
@@ -10,16 +9,22 @@ import {
 
 import { answerOf, deleteRecord, write, type Written } from "../write";
 
-// The topic editor's writes (../write.ts): drafts, publishing, restoring a
-// version as a draft, and deleting a topic never published.
+// The topic editor's writes (../write.ts): drafts, autosaves, publishing,
+// and deleting a topic never published. Restoring a version is in
+// ../versions/RestoreVersion.tsx.
 
-/** Saves a draft of, or publishes, a topic: a new one when `id` is null. */
+/**
+ * Saves a draft of, or publishes, a topic: a new one when `id` is null.
+ * An autosave updates the newest draft it made, rather than keeping a
+ * version for every few seconds of typing.
+ */
 export async function saveTopic(
   id: string | null,
   values: TopicValues,
   publish: boolean,
+  { autosave = false }: { autosave?: boolean } = {},
 ): Promise<Written<StoredTopic>> {
-  const query = topicSaveSearchParams(publish);
+  const query = topicSaveSearchParams(publish, { autosave });
   const written = await write(
     id ? "PATCH" : "POST",
     id
@@ -30,17 +35,6 @@ export async function saveTopic(
   );
   const saved = answerOf(written, savedTopicSchema);
   return saved.ok ? { ok: true, result: saved.result.doc } : saved;
-}
-
-/** Saves a version as the topic's newest draft. */
-export async function restoreAsDraft(version: string): Promise<Written<null>> {
-  const written = await write(
-    "POST",
-    `/api/topics/versions/${encodeURIComponent(version)}?${topicRestoreSearchParams()}`,
-    undefined,
-    topicFieldOf,
-  );
-  return written.ok ? { ok: true, result: null } : written;
 }
 
 /** Deletes a topic that was never published. */

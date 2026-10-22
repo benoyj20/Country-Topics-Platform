@@ -5,7 +5,6 @@ import {
   type AdminCollection,
   EMPTY_INDIVIDUAL,
   EMPTY_INVITATION,
-  EMPTY_MEDIA,
   EMPTY_REFERENCE,
   EMPTY_SNIPPET,
   EMPTY_TERM,
@@ -31,6 +30,7 @@ import {
 } from "./backend";
 import { IndividualForm } from "./IndividualForm";
 import { MediaForm } from "./MediaForm";
+import { MediaUploadsLoader } from "./MediaUploadsLoader";
 import { CommentForm, FeedbackForm, ReportForm } from "./ModerationForms";
 import { InvitationForm, UserForm } from "./PeopleForms";
 import { ReferenceForm } from "./ReferenceForm";
@@ -186,9 +186,8 @@ export const EDITORS: Record<EditedCollection, Editor> = {
         }
       );
     },
-    create: () => (
-      <MediaForm id={null} values={EMPTY_MEDIA} file={null} canEdit />
-    ),
+    // Several files at once, as Payload's panel uploads them.
+    create: () => <MediaUploadsLoader />,
   },
   snippets: {
     record: async (id, account, notice) => {

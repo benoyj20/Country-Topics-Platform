@@ -67,8 +67,7 @@ export function InvitationForm({
       values={values}
       status={status}
       noun="invitation"
-      listHref="/admin/collections/invitations"
-      recordHref={(saved) => `/admin/collections/invitations/${saved}`}
+      collection="invitations"
       canEdit
       canDelete
       deleteQuestion="Delete this invitation? The address can no longer make an account; an account it already made stays."
@@ -160,8 +159,7 @@ export function UserForm({
       values={values}
       status={status}
       noun="account"
-      listHref="/admin/collections/users"
-      recordHref={(saved) => `/admin/collections/users/${saved}`}
+      collection="users"
       canEdit={canEdit}
       // An admin's own account is deleted by another admin.
       canDelete={!self}

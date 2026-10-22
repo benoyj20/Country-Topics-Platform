@@ -183,12 +183,15 @@ export function IndividualForm({
   status,
   canEdit,
   notice,
+  onCreated,
 }: {
   id: string | null;
   values: IndividualValues;
   status: RecordDates | null;
   canEdit: boolean;
   notice?: string;
+  /** Made from another record's field: called with the new record's id. */
+  onCreated?: (id: string) => void;
 }) {
   return (
     <RecordForm
@@ -196,12 +199,12 @@ export function IndividualForm({
       values={values}
       status={status}
       noun="individual"
-      listHref="/admin/collections/individuals"
-      recordHref={(saved) => `/admin/collections/individuals/${saved}`}
+      collection="individuals"
       canEdit={canEdit}
       canDelete
       readOnlyNotice="You can read this individual. Only admins edit individuals."
       notice={notice}
+      onCreated={onCreated}
       texts={TEXTS}
       order={ORDER}
       saveBody={individualSaveBody}

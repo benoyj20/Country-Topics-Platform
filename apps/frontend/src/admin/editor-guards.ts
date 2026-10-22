@@ -53,20 +53,33 @@ export function useLeaveGuard(dirty: boolean): void {
   }, [dirty]);
 }
 
-/** Ctrl+S (or ⌘S) calls `save` while `enabled`. */
-export function useSaveShortcut(save: () => void, enabled: boolean): void {
+/**
+ * Ctrl+S (or ⌘S) calls `save` while `enabled`. While a dialog is open,
+ * only the form inside it (`form`) saves: a record made from a field's
+ * dialog, not the editor behind it.
+ */
+export function useSaveShortcut(
+  save: () => void,
+  enabled: boolean,
+  form?: RefObject<HTMLElement | null>,
+): void {
   const onSave = useEffectEvent(save);
   useEffect(() => {
     if (!enabled) return;
     const onKey = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
         event.preventDefault();
+        // The dialog opened last is on top: a dialog can open another.
+        const dialog = [...document.querySelectorAll("dialog[open]")].at(-1);
+        if (dialog && !(form?.current && dialog.contains(form.current))) {
+          return;
+        }
         onSave();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [enabled]);
+  }, [enabled, form]);
 }
 
 /**

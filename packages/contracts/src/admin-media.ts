@@ -12,11 +12,11 @@ import {
   storedText,
 } from "./admin-records.ts";
 
-// The admin's file editor (ADR 0014, phase 9): a document or image used
-// as evidence or as an individual's photo, uploaded from the admin's
-// computer, with its description and licence. A save with a file is sent
-// as a form: the file, and the other fields as JSON in `_payload`, as
-// Payload's REST API takes uploads.
+// The admin's file editor (ADR 0014, phases 9 and 11): a document or
+// image used as evidence or as an individual's photo, uploaded from the
+// admin's computer, with its description and licence, and an image's
+// focal point. A save with a file is sent as a form: the file, and the
+// other fields as JSON in `_payload`, as Payload's REST API takes uploads.
 
 export type MediaValues = {
   alt: string;
@@ -24,6 +24,13 @@ export type MediaValues = {
   licence: Licence | "";
   credit: string;
   sourceUrl: string;
+  /**
+   * Where an image's subject is, in percent from its left and top edges,
+   * which a cropped image keeps in view (Payload's focalX and focalY);
+   * null for documents, and until set.
+   */
+  focalX: number | null;
+  focalY: number | null;
 };
 
 /** The stored file, as the backend describes it. */
@@ -44,7 +51,14 @@ export const EMPTY_MEDIA: MediaValues = {
   licence: "",
   credit: "",
   sourceUrl: "",
+  focalX: null,
+  focalY: null,
 };
+
+/** A focal point's coordinate, kept to whole percent within the image. */
+export function focalCoordinate(percent: number): number {
+  return Math.min(100, Math.max(0, Math.round(percent)));
+}
 
 /** The query string of `GET /api/media/<id>`, and of a save. */
 export function mediaSearchParams(): URLSearchParams {
@@ -54,6 +68,8 @@ export function mediaSearchParams(): URLSearchParams {
       "licence",
       "credit",
       "sourceUrl",
+      "focalX",
+      "focalY",
       "filename",
       "mimeType",
       "filesize",
@@ -75,6 +91,8 @@ export const storedMediaSchema = z.looseObject({
   licence: z.enum(LICENCES).nullish(),
   credit: storedText,
   sourceUrl: storedText,
+  focalX: storedNumber,
+  focalY: storedNumber,
   filename: storedText,
   mimeType: storedText,
   filesize: storedNumber,
@@ -93,6 +111,8 @@ export function editorMedia(stored: StoredMedia): EditorMedia {
       licence: stored.licence ?? "",
       credit: stored.credit ?? "",
       sourceUrl: stored.sourceUrl ?? "",
+      focalX: stored.focalX ?? null,
+      focalY: stored.focalY ?? null,
     },
     file: {
       filename: stored.filename ?? null,
@@ -117,6 +137,8 @@ export function mediaSaveBody(values: MediaValues): Record<string, unknown> {
     licence: values.licence || null,
     credit: optionalText(values.credit),
     sourceUrl: optionalText(values.sourceUrl),
+    focalX: values.focalX,
+    focalY: values.focalY,
   };
 }
 
@@ -126,8 +148,10 @@ const MEDIA_FIELDS: FieldTree = {
   licence: true,
   credit: true,
   sourceUrl: true,
+  focalX: true,
 };
 
+/** The form's field for a refusal's path; the focal point is one field. */
 export function mediaFieldOf(path: string): string | null {
-  return fieldOfTree(MEDIA_FIELDS, path);
+  return fieldOfTree(MEDIA_FIELDS, path === "focalY" ? "focalX" : path);
 }

@@ -84,6 +84,41 @@ export function savedRecordSchema<T>(schema: z.ZodType<T>) {
 }
 
 /**
+ * The collections whose records the admin duplicates (ADR 0014, phase 11),
+ * as Payload's panel does: those made in the admin, except files and
+ * invitations, whose copy would be the same file or the same address, and
+ * individuals, whose copy would be the same person (the backend's check
+ * for possible duplicates refuses it).
+ * The backend gives a copy its own slug, and a topic's copy is a fresh
+ * draft (apps/web's Topics).
+ */
+export const DUPLICATED_COLLECTIONS = [
+  "topics",
+  "references",
+  "snippets",
+  "categories",
+  "tags",
+] as const;
+export type DuplicatedCollection = (typeof DUPLICATED_COLLECTIONS)[number];
+
+export function isDuplicated(value: string): value is DuplicatedCollection {
+  return (DUPLICATED_COLLECTIONS as readonly string[]).includes(value);
+}
+
+/**
+ * The query string of `POST /api/<collection>/<id>/duplicate`, answered
+ * at depth 0. Not narrowed with `select`: the hooks after the copy is made,
+ * such as its audit entry, are given the record as the request selects it.
+ */
+export function duplicateSearchParams(): URLSearchParams {
+  return new URLSearchParams({ depth: "0" });
+}
+
+export const duplicateAnswerSchema = savedRecordSchema(
+  z.looseObject({ id: z.string() }),
+);
+
+/**
  * A form's fields, for naming the one a refusal's path points at: each
  * field is true or, for an array, the fields of its rows.
  */

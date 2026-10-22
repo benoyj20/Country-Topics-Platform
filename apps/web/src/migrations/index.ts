@@ -17,6 +17,7 @@ import * as migration_20261017_193831_comments from './20261017_193831_comments'
 import * as migration_20261017_220610_comment_moderation from './20261017_220610_comment_moderation';
 import * as migration_20261018_011503_account_deletion_feedback from './20261018_011503_account_deletion_feedback';
 import * as migration_20261021_165743_drop_vector_extension from './20261021_165743_drop_vector_extension';
+import * as migration_20261022_164839_topic_autosave from './20261022_164839_topic_autosave';
 
 export const migrations = [
   {
@@ -112,6 +113,11 @@ export const migrations = [
   {
     up: migration_20261021_165743_drop_vector_extension.up,
     down: migration_20261021_165743_drop_vector_extension.down,
-    name: '20261021_165743_drop_vector_extension'
+    name: '20261021_165743_drop_vector_extension',
+  },
+  {
+    up: migration_20261022_164839_topic_autosave.up,
+    down: migration_20261022_164839_topic_autosave.down,
+    name: '20261022_164839_topic_autosave'
   },
 ];

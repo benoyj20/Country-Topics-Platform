@@ -15,6 +15,7 @@ import {
 import {
   CHANGE_NOTE_MAX_LENGTH,
   SLUG_MAX_LENGTH,
+  TOPIC_AUTOSAVE_INTERVAL_MS,
   TOPIC_STATE_LABELS,
   TOPIC_SUMMARY_MAX_LENGTH,
   TOPIC_TITLE_MAX_LENGTH,
@@ -23,10 +24,19 @@ import type { LexicalEditor, SerializedEditorState } from "lexical";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type FormEvent, type ReactNode, useRef, useState } from "react";
+import {
+  type FormEvent,
+  type ReactNode,
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+} from "react";
 
-import { formatDateTime } from "@/format";
+import { formatDateTime, formatTime } from "@/format";
 
+import { useAdminAccount } from "../account-context";
+import { DuplicateButton } from "../components/DuplicateButton";
 import { EvidenceFields } from "../components/EvidenceFields";
 import { CheckField, Field } from "../components/Field";
 import { RefusalSummary } from "../components/RefusalSummary";
@@ -39,22 +49,30 @@ import {
   useSaveShortcut,
 } from "../editor-guards";
 import { arrayProps, fieldProps, pickerAria, rowNameAt } from "../field-text";
+import { LockNotice } from "../locks/LockNotice";
+import { useDocumentLock } from "../locks/use-document-lock";
 import { recordName } from "../record-name";
 import { clearMessages, savedForm, valuesAfterAnswer } from "./form-state";
 import { deleteTopic, saveTopic } from "./save";
+import { LivePreview } from "./LivePreview";
 import { fieldName, TOPIC_TEXTS } from "./topic-text";
 import { CitationFields, PersonFields } from "./TopicRows";
 
-// A topic's editor (ADR 0014, phase 8): every field Payload's panel shows,
-// saved as a draft or published through Payload's REST API. The backend's
-// hooks keep the workflow (states, change notes, the change log, versions)
-// and refuse what may not be published; each refusal is shown beside the
-// field it names.
+// A topic's editor (ADR 0014, phases 8 and 11): every field Payload's
+// panel shows, saved as a draft or published through Payload's REST API.
+// The backend's hooks keep the workflow (states, change notes, the change
+// log, versions) and refuse what may not be published; each refusal is
+// shown beside the field it names. As in Payload's panel, a saved topic's
+// changes are autosaved as a draft while the editor works, shown in a live
+// preview beside the form, and locked against anyone else's saves.
 
 const BodyEditor = dynamic(() => import("../editor/BodyEditor"), {
   ssr: false,
   loading: () => <p className="admin-muted">Loading the editor…</p>,
 });
+
+/** How long a first change waits before it is autosaved, at least. */
+const AUTOSAVE_FIRST_WAIT_MS = 2_000;
 
 /** The form's fields in order, for listing a refusal's messages. */
 const FIELD_ORDER = [
@@ -124,9 +142,9 @@ export function TopicForm({
   }
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [notice, setNotice] = useState(arrivedNotice ?? null);
-  const [working, setWorking] = useState<"draft" | "publish" | "delete" | null>(
-    null,
-  );
+  const [working, setWorking] = useState<
+    "draft" | "autosave" | "publish" | "delete" | null
+  >(null);
   // Set while a save or delete runs, and for good once a new topic is
   // created and the page moves to it: state would let a second click in.
   const busy = useRef(false);
@@ -137,12 +155,32 @@ export function TopicForm({
   const [bodyChanged, setBodyChanged] = useState(false);
   const [savedValues, setSavedValues] = useState(() => savedForm(loaded));
   const [summaryRef, refused] = useRefusalFocus();
-  const readOnly = !canEdit;
+  const formRef = useRef<HTMLFormElement>(null);
+  const account = useAdminAccount();
+  const lock = useDocumentLock({
+    collection: "topics",
+    id,
+    user: account?.id ?? null,
+    enabled: canEdit,
+  });
+  // While someone else holds the lock, the backend refuses this reader's
+  // saves: the form is read only until they leave or the reader takes over.
+  const readOnly = !canEdit || lock.state.kind === "theirs";
   const refusal = outcome?.kind === "refused" ? outcome.refusal : null;
-  const dirty = !readOnly && (bodyChanged || savedForm(values) !== savedValues);
+  const dirty = canEdit && (bodyChanged || savedForm(values) !== savedValues);
+  // When the last save began, by this browser's clock: autosaves follow
+  // it at TOPIC_AUTOSAVE_INTERVAL_MS, however fast the editor types.
+  const lastSaveAt = useRef(0);
+  const [autosave, setAutosave] = useState<
+    { kind: "saved"; at: string } | { kind: "refused"; message: string } | null
+  >(null);
+  const [previewing, setPreviewing] = useState(false);
 
   useArrivedNotice(arrivedNotice);
   useLeaveGuard(dirty);
+  useEffect(() => {
+    lastSaveAt.current = Date.now();
+  }, []);
 
   /** Changes a field; a whole array's rows may have moved. */
   function change<K extends keyof TopicValues>(key: K, value: TopicValues[K]) {
@@ -182,9 +220,14 @@ export function TopicForm({
     refused();
   }
 
-  async function save(publish: boolean) {
+  /**
+   * Saves a draft, or publishes. An autosave saves the draft quietly: a
+   * refusal is said in the bar, without taking the focus from the field
+   * being typed in, and the page is not read again.
+   */
+  async function save(publish: boolean, { auto = false } = {}) {
     if (busy.current || readOnly) return;
-    setNotice(null);
+    if (!auto) setNotice(null);
     const body = editorRef.current
       ? editorRef.current.getEditorState().toJSON()
       : values.body;
@@ -196,13 +239,25 @@ export function TopicForm({
       return;
     }
     busy.current = true;
-    setWorking(publish ? "publish" : "draft");
+    lastSaveAt.current = Date.now();
+    setWorking(auto ? "autosave" : publish ? "publish" : "draft");
     const edits = bodyEdits.current;
     let leaving = false;
     try {
-      const answer = await saveTopic(id, sent, publish);
+      const answer = await saveTopic(id, sent, publish, { autosave: auto });
       if (!answer.ok) {
-        refuse(publish, answer.refusal);
+        if (auto) {
+          setAutosave({
+            kind: "refused",
+            message:
+              [
+                ...answer.refusal.general,
+                ...Object.values(answer.refusal.fields).flat(),
+              ][0] ?? "The backend refused it.",
+          });
+        } else {
+          refuse(publish, answer.refusal);
+        }
         return;
       }
       const doc = answer.result;
@@ -224,6 +279,13 @@ export function TopicForm({
           ? { ...next, lastEditedBy: shown?.lastEditedBy ?? null }
           : next;
       });
+      // The save cleared the topic's lock.
+      lock.relock();
+      if (auto) {
+        setAutosave({ kind: "saved", at: doc.updatedAt });
+        return;
+      }
+      setAutosave(null);
       setOutcome({ kind: "saved", publish, slug: doc.slug ?? null });
       // The change log, the history, and who edited, beside the form.
       router.refresh();
@@ -267,7 +329,21 @@ export function TopicForm({
   }
 
   // Ctrl+S saves a draft, as in Payload's panel.
-  useSaveShortcut(() => void save(false), !readOnly);
+  useSaveShortcut(() => void save(false), !readOnly, formRef);
+
+  // Autosave: a saved topic's changes are saved as a draft at most every
+  // TOPIC_AUTOSAVE_INTERVAL_MS, and soon after a first change. Typing does
+  // not put it off; each save that ends starts the wait again.
+  const onAutosave = useEffectEvent(() => void save(false, { auto: true }));
+  useEffect(() => {
+    if (!dirty || readOnly || !id || working !== null) return;
+    const wait = Math.max(
+      AUTOSAVE_FIRST_WAIT_MS,
+      lastSaveAt.current + TOPIC_AUTOSAVE_INTERVAL_MS - Date.now(),
+    );
+    const timer = setTimeout(onAutosave, wait);
+    return () => clearTimeout(timer);
+  }, [dirty, readOnly, id, working]);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -280,35 +356,72 @@ export function TopicForm({
   const published = Boolean(status?.firstPublishedAt);
 
   return (
-    <form className="record-editor" onSubmit={submit} noValidate>
+    <form ref={formRef} className="record-editor" onSubmit={submit} noValidate>
       <div className="record-editor-bar">
         <p className="record-editor-state">
           <span>{stateText(status)}</span>
-          {dirty && <span className="admin-badge">Unsaved changes</span>}
+          {working === "autosave" ? (
+            <span className="admin-badge">Autosaving…</span>
+          ) : dirty ? (
+            <span className="admin-badge">Unsaved changes</span>
+          ) : (
+            autosave?.kind === "saved" && (
+              <span className="admin-badge good">
+                Autosaved {formatTime(autosave.at)}
+              </span>
+            )
+          )}
+          {autosave?.kind === "refused" && (
+            <span className="admin-field-error" role="status">
+              Not autosaved: {autosave.message} Save the draft to see why.
+            </span>
+          )}
         </p>
-        {!readOnly && (
-          <div className="admin-actions">
-            {id && !published && (
-              <button
-                type="button"
-                className="admin-button secondary danger"
-                disabled={working !== null}
-                onClick={() => void remove()}
-              >
-                {working === "delete" ? "Deleting…" : "Delete"}
-              </button>
-            )}
+        <div className="admin-actions">
+          <button
+            type="button"
+            className="admin-button secondary"
+            aria-pressed={previewing}
+            disabled={!id}
+            title={id ? undefined : "Save a draft first"}
+            onClick={() => setPreviewing((open) => !open)}
+          >
+            Live preview
+          </button>
+          {id && canEdit && (
+            <DuplicateButton
+              collection="topics"
+              id={id}
+              noun="topic"
+              dirty={dirty}
+              disabled={working !== null}
+              onRefused={(refusal) => refuse(false, refusal)}
+            />
+          )}
+          {canEdit && id && !published && (
+            <button
+              type="button"
+              className="admin-button secondary danger"
+              disabled={working !== null || readOnly}
+              onClick={() => void remove()}
+            >
+              {working === "delete" ? "Deleting…" : "Delete"}
+            </button>
+          )}
+          {canEdit && (
             <button
               type="submit"
               className="admin-button secondary"
-              disabled={working !== null}
+              disabled={working !== null || readOnly}
             >
               {working === "draft" ? "Saving…" : "Save draft"}
             </button>
+          )}
+          {canEdit && (
             <button
               type="button"
               className="admin-button"
-              disabled={working !== null}
+              disabled={working !== null || readOnly}
               onClick={() => void save(true)}
             >
               {working === "publish"
@@ -317,14 +430,23 @@ export function TopicForm({
                   ? "Publish changes"
                   : "Publish"}
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
-      {readOnly && (
+      <LockNotice state={lock.state} noun="topic" onTakeOver={lock.takeOver} />
+      {!canEdit && (
         <p className="admin-notice">
           You can read this topic. Only admins edit topics.
         </p>
+      )}
+      {previewing && id && status && (
+        <LivePreview
+          id={id}
+          savedAt={status.updatedAt}
+          dirty={dirty}
+          onClose={() => setPreviewing(false)}
+        />
       )}
       {notice && (
         <p className="admin-notice good" role="status">

@@ -474,7 +474,7 @@ function conditionWhere(condition: AdminCondition): Where {
 }
 
 /** Payload's bracket notation: `where[and][0][title][like]=x`. */
-function appendBrackets(
+export function appendBrackets(
   params: URLSearchParams,
   key: string,
   value: unknown,
@@ -496,14 +496,13 @@ function appendBrackets(
 }
 
 /**
- * The query string of `GET /api/<collection>` for one page of a list:
- * only the list's fields, related records by their titles only, the
- * newest versions where the collection has drafts.
+ * The records a list's search and filters match, as Payload's `where`:
+ * what a bulk action over every match acts on.
  */
-export function adminListSearchParams(
+export function adminListWhere(
   collection: AdminCollection,
-  query: AdminListQuery,
-): URLSearchParams {
+  query: Pick<AdminListQuery, "search" | "conditions">,
+): { and: Where[] } {
   const list = ADMIN_LISTS[collection];
   const and: Where[] = [];
   const search = query.search?.trim();
@@ -513,6 +512,22 @@ export function adminListSearchParams(
     });
   }
   for (const condition of query.conditions) and.push(conditionWhere(condition));
+  return { and };
+}
+
+/**
+ * The query string of `GET /api/<collection>` for one page of a list:
+ * only the list's fields, related records by their titles only, the
+ * newest versions where the collection has drafts. `columns` are those
+ * the staff member chose, when not the list's own.
+ */
+export function adminListSearchParams(
+  collection: AdminCollection,
+  query: AdminListQuery,
+  columns: readonly string[] = ADMIN_LISTS[collection].columns,
+): URLSearchParams {
+  const list = ADMIN_LISTS[collection];
+  const { and } = adminListWhere(collection, query);
 
   const params = new URLSearchParams();
   params.set("depth", "1");
@@ -523,12 +538,12 @@ export function adminListSearchParams(
   if (and.length > 0) appendBrackets(params, "where", { and });
   for (const field of new Set([
     list.title,
-    ...list.columns,
+    ...columns,
     ...(list.extra ?? []),
   ])) {
     params.set(`select[${field}]`, "true");
   }
-  for (const field of list.columns) {
+  for (const field of columns) {
     const definition = list.fields[field];
     if (definition?.kind === "relationship") {
       params.set(
@@ -629,10 +644,11 @@ export type AdminRow = { id: string } & Record<string, unknown>;
 /** One record of a list, with the fields it reads. */
 export function adminRowSchema(
   collection: AdminCollection,
+  columns: readonly string[] = ADMIN_LISTS[collection].columns,
 ): z.ZodType<AdminRow> {
   const list = ADMIN_LISTS[collection];
   const shape: Record<string, z.ZodType> = { id: z.string() };
-  for (const field of new Set([list.title, ...list.columns])) {
+  for (const field of new Set([list.title, ...columns])) {
     const definition = list.fields[field];
     if (definition) shape[field] = fieldSchema(definition);
   }

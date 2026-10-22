@@ -249,6 +249,7 @@ describe("the account, as the frontend asks for it", () => {
     // Reading the session sets no cookie: the frontend renders with it.
     expect(asked.headers.getSetCookie()).toEqual([]);
     expect((await contractJson(AccountAnswer, asked)).account).toEqual({
+      id: String(daveProfile.id),
       email: testEmail("account-dave"),
       name: daveProfile.name ?? null,
       displayName: "TEST Dave A",

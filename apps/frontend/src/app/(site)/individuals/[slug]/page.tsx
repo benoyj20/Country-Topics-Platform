@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { individualPage } from "@/backend/page-data";
 import { EvidenceList } from "@/components/public/EvidenceList";
 import { FileCredit } from "@/components/public/FileCredit";
+import { focalPosition } from "@/components/public/focal-point";
 import styles from "@/components/public/public.module.css";
 import { SourceList } from "@/components/public/ReferenceList";
 import { TopicList } from "@/components/public/TopicList";
@@ -49,6 +50,7 @@ export default async function IndividualPageView({ params }: Props) {
               alt={individual.photo.alt}
               width={individual.photo.width ?? undefined}
               height={individual.photo.height ?? undefined}
+              style={focalPosition(individual.photo)}
             />
             <figcaption>
               <FileCredit file={individual.photo} />

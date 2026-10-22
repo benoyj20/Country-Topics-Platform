@@ -78,22 +78,28 @@ export type FieldProps = {
   };
 };
 
-/** The props of the field at `key`: its text, and the refusal's messages about it. */
+/**
+ * The props of the field at `key`: its text, and the refusal's messages
+ * about it. Its id is the key, after `prefix` when one form sits over
+ * another (field-id-prefix.tsx).
+ */
 export function fieldProps(
   texts: FieldTexts,
   key: string,
   refusal: Refusal | null,
+  prefix = "",
 ): FieldProps {
   const text = textAt(texts, key);
   const messages = refusal?.fields[key];
+  const id = `${prefix}${key}`;
   return {
-    id: key,
+    id,
     label: text?.label ?? key,
     description: text?.description,
     messages,
     aria: {
       "aria-invalid": messages?.length ? true : undefined,
-      "aria-describedby": describedBy(key, {
+      "aria-describedby": describedBy(id, {
         description: text?.description,
         invalid: Boolean(messages?.length),
       }),

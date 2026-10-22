@@ -6,7 +6,9 @@ import { postgresAdapter } from "@payloadcms/db-postgres";
 import { s3Storage } from "@payloadcms/storage-s3";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildConfig } from "payload";
+import { buildConfig, type SanitizedConfig } from "payload";
+
+import { verifiedStaffOnly } from "./access";
 
 import { AuditLog } from "./collections/AuditLog";
 import { Categories } from "./collections/Categories";
@@ -35,6 +37,36 @@ import { withStaffWriteLimit } from "./staff-write-limit";
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 const env = serverEnv();
 const DATABASE_CONNECT_TIMEOUT_MS = 5_000;
+
+/** Payload's record of who has a document open, which it adds itself. */
+const LOCKED_DOCUMENTS = "payload-locked-documents";
+
+/**
+ * Document locks are for verified staff only, and always name whoever took
+ * them. Payload adds their collection as it builds the config, open to
+ * anyone signed in, so a member could read who edits what, or lock a
+ * record to block staff saves; nothing in the config reaches it before
+ * then.
+ */
+function staffOnlyLocks(config: SanitizedConfig): SanitizedConfig {
+  const locks = config.collections.find(
+    (collection) => collection.slug === LOCKED_DOCUMENTS,
+  );
+  if (!locks) throw new Error("Payload no longer adds its document locks.");
+  locks.access = {
+    ...locks.access,
+    create: verifiedStaffOnly,
+    read: verifiedStaffOnly,
+    update: verifiedStaffOnly,
+    delete: verifiedStaffOnly,
+  };
+  locks.hooks.beforeChange.push(({ data, req }) =>
+    req.user
+      ? { ...data, user: { relationTo: "users", value: req.user.id } }
+      : data,
+  );
+  return config;
+}
 
 export default buildConfig({
   admin: {
@@ -127,4 +159,4 @@ export default buildConfig({
   secret: env.payloadSecret,
   telemetry: false,
   typescript: { outputFile: path.resolve(dirname, "payload-types.ts") },
-});
+}).then(staffOnlyLocks);

@@ -24,6 +24,7 @@ import {
 } from "@countrytopics/domain";
 import type { ReactNode } from "react";
 
+import { useFieldIdPrefix } from "../field-id-prefix";
 import { fieldProps, type FieldTexts, pickerAria } from "../field-text";
 import { safeHref } from "../safe-href";
 import { Field } from "./Field";
@@ -71,7 +72,9 @@ export function EvidenceFields({
   refusal,
   readOnly,
 }: RowProps<EvidenceRow>) {
-  const field = (name: string) => fieldProps(texts, `${at}.${name}`, refusal);
+  const prefix = useFieldIdPrefix();
+  const field = (name: string) =>
+    fieldProps(texts, `${at}.${name}`, refusal, prefix);
   const kind = field("kind");
   const title = field("title");
   const file = field("file");
@@ -220,7 +223,9 @@ export function SourceFields({
   readOnly,
   beside,
 }: RowProps<SourceRow> & { beside?: ReactNode }) {
-  const field = (name: string) => fieldProps(texts, `${at}.${name}`, refusal);
+  const prefix = useFieldIdPrefix();
+  const field = (name: string) =>
+    fieldProps(texts, `${at}.${name}`, refusal, prefix);
   const reference = field("reference");
   const passage = field("passage");
   const locator = field("locator");

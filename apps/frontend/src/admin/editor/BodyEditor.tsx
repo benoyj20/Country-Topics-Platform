@@ -150,6 +150,19 @@ function setBlock(editor: LexicalEditor, block: Block) {
   });
 }
 
+/**
+ * Keeps the body editable only while the form is: Lexical reads
+ * `editable` once, but the form becomes read only, or editable again, as
+ * someone else takes or gives up the topic's lock.
+ */
+function EditablePlugin({ editable }: { editable: boolean }) {
+  const [editor] = useLexicalComposerContext();
+  useEffect(() => {
+    editor.setEditable(editable);
+  }, [editor, editable]);
+  return null;
+}
+
 /** The link being added or changed, with the selection it applies to. */
 type Linking = { selection: BaseSelection | null; fields: LinkFields | null };
 
@@ -425,6 +438,7 @@ export default function BodyEditor({
       </div>
       <HistoryPlugin />
       <ListPlugin />
+      <EditablePlugin editable={!readOnly} />
       <EditorRefPlugin editorRef={editorRef} />
       <OnChangePlugin ignoreSelectionChange onChange={() => onChange()} />
       {linking && <Linker linking={linking} onDone={() => setLinking(null)} />}

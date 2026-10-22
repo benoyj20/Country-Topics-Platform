@@ -31,6 +31,19 @@ export function formatDateTime(iso: string): string {
     : `${DAY_AND_TIME.format(date)} UTC`;
 }
 
+const TIME = new Intl.DateTimeFormat("en-GB", {
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  timeZone: "UTC",
+});
+
+/** "14:05:09 UTC" for a stored timestamp, for what the admin did just now. */
+export function formatTime(iso: string): string {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? iso : `${TIME.format(date)} UTC`;
+}
+
 /** "17 October 2026" for a stored timestamp. */
 export function formatDate(iso: string): string {
   const date = new Date(iso);

@@ -1,4 +1,7 @@
 import {
+  duplicateAnswerSchema,
+  type DuplicatedCollection,
+  duplicateSearchParams,
   payloadRefusal,
   type Refusal,
   savedRecordSchema,
@@ -133,4 +136,25 @@ export async function deleteRecord(
     fieldOf,
   );
   return written.ok ? { ok: true, result: null } : written;
+}
+
+/**
+ * Duplicates a record, as Payload's panel does (`POST .../duplicate`): the
+ * copy's id. The backend gives the copy its own slug, and a topic's copy
+ * is a fresh draft.
+ */
+export async function duplicateRecord(
+  collection: DuplicatedCollection,
+  id: string,
+): Promise<Written<string>> {
+  const answer = answerOf(
+    await write(
+      "POST",
+      `/api/${collection}/${encodeURIComponent(id)}/duplicate?${duplicateSearchParams()}`,
+      undefined,
+      () => null,
+    ),
+    duplicateAnswerSchema,
+  );
+  return answer.ok ? { ok: true, result: answer.result.doc.id } : answer;
 }

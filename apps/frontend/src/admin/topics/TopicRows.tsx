@@ -15,6 +15,7 @@ import {
 import { type RowProps, SourceFields } from "../components/EvidenceFields";
 import { Field } from "../components/Field";
 import { RelationPicker } from "../components/RelationPicker";
+import { useFieldIdPrefix } from "../field-id-prefix";
 import { fieldProps, pickerAria } from "../field-text";
 
 // The topic's own rows: its individuals, and the references it cites with
@@ -28,8 +29,9 @@ export function PersonFields({
   refusal,
   readOnly,
 }: RowProps<TopicPersonRow>) {
-  const individual = fieldProps(texts, `${at}.individual`, refusal);
-  const role = fieldProps(texts, `${at}.role`, refusal);
+  const prefix = useFieldIdPrefix();
+  const individual = fieldProps(texts, `${at}.individual`, refusal, prefix);
+  const role = fieldProps(texts, `${at}.role`, refusal, prefix);
   return (
     <div className="admin-fields two">
       <Field {...individual} required>
@@ -67,7 +69,7 @@ export function PersonFields({
 
 export function CitationFields(props: RowProps<TopicCitationRow>) {
   const { texts, at, row, onChange, refusal, readOnly } = props;
-  const stance = fieldProps(texts, `${at}.stance`, refusal);
+  const stance = fieldProps(texts, `${at}.stance`, refusal, useFieldIdPrefix());
   return (
     <SourceFields
       {...props}

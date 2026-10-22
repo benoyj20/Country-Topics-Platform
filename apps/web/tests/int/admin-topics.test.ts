@@ -5,6 +5,7 @@ import {
   emptyEvidenceRow,
   payloadRefusal,
   type Refusal,
+  restoreSearchParams,
   savedTopicSchema,
   storedBodySchema,
   storedTopicSchema,
@@ -14,7 +15,6 @@ import {
   topicFieldOf,
   topicFieldsSearchParams,
   topicPublishChecks,
-  topicRestoreSearchParams,
   topicSaveBody,
   topicSaveSearchParams,
   type TopicValues,
@@ -733,7 +733,7 @@ describe("publishing", () => {
       adminJar,
       undefined,
       undefined,
-      `?${topicRestoreSearchParams()}`,
+      `?${restoreSearchParams("topics")}`,
     );
     expect(restored.status).toBe(200);
     const topic = await read(adminJar, id);

@@ -27,33 +27,17 @@ import { useState } from "react";
 
 import { formatDateTime } from "@/format";
 
-import type { FieldTexts } from "../field-text";
 import { deleteRecord, saveRecord } from "../write";
 import { SelectInput, TextArea, TextInput } from "./inputs";
 import { type FormApi, RecordForm } from "./RecordForm";
+import { REFERENCE_TEXTS } from "./record-texts";
 
 // The reference editor, as Payload's panel edits a reference
 // (apps/web/src/collections/References.ts): its DOI, ISBN, or link, which
 // "Look up" fills the other fields from, and the worker's check of them,
 // which every save asks for again while the reference is not confirmed.
 
-const TEXTS: FieldTexts = {
-  doi: { label: "DOI" },
-  isbn: { label: "ISBN" },
-  url: {
-    label: "Link",
-    description:
-      "Where to read it: the publisher's page or the report itself. Needed when there is no DOI or ISBN.",
-  },
-  kind: { label: "Kind" },
-  publishedDate: { label: "Published" },
-  title: { label: "Title" },
-  authors: { label: "Authors", description: "One per line, as printed." },
-  containerTitle: { label: "Journal, book, or website" },
-  publisher: { label: "Publisher" },
-};
-
-const ORDER = Object.keys(TEXTS);
+const ORDER = Object.keys(REFERENCE_TEXTS);
 
 const KIND_OPTIONS = REFERENCE_KINDS.map((value) => ({
   value,
@@ -75,12 +59,15 @@ export function ReferenceForm({
   status,
   canEdit,
   notice,
+  onCreated,
 }: {
   id: string | null;
   values: ReferenceValues;
   status: ReferenceStatus | null;
   canEdit: boolean;
   notice?: string;
+  /** Made from another record's field: called with the new record's id. */
+  onCreated?: (id: string) => void;
 }) {
   return (
     <RecordForm
@@ -88,13 +75,13 @@ export function ReferenceForm({
       values={values}
       status={status}
       noun="reference"
-      listHref="/admin/collections/references"
-      recordHref={(saved) => `/admin/collections/references/${saved}`}
+      collection="references"
       canEdit={canEdit}
       canDelete
       readOnlyNotice="You can read this reference. Only admins edit references."
       notice={notice}
-      texts={TEXTS}
+      onCreated={onCreated}
+      texts={REFERENCE_TEXTS}
       order={ORDER}
       saveBody={referenceSaveBody}
       save={(saving, sent) =>

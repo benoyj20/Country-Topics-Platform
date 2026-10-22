@@ -173,8 +173,7 @@ export function CommentForm({
       values={values}
       status={status}
       noun="comment"
-      listHref="/admin/collections/comments"
-      recordHref={(saved) => `/admin/collections/comments/${saved}`}
+      collection="comments"
       canEdit
       readOnlyNotice=""
       notice={notice}
@@ -436,8 +435,7 @@ export function ReportForm({
       values={values}
       status={status}
       noun="report"
-      listHref="/admin/collections/comment-reports"
-      recordHref={(saved) => `/admin/collections/comment-reports/${saved}`}
+      collection="comment-reports"
       canEdit
       readOnlyNotice=""
       notice={notice}
@@ -556,8 +554,7 @@ export function FeedbackForm({
       values={values}
       status={status}
       noun="feedback"
-      listHref="/admin/collections/feedback"
-      recordHref={(saved) => `/admin/collections/feedback/${saved}`}
+      collection="feedback"
       canEdit
       readOnlyNotice=""
       notice={notice}

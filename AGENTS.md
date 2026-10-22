@@ -93,6 +93,23 @@ coding agents. "The user" below means that developer.
   tested separately. Do not add a second implementation of an existing
   responsibility.
 
+- Write every change as part of a feature module (ADR 0015), so teams working
+  on different features never edit the same files:
+  - Put a feature's code in its own places: the admin's
+    `src/admin/features/<name>`, the contracts' `src/lists/<feature>.ts` and
+    `admin-<feature>.ts`, a thin `apps/api/src/collections/<Name>.ts` with its
+    longer hooks in `apps/api/src/<feature>/`, and a public page's data in
+    `apps/api/src/public/<name>-page.ts`.
+  - Never add a case per feature to a shared file. Reach features through a
+    registry, one line each, combined with `combine()`.
+  - Move what two features both need into the core (`src/admin` outside
+    `features`, the read model's shared modules, a package) or `src/shared`.
+    Never import one feature from another.
+  - A new feature also adds its CODEOWNERS lines and its name to `FEATURES`
+    in `apps/frontend/eslint.config.mjs`.
+  - Say in the PR body where new code lives and which shared interfaces it
+    changes.
+
 - Use descriptive domain names and the design document's terminology (topic,
   individual, snippet, transcript segment, evidence, reference, claim reference,
   thread). Use explicit units in names (`start_s`, `timeoutMs`). Replace repeated

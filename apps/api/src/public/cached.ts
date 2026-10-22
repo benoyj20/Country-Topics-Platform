@@ -1,5 +1,4 @@
 import { unstable_cache } from "next/cache";
-import { cache } from "react";
 
 import { PAGE_DATA_TAGS } from "@countrytopics/contracts";
 
@@ -9,7 +8,7 @@ import {
   type PublicTag,
 } from "@/public-cache";
 
-import { noteLoaded } from "./cache-report";
+import { noteLoaded, noteRead } from "./cache-report";
 import {
   loadBrowseTerms,
   loadCountryPage,
@@ -21,24 +20,22 @@ import {
 
 // The public read model, cached between requests and tagged with every
 // collection each loader reads, so purging a collection's tag refreshes the
-// data, here and in the frontend's copy. React's cache shares one load
-// within a request.
+// data, here and in the frontend's copy.
 
 function cached<Args extends string[], Result>(
   name: string,
   load: (...args: Args) => Promise<Result>,
   tags: readonly PublicTag[],
 ) {
-  return cache(
-    unstable_cache(
-      (...args: Args) => {
-        noteLoaded();
-        return load(...args);
-      },
-      ["public", name],
-      { tags: [...tags], revalidate: PUBLIC_REVALIDATE_S },
-    ),
+  const read = unstable_cache(
+    async (...args: Args) => noteLoaded(await load(...args)),
+    ["public", name],
+    { tags: [...tags], revalidate: PUBLIC_REVALIDATE_S },
   );
+  return (...args: Args): Promise<Result> => {
+    noteRead();
+    return read(...args);
+  };
 }
 
 const T = PUBLIC_TAGS;

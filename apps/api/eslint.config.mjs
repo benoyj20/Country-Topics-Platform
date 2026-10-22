@@ -4,8 +4,6 @@ import { defineConfig, globalIgnores } from "eslint/config";
 
 // The backend answers no HTML (ADR 0014): the pages and the admin are the
 // frontend's, so nothing here renders a page or loads what one would.
-// React's `cache`, which shares one load within a request, is the one
-// part of React it uses.
 const NO_HTML =
   "The backend answers only JSON and files (ADR 0014); pages belong in apps/frontend.";
 
@@ -18,8 +16,8 @@ export default defineConfig([
         "error",
         {
           paths: [
-            { name: "react", allowImportNames: ["cache"], message: NO_HTML },
             ...[
+              "react",
               "react-dom",
               "next/dynamic",
               "next/font",

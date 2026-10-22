@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { noteLoaded } from "@/public/cache-report";
+import { noteLoaded, noteRead } from "@/public/cache-report";
 import { pageDataResponse, slugPageData } from "@/public/page-data";
 
 describe("page data answers", () => {
@@ -19,18 +19,29 @@ describe("page data answers", () => {
   });
 
   it("say whether the data was loaded afresh or found in the shared cache", async () => {
-    const found = await pageDataResponse(
+    // As a cached loader does: asked, then loading afresh on a miss.
+    const loaded = await pageDataResponse(async () => {
+      noteRead();
+      await Promise.resolve();
+      return noteLoaded({ name: "TEST" });
+    }, "missing");
+    expect(loaded.headers.get("x-data-cache")).toBe("MISS");
+
+    // A hit answers with a copy from the cache. A stale one also loads
+    // afresh in the background, but answers with the stale copy.
+    const found = await pageDataResponse(async () => {
+      noteRead();
+      noteLoaded({ name: "TEST newer" });
+      return { name: "TEST" };
+    }, "missing");
+    expect(found.headers.get("x-data-cache")).toBe("HIT");
+
+    // Without a cached loader there is nothing to say.
+    const uncached = await pageDataResponse(
       () => Promise.resolve({ name: "TEST" }),
       "missing",
     );
-    expect(found.headers.get("x-data-cache")).toBe("HIT");
-    const loaded = await pageDataResponse(async () => {
-      await Promise.resolve();
-      // As a cached loader does on a miss, after an await.
-      noteLoaded();
-      return { name: "TEST" };
-    }, "missing");
-    expect(loaded.headers.get("x-data-cache")).toBe("MISS");
+    expect(uncached.headers.has("x-data-cache")).toBe(false);
   });
 
   it("answer 404 when there is nothing public", async () => {

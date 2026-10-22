@@ -57,7 +57,9 @@ describe("the backend's proxy", () => {
 
   it("covers the path without Next.js's _rsc parameter", async () => {
     const response = await proxy(
-      request("/topics/x?_rsc=abc", { headers: await signed("/topics/x") }),
+      request("/api/v1/topics?q=water&_rsc=abc", {
+        headers: await signed("/api/v1/topics?q=water"),
+      }),
     );
     expect(passed(response)).toBe(true);
   });

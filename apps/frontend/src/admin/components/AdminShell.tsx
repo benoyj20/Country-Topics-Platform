@@ -9,6 +9,7 @@ import { AdminAccountProvider } from "../account-context";
 import { ADMIN_GROUPS, COLLECTION_TEXT } from "../collections";
 import { readableIn } from "../gate";
 import { NavToggle } from "./NavToggle";
+import { RefreshSession } from "./RefreshSession";
 
 /**
  * Every admin screen's frame: the header, and, for staff who passed the
@@ -44,6 +45,7 @@ export function AdminShell({
           <Link href="/">View the site</Link>
           {account && <SignOutButton className="admin-button secondary" />}
           {account && <NavToggle />}
+          {account && <RefreshSession />}
         </div>
       </header>
       <div className={account ? "admin-frame" : "admin-frame single"}>

@@ -23,7 +23,7 @@ export async function pageDataResponse<T>(
   missing: string,
 ): Promise<Response> {
   let data: T | null;
-  let cache: "HIT" | "MISS";
+  let cache: "HIT" | "MISS" | null;
   try {
     ({ value: data, cache } = await reportCache(load));
   } catch (error) {
@@ -41,7 +41,7 @@ export async function pageDataResponse<T>(
     return Response.json({ error: missing }, { status: 404, headers: HEADERS });
   }
   return Response.json(data, {
-    headers: { ...HEADERS, [DATA_CACHE_HEADER]: cache },
+    headers: cache ? { ...HEADERS, [DATA_CACHE_HEADER]: cache } : HEADERS,
   });
 }
 

@@ -28,7 +28,7 @@ export const betterAuthStrategy: AuthStrategy = {
 
     // Payload cannot set cookies here, so do not let Better Auth try to refresh;
     // the browser refreshes its session through /api/auth (the frontend's
-    // AccountLink).
+    // AccountLink and the admin's RefreshSession).
     const session = await getAuth().api.getSession({
       headers,
       query: { disableRefresh: true },

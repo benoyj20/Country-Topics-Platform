@@ -30,6 +30,12 @@ export const TOPIC_CHANGE_KINDS = [
 ] as const;
 export type TopicChangeKind = (typeof TOPIC_CHANGE_KINDS)[number];
 
+// The longest a topic's text fields may be, checked by the backend when
+// publishing and kept to by the admin's inputs.
+export const TOPIC_TITLE_MAX_LENGTH = 200;
+export const TOPIC_SUMMARY_MAX_LENGTH = 500;
+export const CHANGE_NOTE_MAX_LENGTH = 500;
+
 export type TopicSave = {
   /** This save publishes (rather than saving a draft). */
   publishing: boolean;

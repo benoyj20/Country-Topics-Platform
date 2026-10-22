@@ -50,5 +50,11 @@ export default defineConfig([
       ],
     },
   },
+  {
+    // Compares the admin's body editor with Payload's own nodes, so it
+    // loads Payload's editor package; it runs in Node and ships nowhere.
+    files: ["tests/body-json.test.ts"],
+    rules: { "no-restricted-imports": "off" },
+  },
   globalIgnores([".next/", ".open-next/", ".wrangler/", "next-env.d.ts"]),
 ]);

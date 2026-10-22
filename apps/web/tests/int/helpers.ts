@@ -3,7 +3,12 @@ import { createSmtpSender } from "@countrytopics/email";
 import { createEmailWorker, createRedisConnection } from "@countrytopics/jobs";
 import { createOTP } from "@better-auth/utils/otp";
 import config from "@payload-config";
-import { REST_GET, REST_PATCH, REST_POST } from "@payloadcms/next/routes";
+import {
+  REST_DELETE,
+  REST_GET,
+  REST_PATCH,
+  REST_POST,
+} from "@payloadcms/next/routes";
 import type { Payload } from "payload";
 import { expect } from "vitest";
 import * as z from "zod";
@@ -245,15 +250,17 @@ export async function signInAsVerifiedStaff(email: string): Promise<CookieJar> {
 const payloadGet = REST_GET(config);
 const payloadPatch = REST_PATCH(config);
 const payloadPost = REST_POST(config);
+const payloadDelete = REST_DELETE(config);
 const restHandlers = {
   GET: payloadGet,
   PATCH: payloadPatch,
   POST: payloadPost,
+  DELETE: payloadDelete,
 };
 
 /** Calls Payload's REST API (`/api/<slug...>`) with the browser's cookies. */
 export async function payloadRest(
-  method: "GET" | "PATCH" | "POST",
+  method: "GET" | "PATCH" | "POST" | "DELETE",
   slug: string[],
   jar: CookieJar,
   body?: unknown,

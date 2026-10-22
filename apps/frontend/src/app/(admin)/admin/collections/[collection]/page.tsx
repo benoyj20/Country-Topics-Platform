@@ -7,7 +7,7 @@ import { COLLECTION_TEXT } from "@/admin/collections";
 import { AdminRefusal } from "@/admin/components/AdminRefusal";
 import { AdminShell } from "@/admin/components/AdminShell";
 import { ListView } from "@/admin/components/ListView";
-import { adminGate, canRead } from "@/admin/gate";
+import { adminGate, canRead, createHref } from "@/admin/gate";
 import { listHref, readListState, type SearchParams } from "@/admin/list-state";
 
 // Rendered for each request with the staff member's cookie, never cached.
@@ -61,6 +61,7 @@ export default async function CollectionList({ params, searchParams }: Props) {
         state={state}
         page={page}
         capped={capped}
+        createHref={createHref(collection, gate.account)}
       />
     </AdminShell>
   );

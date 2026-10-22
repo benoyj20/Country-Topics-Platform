@@ -2,6 +2,8 @@ import {
   DOCUMENT_MIME_TYPES,
   EVIDENCE_KIND_LABELS,
   EVIDENCE_KINDS,
+  EVIDENCE_NOTE_MAX_LENGTH,
+  EVIDENCE_TITLE_MAX_LENGTH,
   IMAGE_MIME_TYPES,
   URL_MAX_LENGTH,
 } from "@countrytopics/domain";
@@ -14,8 +16,6 @@ import { httpUrl, optionalHttpUrl } from "./url-field";
 // Evidence rows, shared by topics and the statements on individuals'
 // profiles (ADR 0007): the same kinds, fields, and checks wherever evidence
 // backs a published statement.
-
-export const EVIDENCE_TITLE_MAX_LENGTH = 200;
 
 export function evidenceKind(siblingData: unknown): unknown {
   return siblingData && typeof siblingData === "object" && "kind" in siblingData
@@ -158,7 +158,7 @@ export function evidenceField(description: string): ArrayField {
         name: "note",
         label: "What it shows",
         type: "textarea",
-        maxLength: 1000,
+        maxLength: EVIDENCE_NOTE_MAX_LENGTH,
       },
     ],
   };

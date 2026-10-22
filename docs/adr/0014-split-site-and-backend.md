@@ -955,6 +955,63 @@ Left for later phases:
   columns are fixed until phase 11 lets staff choose them and remembers
   their filters.
 
+### Phase 8 results (2026-10-22)
+
+The admin edits topics: a topic's editor at Payload's address
+(`/admin/collections/topics/<id>`), a new topic at `.../create`, its
+versions, and each change log entry's page. Checked on production builds of
+both apps, against the local database, with new TEST accounts:
+
+| Check                        | Result                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A topic published end to end | In headless Chrome, a new TEST admin made a topic from the list's Create new: title, summary, a body written with the toolbar (bold, a heading, a nested list, a link to a web page, a link to an individual), a country, an individual, a web page and an image as evidence, and a confirmed reference with its passage. It published, the site showed it as written, and a change published with a change note showed on the site too                                                                                                                                                                                                         |
+| Every refusal is shown       | The backend's integration test sends the editor's requests and gets every refusal the topic's fields and hooks give on publishing (25 cases: lengths, a body without words or with a link that is not one, an individual listed twice, rows without their individual, file, snippet, link, title, reference, or passage, a document that is an image, naming someone without evidence or a reference, an unconfirmed reference or video, a slug that is not one or is taken, the change note), and each lands on a field the form shows. In the browser, each message is beside its field and in a list at the top whose links go to the fields |
+| The workflow                 | Change notes, the change log, archiving, the states, drafts of a published topic that leave the site alone, every version listed, a version restored as the newest draft, a draft deleted, and a published topic that cannot be: all as the backend's hooks keep them for Payload's panel                                                                                                                                                                                                                                                                                                                                                       |
+| The saved JSON               | The 107 bodies in the local database, every topic's and every version's, the editor's own among them, are written back exactly as Payload's editor writes them (`tests/body-json.test.ts`, moved from the spike, as planned)                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Moderators                   | Read every field, the versions, and the change log; the form is read only, with no buttons, and the backend refuses their writes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Public pages load no editor  | Lexical's chunk (262 KB) loads only on the editor; the site's pages and the admin's lists load none of it. The Worker is 1.85 MB compressed (8.6 MB raw), against 1.56 MB at phase 5                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Accessibility and layout     | Nine screens (a new topic, its refusals, a topic, an open picker, the link form, a real topic with every kind of row, the versions, a version, a change log entry) at 1280 px (light and dark), 768 px, and 390 px (light and dark): axe-core finds nothing, and none scrolls sideways                                                                                                                                                                                                                                                                                                                                                          |
+| Leaving unsaved changes      | Following a link in the admin asks first, and stays when told to; closing the page asks through the browser's own prompt (not checked by the script); Ctrl+S saves a draft, as in Payload's panel                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+
+How it works, where the plan left details open:
+
+- **What the editor reads and sends is a contract.** `packages/contracts`
+  (`admin-topics.ts`) builds the reads, the save's body, and the version
+  and change log requests, and names the form's field for each path a
+  refusal gives (`topicFieldOf`); the refusal itself is read by
+  `payload-errors.ts`, for the later editors too. The backend's test
+  (`admin-topics.test.ts`) sends exactly these.
+- **A topic is read twice, at once:** its fields with related records
+  populated by what the form shows of them, and its body at depth 0, so
+  the body's links keep only their documents' ids, as Payload's editor
+  saves them. When a save lands between the two, both are read again.
+- **Saves go from the browser,** through the frontend's `/api` to
+  Payload's REST API, with the staff member's cookie, as the lists' reads
+  do; the backend's hooks keep the workflow, as they did for the panel.
+- **What a publish needs is checked first in the browser,** as Payload's
+  panel checks its fields: the topic's publish hook refuses a topic
+  without a body before Payload checks the rest, so without this a new
+  topic would be refused one field at a time. The test checks that the
+  backend refuses exactly what the editor checks, with the same messages.
+- **Related records are chosen by searching,** in each collection's own
+  order and through the same access rules (`RelationPicker`), files
+  limited to the types their evidence takes. Uploading a file from the
+  topic, as the panel's drawer does, is phase 11's inline creation.
+- **Two refusals cannot arise,** because the editor never asks: Payload's
+  panel offered unpublishing and restoring a version over the published
+  topic, which the hooks refuse. The test checks that both still are.
+- **The body's nodes moved** into the frontend (`src/admin/editor`), with
+  the test that compares them with Payload's. That test is the one file
+  in the frontend that loads Payload's editor package, in Node only, so
+  the import rule allows it there. The spike keeps its copy until
+  `prototypes/` goes.
+
+Left for later phases:
+
+- **Phase 9 to 11:** the other collections' editors; autosave, live
+  preview, comparing versions, document locking, duplicating a topic, and
+  making a related record, or uploading a file, from inside the topic.
+
 ## Consequences
 
 **Gains:**

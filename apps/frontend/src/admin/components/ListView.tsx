@@ -40,7 +40,7 @@ function relatedName(to: AdminCollection, value: unknown): string | null {
   const related = relatedTitle(to, value);
   if (!related) return null;
   return (
-    related.title ?? `${COLLECTION_TEXT[to].singular} ${related.id.slice(-8)}`
+    related.title || `${COLLECTION_TEXT[to].singular} ${related.id.slice(-8)}`
   );
 }
 
@@ -438,12 +438,15 @@ export function ListView({
   page,
   capped,
   notice,
+  createHref,
 }: {
   collection: AdminCollection;
   state: ListState;
   page: AdminPage;
   capped: string[];
   notice?: ReactNode;
+  /** Where a new record is made, for those who may make one. */
+  createHref?: string;
 }) {
   const text = COLLECTION_TEXT[collection];
   const list = ADMIN_LISTS[collection];
@@ -451,7 +454,14 @@ export function ListView({
   return (
     <section className="admin-stack">
       <header className="admin-list-header">
-        <h1>{text.plural}</h1>
+        <div className="admin-title-row">
+          <h1>{text.plural}</h1>
+          {createHref && (
+            <Link href={createHref} className="admin-button">
+              Create new
+            </Link>
+          )}
+        </div>
         {text.description && <p className="admin-muted">{text.description}</p>}
       </header>
       {notice}

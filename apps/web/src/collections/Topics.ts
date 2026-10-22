@@ -1,13 +1,18 @@
 import {
+  CHANGE_NOTE_MAX_LENGTH,
   CLAIM_STANCES,
   changeNoteRequired,
   evidenceProblems,
+  LOCATOR_MAX_LENGTH,
+  PASSAGE_MAX_LENGTH,
   PERSON_ROLE_LABELS,
   type SnippetEvidence,
   STANCE_LABELS,
   TOPIC_PERSON_ROLES,
   TOPIC_STATE_LABELS,
   TOPIC_STATES,
+  TOPIC_SUMMARY_MAX_LENGTH,
+  TOPIC_TITLE_MAX_LENGTH,
   type TopicChangeKind,
   type TopicSave,
   topicChangeKind,
@@ -42,8 +47,6 @@ import {
 } from "./evidence-field";
 import { refuse } from "./refuse";
 import { fillSlug, slugField } from "./slug";
-
-const CHANGE_NOTE_MAX_LENGTH = 500;
 
 // Set only by the hooks below; never from the request.
 const systemField = {
@@ -572,12 +575,17 @@ export const Topics: CollectionConfig = {
         : false,
   },
   fields: [
-    { name: "title", type: "text", required: true, maxLength: 200 },
+    {
+      name: "title",
+      type: "text",
+      required: true,
+      maxLength: TOPIC_TITLE_MAX_LENGTH,
+    },
     {
       name: "summary",
       type: "textarea",
       required: true,
-      maxLength: 500,
+      maxLength: TOPIC_SUMMARY_MAX_LENGTH,
       admin: {
         description: "One or two sentences, shown in lists and previews.",
       },
@@ -690,7 +698,7 @@ export const Topics: CollectionConfig = {
           name: "passage",
           type: "textarea",
           required: true,
-          maxLength: 2000,
+          maxLength: PASSAGE_MAX_LENGTH,
           admin: {
             description:
               "The words in the reference that support, contradict, or explain the topic, quoted exactly.",
@@ -700,7 +708,7 @@ export const Topics: CollectionConfig = {
           name: "locator",
           label: "Page or section",
           type: "text",
-          maxLength: 100,
+          maxLength: LOCATOR_MAX_LENGTH,
         },
       ],
     },

@@ -1481,8 +1481,45 @@ and 31 GB), 2026-10-18 and 2026-10-19.
   fetch email sign-in links twice, so signing in always ended on
   `/account`; the pass-through now drops them.
 - [ ] A record's page only names it, and locally opens it in Payload's
-  panel, until its editor comes in phases 8 to 10.
+  panel, until its editor comes in phases 8 to 10 (topics and topic
+  changes: phase 8).
 - [x] The local database has more TEST accounts:
   `test-member-p7*@example.test`, `test-admin-p7*@example.test`,
   `test-moderator-p7*@example.test`, and `test-member-trace*@example.test`
   and `test-member-curl*@example.test` from tracing the sign-in links.
+
+### The split, phase 8: the topic editor (ADR 0014)
+
+- [x] Topics are created, edited, and published in the new admin, at
+  Payload's addresses: every field the panel shows, the body with its
+  toolbar and links to web pages, topics, and individuals, the
+  individuals, evidence, and references rows, the change note, and the
+  topic's details and change log (2026-10-22).
+- [x] Every refusal Payload's panel showed is shown, beside its field and
+  in a list at the top: an integration test sends the editor's requests
+  and gets each of the 25 refusals the topic's fields and hooks give, and
+  each lands on a field the form shows. What a publish needs is checked in
+  the browser first, as the panel does, and the test checks that the
+  backend refuses exactly that.
+- [x] A real topic was published end to end in headless Chrome by a new
+  TEST admin (58 checks), and showed on the site as written.
+- [x] Versions: each is listed and shown whole, and restored as the newest
+  draft. Change log entries have their own pages. Drafts that were never
+  published can be deleted.
+- [x] Moderators read topics in the editor; the form is read only and the
+  backend refuses their writes.
+- [x] The 107 topic bodies in the local database are written back exactly
+  as Payload's editor writes them; the body's nodes and their test moved
+  from the spike into `apps/frontend`.
+- [x] Lexical loads only on the editor (262 KB); the Worker is 1.85 MB
+  compressed. Every editor screen is axe-clean at 1280, 768, and 390 px,
+  light and dark, with no sideways scrolling.
+- [ ] Autosave, live preview, comparing versions, document locking,
+  duplicating, and making related records or uploading files from inside
+  a topic: phase 11. The other collections' editors: phases 9 and 10.
+- [x] The local database has more TEST records from the browser checks:
+  16 accounts `test-admin-p8*@example.test` and
+  `test-moderator-p8*@example.test`, 14 individuals named
+  `TEST Phase8 Person p8*`, and 20 topics titled `TEST phase 8 ...`: four
+  published, with their versions and change logs, and drafts from runs
+  stopped part way.

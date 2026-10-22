@@ -1,4 +1,7 @@
 export const SLUG_MAX_LENGTH = 80;
+/** What a slug that is not one is told, by the backend and the admin. */
+export const SLUG_MESSAGE =
+  "Use lowercase letters, digits, and single hyphens, like public-health.";
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 // Latin letters that Unicode decomposition leaves alone.

@@ -16,10 +16,15 @@ import { isUuid } from "@/admin/list-state";
 // Rendered for each request with the staff member's cookie, never cached.
 export const dynamic = "force-dynamic";
 
-/** The phase of ADR 0014 that builds each collection's editor. */
-const EDITOR_PHASE: Record<AdminCollection, number> = {
-  topics: 8,
-  "topic-changes": 8,
+/**
+ * The phase of ADR 0014 that builds each collection's editor. Built ones
+ * have pages of their own (collections/topics, collections/topic-changes),
+ * which Next.js picks before this one.
+ */
+const EDITOR_PHASE: Record<
+  Exclude<AdminCollection, "topics" | "topic-changes">,
+  number
+> = {
   references: 9,
   snippets: 9,
   videos: 9,
@@ -46,7 +51,13 @@ type Props = { params: Promise<{ collection: string; id: string }> };
  */
 export default async function RecordPage({ params }: Props) {
   const { collection, id } = await params;
-  if (!isAdminCollection(collection)) notFound();
+  if (
+    !isAdminCollection(collection) ||
+    collection === "topics" ||
+    collection === "topic-changes"
+  ) {
+    notFound();
+  }
   const here = `/admin/collections/${collection}/${encodeURIComponent(id)}`;
   const gate = await adminGate(here);
   if (!gate.ok) return <AdminRefusal {...gate} />;
@@ -75,7 +86,7 @@ export default async function RecordPage({ params }: Props) {
         <p className="admin-muted">
           <Link href={`/admin/collections/${collection}`}>{text.plural}</Link>
         </p>
-        <h1>{record.title ?? `Untitled ${text.singular.toLowerCase()}`}</h1>
+        <h1>{record.title || `Untitled ${text.singular.toLowerCase()}`}</h1>
         <div className="admin-card">
           <p>
             This {text.singular.toLowerCase()}&apos;s editor comes with ADR

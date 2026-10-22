@@ -1,4 +1,9 @@
-import { isSlug, SLUG_MAX_LENGTH, slugify } from "@countrytopics/domain";
+import {
+  isSlug,
+  SLUG_MAX_LENGTH,
+  SLUG_MESSAGE,
+  slugify,
+} from "@countrytopics/domain";
 import type {
   CollectionBeforeValidateHook,
   CollectionSlug,
@@ -16,9 +21,7 @@ export const slugField: TextField = {
   index: true,
   maxLength: SLUG_MAX_LENGTH,
   validate: (value: unknown) =>
-    typeof value === "string" && isSlug(value)
-      ? true
-      : "Use lowercase letters, digits, and single hyphens, like public-health.",
+    typeof value === "string" && isSlug(value) ? true : SLUG_MESSAGE,
   // A copy gets its own slug, filled from its name by fillSlug.
   hooks: { beforeDuplicate: [() => ""] },
   admin: {

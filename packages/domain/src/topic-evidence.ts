@@ -18,6 +18,12 @@ export type EvidenceKind = (typeof EVIDENCE_KINDS)[number];
 export const CLAIM_STANCES = ["supports", "contradicts", "context"] as const;
 export type ClaimStance = (typeof CLAIM_STANCES)[number];
 
+// The longest an evidence row's and a cited reference's text may be.
+export const EVIDENCE_TITLE_MAX_LENGTH = 200;
+export const EVIDENCE_NOTE_MAX_LENGTH = 1000;
+export const PASSAGE_MAX_LENGTH = 2000;
+export const LOCATOR_MAX_LENGTH = 100;
+
 export const REFERENCE_KINDS = [
   "article",
   "book",

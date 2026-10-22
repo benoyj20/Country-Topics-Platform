@@ -554,8 +554,53 @@ export function adminRelatedSearchParams(
   return params;
 }
 
-/** A related record as a list gets it: its title, or only its id. */
-const Related = z.union([z.string(), z.looseObject({ id: z.string() })]);
+/** How many records a field's picker offers at a time. */
+export const ADMIN_PICKER_MATCHES = 10;
+
+/**
+ * The query string of `GET /api/<collection>` for a field's picker: the
+ * records whose searched fields have `text` (all of them when it is
+ * empty), in the collection's own order, drafts included, with their
+ * titles and the `extra` fields, among those `where` allows.
+ */
+export function adminPickerSearchParams(
+  collection: AdminCollection,
+  text: string,
+  {
+    extra = [],
+    where,
+  }: { extra?: readonly string[]; where?: Record<string, unknown> } = {},
+): URLSearchParams {
+  const list = ADMIN_LISTS[collection];
+  const and: Where[] = where ? [where] : [];
+  const search = text.trim();
+  if (search) {
+    and.push({
+      or: list.search.map((field) => ({ [field]: { like: search } })),
+    });
+  }
+  const params = new URLSearchParams();
+  params.set("depth", "0");
+  params.set("limit", String(ADMIN_PICKER_MATCHES));
+  params.set("sort", list.defaultSort);
+  if (list.drafts) params.set("draft", "true");
+  for (const field of new Set([list.title, ...extra])) {
+    params.set(`select[${field}]`, "true");
+  }
+  if (and.length > 0) appendBrackets(params, "where", { and });
+  return params;
+}
+
+/** A related record as Payload sends it: its id, or the record when populated. */
+export const Related = z.union([z.string(), z.looseObject({ id: z.string() })]);
+export type RelatedValue = z.infer<typeof Related>;
+
+/**
+ * A related record as the admin shows it: its id, and its title, which is
+ * null when only the id came (the reader may not see the record, or it was
+ * removed), and empty when the record has none.
+ */
+export type RelatedRecord = { id: string; title: string | null };
 
 function fieldSchema(field: AdminField): z.ZodType {
   switch (field.kind) {
@@ -604,18 +649,21 @@ export function adminPageSchema<T>(row: z.ZodType<T>) {
 }
 export type AdminPage = z.infer<ReturnType<typeof adminPageSchema<AdminRow>>>;
 
-/** A related record's title, or null when the reader may not see it. */
+/** A related record of `collection`, titled as its list titles it. */
+export function recordOf(
+  collection: AdminCollection,
+  value: RelatedValue,
+): RelatedRecord {
+  if (typeof value === "string") return { id: value, title: null };
+  const title = value[ADMIN_LISTS[collection].title];
+  return { id: value.id, title: typeof title === "string" ? title : "" };
+}
+
+/** recordOf for a value of any shape, or null when it is not a related record. */
 export function relatedTitle(
   collection: AdminCollection,
   value: unknown,
-): { id: string; title: string | null } | null {
-  if (typeof value === "string") return { id: value, title: null };
-  if (value && typeof value === "object" && "id" in value) {
-    const id = String(value.id);
-    const title = (value as Record<string, unknown>)[
-      ADMIN_LISTS[collection].title
-    ];
-    return { id, title: typeof title === "string" && title ? title : null };
-  }
-  return null;
+): RelatedRecord | null {
+  const parsed = Related.safeParse(value);
+  return parsed.success ? recordOf(collection, parsed.data) : null;
 }

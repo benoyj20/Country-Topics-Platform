@@ -25,6 +25,20 @@ export function canRead(
   );
 }
 
+/**
+ * Where `account` makes a new record of `collection`: only collections
+ * whose editor is built, for those the backend lets create them.
+ */
+export function createHref(
+  collection: AdminCollection,
+  account: Account,
+): string | undefined {
+  // Topics: verified admins only (apps/web's Topics access).
+  return collection === "topics" && account.role === "admin"
+    ? "/admin/collections/topics/create"
+    : undefined;
+}
+
 /** The collections in `group` that `account` may read, in the panel's order. */
 export function readableIn(
   group: AdminGroup,

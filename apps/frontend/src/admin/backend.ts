@@ -22,7 +22,8 @@ import { isUuid, listConditions, type ListState } from "./list-state";
 // cookie and address go with each, so the backend's access rules decide
 // what they see, as they do for Payload's panel.
 
-async function readAsStaff<T>(
+/** GETs `path` from the backend as the staff member; null when it answers 404. */
+export async function readAsStaff<T>(
   path: string,
   schema: z.ZodType<T>,
 ): Promise<T | null> {

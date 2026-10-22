@@ -200,8 +200,3 @@
 .admin-panel-more a:hover .admin-icon {
   transform: translateX(2px);
 }
-
-.admin-dashboard-group > h2 {
-  font-family: var(--font-serif);
-  font-size: 1.35rem;
-}

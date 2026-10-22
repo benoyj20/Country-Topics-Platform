@@ -1,7 +1,5 @@
 import "server-only";
 
-import { EMPTY_REFERENCE } from "@countrytopics/contracts";
-
 import {
   isAdmin,
   type EditedCollection,
@@ -10,6 +8,7 @@ import {
 
 import { readReference } from "./backend";
 import { ReferenceForm } from "./ReferenceForm";
+import { NewReference } from "./new-records";
 
 // The references feature's record pages, for the generic record page
 // (app/(admin)/admin/collections/[collection]/[id]): a record's page,
@@ -34,8 +33,6 @@ export const EDITORS = {
         }
       );
     },
-    create: () => (
-      <ReferenceForm id={null} values={EMPTY_REFERENCE} status={null} canEdit />
-    ),
+    create: () => <NewReference />,
   },
 } satisfies Partial<Record<EditedCollection, Editor>>;

@@ -1,7 +1,12 @@
 import type { AdminCollection } from "@countrytopics/contracts";
-import { TOPIC_CHANGE_LABELS, TOPIC_STATE_LABELS } from "@countrytopics/domain";
+import {
+  TOPIC_CHANGE_LABELS,
+  TOPIC_STATE_LABELS,
+  type TopicState,
+} from "@countrytopics/domain";
 
 import { DATE_FIELDS, type CollectionText } from "@/admin/collection-text";
+import type { StatusTone } from "@/admin/status-tone";
 
 // What the admin calls the topics feature's collections, their fields,
 // and their stored values, as Payload's panel does (apps/api/src/collections),
@@ -31,7 +36,7 @@ export const COLLECTIONS = {
         in_review: "waiting",
         draft: "plain",
         archived: "plain",
-      },
+      } satisfies Record<TopicState, StatusTone>,
     },
   },
   "topic-changes": {

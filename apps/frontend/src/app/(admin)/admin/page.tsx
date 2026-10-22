@@ -281,11 +281,7 @@ export default async function AdminHome() {
         {ADMIN_GROUPS.map((group) => {
           const collections = readableIn(group, account);
           return (
-            <section
-              key={group}
-              className="admin-dashboard-group"
-              aria-labelledby={`group-${group}`}
-            >
+            <section key={group} aria-labelledby={`group-${group}`}>
               <h2 id={`group-${group}`}>{group}</h2>
               <ul className="admin-cards">
                 {collections.map((collection) => {

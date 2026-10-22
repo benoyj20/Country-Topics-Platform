@@ -80,6 +80,46 @@ const ADMIN_ONLY =
 const SHARED_STAYS_SHARED =
   "Shared code serves the site and the admin alike (ADR 0015), so it imports neither.";
 
+// Each pattern list names an import both by its alias and by the relative
+// paths that reach the same place, since either would cross the line.
+const NO_ADMIN = {
+  group: ["@/admin", "@/admin/*", "**/admin", "**/admin/*"],
+  message: ADMIN_ONLY,
+};
+const NO_FEATURES = {
+  group: [
+    "@/admin/features",
+    "@/admin/features/*",
+    "**/features",
+    "**/features/*",
+  ],
+  message: NO_FEATURES_IN_CORE,
+};
+const NO_REGISTRY = {
+  group: [
+    "@/admin/registry",
+    "@/admin/registry/*",
+    "**/registry",
+    "**/registry/*",
+  ],
+  message:
+    "A feature is listed in the registries; it does not read them (ADR 0015).",
+};
+
+/** The site's components, by alias and from a file `depth` folders inside src/admin. */
+function noSiteComponents(depth) {
+  const up = "../".repeat(depth + 1);
+  return {
+    group: [
+      "@/components",
+      "@/components/*",
+      `${up}components`,
+      `${up}components/*`,
+    ],
+    message: SITE_ONLY,
+  };
+}
+
 export default defineConfig([
   ...nextVitals,
   ...nextTypescript,
@@ -87,7 +127,7 @@ export default defineConfig([
   // The site's pages and components leave the admin alone.
   {
     files: ["src/app/(site)/**", "src/components/**"],
-    rules: restricted({ group: ["@/admin", "@/admin/*"], message: ADMIN_ONLY }),
+    rules: restricted(NO_ADMIN),
   },
   // The topic preview is the admin's, shown in the site's layout: it may
   // ask the admin's gate and its topics for the draft.
@@ -95,7 +135,7 @@ export default defineConfig([
     files: ["src/app/(site)/preview/**"],
     rules: restricted({
       group: [
-        "@/admin/*",
+        "**/admin/*",
         "!@/admin/gate",
         "!@/admin/features",
         "@/admin/features/*",
@@ -106,68 +146,84 @@ export default defineConfig([
       message: ADMIN_ONLY,
     }),
   },
-  // The admin uses shared code, never the site's components.
   {
-    files: ["src/admin/**", "src/app/(admin)/**"],
+    files: ["src/shared/**"],
     rules: restricted({
-      group: ["@/components", "@/components/*"],
-      message: SITE_ONLY,
+      group: [
+        ...NO_ADMIN.group,
+        "@/components",
+        "@/components/*",
+        "**/components",
+        "**/components/*",
+        "@/app/*",
+        "**/app/*",
+      ],
+      message: SHARED_STAYS_SHARED,
     }),
   },
-  // The admin's core: everything outside its features and registries.
+  // The admin's core, by how deep a file is, so its relative paths to the
+  // site's components are caught too; it reaches features only through
+  // the registries.
   {
-    files: ["src/admin/**"],
-    ignores: ["src/admin/features/**", "src/admin/registry/**"],
-    rules: restricted(
-      { group: ["@/components", "@/components/*"], message: SITE_ONLY },
-      {
-        group: [
-          "@/admin/features",
-          "@/admin/features/*",
-          "./features/*",
-          "../features/*",
-          "../../features/*",
-        ],
-        message: NO_FEATURES_IN_CORE,
-      },
-    ),
+    files: ["src/admin/*.{ts,tsx}"],
+    rules: restricted(noSiteComponents(0), NO_FEATURES),
   },
-  // Each feature: its own folder and the core, never another feature.
+  {
+    files: ["src/admin/*/*.{ts,tsx}"],
+    ignores: ["src/admin/registry/**"],
+    rules: restricted(noSiteComponents(1), NO_FEATURES),
+  },
+  {
+    files: ["src/admin/registry/**"],
+    rules: restricted(noSiteComponents(1)),
+  },
+  // Each feature: its own folder and the core, never another feature or
+  // the registries.
   ...FEATURES.map((feature) => {
     const others = FEATURES.filter((other) => other !== feature);
     return {
       files: [`src/admin/features/${feature}/**`],
       rules: restricted(
-        { group: ["@/components", "@/components/*"], message: SITE_ONLY },
+        noSiteComponents(2),
         {
           group: others.flatMap((other) => [
-            `@/admin/features/${other}`,
-            `@/admin/features/${other}/*`,
+            `**/features/${other}`,
+            `**/features/${other}/*`,
             `../${other}`,
             `../${other}/*`,
+            `../../${other}`,
+            `../../${other}/*`,
           ]),
           message: OTHER_FEATURE,
         },
-        {
-          group: ["@/admin/registry", "@/admin/registry/*"],
-          message:
-            "A feature is listed in the registries; it does not read them (ADR 0015).",
-        },
+        NO_REGISTRY,
       ),
     };
   }),
+  // The admin's pages use the core and the registries; only the topics'
+  // own pages use their feature directly.
   {
-    files: ["src/shared/**"],
-    rules: restricted({
-      group: [
-        "@/admin",
-        "@/admin/*",
-        "@/components",
-        "@/components/*",
-        "@/app/*",
-      ],
-      message: SHARED_STAYS_SHARED,
-    }),
+    files: ["src/app/(admin)/**"],
+    rules: restricted(
+      { group: ["@/components", "@/components/*"], message: SITE_ONLY },
+      NO_FEATURES,
+    ),
+  },
+  {
+    files: [
+      "src/app/(admin)/admin/collections/topics/**",
+      "src/app/(admin)/admin/collections/topic-changes/**",
+    ],
+    rules: restricted(
+      { group: ["@/components", "@/components/*"], message: SITE_ONLY },
+      {
+        group: [
+          "@/admin/features/*",
+          "!@/admin/features/topics",
+        ],
+        message: NO_FEATURES_IN_CORE,
+      },
+    ),
   },
   {
     // Compares the admin's body editor with Payload's own nodes, so it

@@ -1,7 +1,11 @@
 import type { AdminCollection } from "@countrytopics/contracts";
-import { LINK_ARCHIVE_STATUS_LABELS } from "@countrytopics/domain";
+import {
+  LINK_ARCHIVE_STATUS_LABELS,
+  type LinkArchiveStatus,
+} from "@countrytopics/domain";
 
 import { DATE_FIELDS, type CollectionText } from "@/admin/collection-text";
+import type { StatusTone } from "@/admin/status-tone";
 
 // What the admin calls the archives feature's collections, their fields,
 // and their stored values, as Payload's panel does (apps/api/src/collections),
@@ -23,7 +27,11 @@ export const COLLECTIONS = {
     },
     values: { status: LINK_ARCHIVE_STATUS_LABELS },
     tones: {
-      status: { archived: "good", not_archived: "plain", failed: "problem" },
+      status: {
+        archived: "good",
+        not_archived: "plain",
+        failed: "problem",
+      } satisfies Record<LinkArchiveStatus, StatusTone>,
     },
   },
 } satisfies Partial<Record<AdminCollection, CollectionText>>;

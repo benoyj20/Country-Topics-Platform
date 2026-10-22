@@ -1,7 +1,5 @@
 import "server-only";
 
-import { EMPTY_INDIVIDUAL } from "@countrytopics/contracts";
-
 import {
   isAdmin,
   type EditedCollection,
@@ -10,6 +8,7 @@ import {
 
 import { readIndividual } from "./backend";
 import { IndividualForm } from "./IndividualForm";
+import { NewIndividual } from "./new-records";
 
 // The individuals feature's record pages, for the generic record page
 // (app/(admin)/admin/collections/[collection]/[id]): a record's page,
@@ -34,13 +33,6 @@ export const EDITORS = {
         }
       );
     },
-    create: () => (
-      <IndividualForm
-        id={null}
-        values={EMPTY_INDIVIDUAL}
-        status={null}
-        canEdit
-      />
-    ),
+    create: () => <NewIndividual />,
   },
 } satisfies Partial<Record<EditedCollection, Editor>>;

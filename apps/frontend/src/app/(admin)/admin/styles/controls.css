@@ -302,3 +302,10 @@
 .admin-link-button.danger {
   color: var(--admin-danger-text);
 }
+
+/* A screen's sections, such as a topic's change log, are headed in the
+   site's serif. */
+.admin-stack > section > h2 {
+  font-family: var(--font-serif);
+  font-size: 1.35rem;
+}

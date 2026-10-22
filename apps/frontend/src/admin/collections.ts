@@ -1,6 +1,6 @@
 import type { AdminCollection } from "@countrytopics/contracts";
 
-import { COLLECTION_TEXTS } from "./registry/collections";
+import { COLLECTION_TEXT } from "./registry/collections";
 
 // What the admin calls each collection, its fields, and their stored
 // values: each feature's own (features/*/collections.ts), combined in
@@ -13,7 +13,7 @@ export {
   type CollectionText,
 } from "./collection-text";
 
-export const COLLECTION_TEXT = COLLECTION_TEXTS;
+export { COLLECTION_TEXT };
 
 /** A field's name as staff know it. */
 export function fieldLabel(collection: AdminCollection, field: string): string {

@@ -2,9 +2,11 @@ import type { AdminCollection } from "@countrytopics/contracts";
 import {
   REFERENCE_CHECK_LABELS,
   REFERENCE_KIND_LABELS,
+  type ReferenceCheckStatus,
 } from "@countrytopics/domain";
 
 import { DATE_FIELDS, type CollectionText } from "@/admin/collection-text";
+import type { StatusTone } from "@/admin/status-tone";
 
 // What the admin calls the references feature's collections, their fields,
 // and their stored values, as Payload's panel does (apps/api/src/collections),
@@ -34,7 +36,7 @@ export const COLLECTIONS = {
         resolved: "good",
         not_found: "problem",
         failed: "problem",
-      },
+      } satisfies Record<ReferenceCheckStatus, StatusTone>,
     },
   },
 } satisfies Partial<Record<AdminCollection, CollectionText>>;

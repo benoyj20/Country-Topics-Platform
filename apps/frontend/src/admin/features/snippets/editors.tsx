@@ -1,7 +1,5 @@
 import "server-only";
 
-import { EMPTY_SNIPPET } from "@countrytopics/contracts";
-
 import {
   isAdmin,
   type EditedCollection,
@@ -11,6 +9,7 @@ import {
 import { readSnippet, readVideo } from "./backend";
 import { SnippetForm } from "./SnippetForm";
 import { VideoView } from "./VideoView";
+import { NewSnippet } from "./new-records";
 
 // The snippets feature's record pages, for the generic record page
 // (app/(admin)/admin/collections/[collection]/[id]): a record's page,
@@ -35,9 +34,7 @@ export const EDITORS = {
         }
       );
     },
-    create: () => (
-      <SnippetForm id={null} values={EMPTY_SNIPPET} status={null} canEdit />
-    ),
+    create: () => <NewSnippet />,
   },
   videos: {
     record: async (id, account) => {

@@ -1,3 +1,5 @@
+import type { Role } from "@countrytopics/domain";
+
 import type { StatusTone } from "./status-tone";
 
 // The shape of what the admin calls a collection, which each feature fills
@@ -30,7 +32,7 @@ export type CollectionText = {
 export const DATE_FIELDS = { createdAt: "Created", updatedAt: "Updated" };
 
 /** Roles' colours, wherever a role is shown. */
-export const ROLE_TONES: Readonly<Record<string, StatusTone>> = {
+export const ROLE_TONES: Readonly<Record<Role, StatusTone>> = {
   admin: "info",
   moderator: "info",
   member: "plain",

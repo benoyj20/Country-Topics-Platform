@@ -1,7 +1,11 @@
 import type { AdminCollection } from "@countrytopics/contracts";
-import { VIDEO_CHECK_LABELS } from "@countrytopics/domain";
+import {
+  VIDEO_CHECK_LABELS,
+  type VideoCheckStatus,
+} from "@countrytopics/domain";
 
 import { DATE_FIELDS, type CollectionText } from "@/admin/collection-text";
+import type { StatusTone } from "@/admin/status-tone";
 
 // What the admin calls the snippets feature's collections, their fields,
 // and their stored values, as Payload's panel does (apps/api/src/collections),
@@ -46,7 +50,7 @@ export const COLLECTIONS = {
         not_embeddable: "problem",
         unavailable: "problem",
         failed: "problem",
-      },
+      } satisfies Record<VideoCheckStatus, StatusTone>,
     },
   },
 } satisfies Partial<Record<AdminCollection, CollectionText>>;

@@ -55,6 +55,7 @@ holding what is only its own:
 | `collections.ts`                    | What the admin calls its collections, their fields and stored values, and the colours its statuses show in |
 | `editors.tsx`                       | Its record pages: a record's page by its id, and a new record's                                            |
 | `backend.ts`                        | Its editors' reads from the REST API                                                                       |
+| `new-records.tsx`                   | Its blank records, for its create page and its dialogs                                                     |
 | `create-forms.tsx`                  | Its records made from another record's field, in a dialog                                                  |
 | `versions.ts`, `version-backend.ts` | How its versions are compared, and one version read                                                        |
 | `<name>.css`                        | Its own styles, loaded with the components that use them                                                   |
@@ -64,14 +65,20 @@ holding what is only its own:
 feature: `collections.ts`, `editors.ts`, `create-forms.ts`, `versions.ts`,
 and `version-reads.ts`. A feature changes its own folder; only adding or
 removing a feature touches a registry. TypeScript checks that every
-collection has its labels and its editor.
+collection has its labels and its editor, and each registry refuses, as
+it loads, two features claiming one collection (`registry/combine.ts`).
 
 **The core**, everything else in `src/admin`, is what every feature uses:
 the shell and navigation, lists and bulk actions, the record form and its
 fields, locks, versions, the rich-text editor, and the access gate. It
 knows no feature by name, and reaches features only through the
-registries. The topics' pages, which are their own rather than the
-generic record page, import the topics feature directly.
+registries. Its lookups that span every collection, such as a
+collection's name (`collections.ts`) or a status's colour
+(`status-tone.ts`), read the registry; features use those lookups, as the
+audit log does to name the records it lists, but never import a registry
+themselves. The topics' pages, which are their own rather than the
+generic record page, import the topics feature directly; no other admin
+page imports a feature.
 
 **Styles:** the admin's layout loads the core's in order
 (`app/(admin)/admin/styles/`: base, shell, controls, lists, editors,
@@ -84,14 +91,16 @@ the rich-text view, the snippet player), lives in `src/shared`.
 ### Rules, enforced by lint
 
 `apps/frontend/eslint.config.mjs` refuses an import that crosses these
-lines, with a message saying what to do instead:
+lines, by its `@/` alias or by a relative path, with a message saying what
+to do instead:
 
-| From                                  | May not import                                                  |
-| ------------------------------------- | --------------------------------------------------------------- |
-| A feature                             | Another feature, the registries, or the site's components       |
-| The admin's core                      | Any feature (only through a registry), or the site's components |
-| The site (`app/(site)`, `components`) | The admin, except the topic preview's gate and draft read       |
-| `src/shared`                          | The admin, the site's components, or any page                   |
+| From                                  | May not import                                                          |
+| ------------------------------------- | ----------------------------------------------------------------------- |
+| A feature                             | Another feature, the registries, or the site's components               |
+| The admin's core                      | Any feature (only through a registry), or the site's components         |
+| An admin page                         | Any feature, except the topics' own pages, which use the topics feature |
+| The site (`app/(site)`, `components`) | The admin, except the topic preview's gate and draft read               |
+| `src/shared`                          | The admin, the site's components, or any page                           |
 
 They join the rules ADR 0014 set: the frontend imports nothing that
 reaches the database or the queues, and the API renders no pages.

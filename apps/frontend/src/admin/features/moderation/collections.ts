@@ -3,11 +3,15 @@ import {
   COMMENT_REPORT_REASON_LABELS,
   COMMENT_REPORT_STATUS_LABELS,
   COMMENT_STATUS_LABELS,
+  type CommentReportStatus,
+  type CommentStatus,
   FEEDBACK_KIND_LABELS,
   FEEDBACK_STATUS_LABELS,
+  type FeedbackStatus,
 } from "@countrytopics/domain";
 
 import { DATE_FIELDS, type CollectionText } from "@/admin/collection-text";
+import type { StatusTone } from "@/admin/status-tone";
 
 // What the admin calls the moderation feature's collections, their fields,
 // and their stored values, as Payload's panel does (apps/api/src/collections),
@@ -36,7 +40,7 @@ export const COLLECTIONS = {
         hidden: "problem",
         removed: "problem",
         deleted: "plain",
-      },
+      } satisfies Record<CommentStatus, StatusTone>,
     },
   },
   "comment-reports": {
@@ -57,7 +61,11 @@ export const COLLECTIONS = {
       status: COMMENT_REPORT_STATUS_LABELS,
     },
     tones: {
-      status: { open: "waiting", dismissed: "plain", actioned: "good" },
+      status: {
+        open: "waiting",
+        dismissed: "plain",
+        actioned: "good",
+      } satisfies Record<CommentReportStatus, StatusTone>,
     },
   },
   feedback: {
@@ -76,7 +84,10 @@ export const COLLECTIONS = {
     },
     values: { kind: FEEDBACK_KIND_LABELS, status: FEEDBACK_STATUS_LABELS },
     tones: {
-      status: { new: "waiting", done: "good" },
+      status: { new: "waiting", done: "good" } satisfies Record<
+        FeedbackStatus,
+        StatusTone
+      >,
     },
   },
 } satisfies Partial<Record<AdminCollection, CollectionText>>;

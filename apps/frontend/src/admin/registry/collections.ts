@@ -12,19 +12,23 @@ import { COLLECTIONS as taxonomy } from "@/admin/features/taxonomy/collections";
 import { COLLECTIONS as topics } from "@/admin/features/topics/collections";
 
 import type { CollectionText } from "../collection-text";
+import { combine } from "./combine";
 
 // Every feature's collections, in one place: a feature adds its own in
 // its folder and is listed here once.
 
-export const COLLECTION_TEXTS: Record<AdminCollection, CollectionText> = {
-  ...topics,
-  ...references,
-  ...snippets,
-  ...media,
-  ...archives,
-  ...individuals,
-  ...taxonomy,
-  ...moderation,
-  ...people,
-  ...audit,
-};
+export const COLLECTION_TEXT: Record<AdminCollection, CollectionText> = combine(
+  "Collection labels",
+  {
+    topics,
+    references,
+    snippets,
+    media,
+    archives,
+    individuals,
+    taxonomy,
+    moderation,
+    people,
+    audit,
+  },
+);

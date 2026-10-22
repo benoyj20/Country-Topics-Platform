@@ -1,5 +1,5 @@
 import type { AdminCollection } from "@countrytopics/contracts";
-import type { ReactNode } from "react";
+import type { ComponentType } from "react";
 
 // A related record made without leaving the editor (ADR 0014, phase 11):
 // each feature offers a new record's editor for the collections a
@@ -7,12 +7,15 @@ import type { ReactNode } from "react";
 // registry/create-forms.ts and opened by CreateRecordDialog.
 
 export type CreateFormProps = {
-  /** The new record's id, once saved. */
-  onCreated: (id: string) => void;
+  /**
+   * The new record's id, once saved, for a dialog to choose it; absent on
+   * the create page, which opens the record instead.
+   */
+  onCreated?: (id: string) => void;
 };
 
 export type CreateForms = Partial<
-  Record<AdminCollection, (props: CreateFormProps) => ReactNode>
+  Record<AdminCollection, ComponentType<CreateFormProps>>
 >;
 
 /** Shown while a dialog's editor loads: they load only when one opens. */

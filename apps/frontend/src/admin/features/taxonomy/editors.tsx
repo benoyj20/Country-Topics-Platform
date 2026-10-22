@@ -1,7 +1,5 @@
 import "server-only";
 
-import { EMPTY_TERM } from "@countrytopics/contracts";
-
 import {
   isAdmin,
   type EditedCollection,
@@ -10,6 +8,7 @@ import {
 
 import { readCountry, readTerm } from "./backend";
 import { CountryForm, TermForm } from "./TaxonomyForms";
+import { NewCategory, NewTag } from "./new-records";
 
 // The taxonomy feature's record pages, for the generic record page
 // (app/(admin)/admin/collections/[collection]/[id]): a record's page,
@@ -35,15 +34,7 @@ function termEditor(collection: "categories" | "tags"): Editor {
         }
       );
     },
-    create: () => (
-      <TermForm
-        collection={collection}
-        id={null}
-        values={EMPTY_TERM}
-        status={null}
-        canEdit
-      />
-    ),
+    create: () => (collection === "categories" ? <NewCategory /> : <NewTag />),
   };
 }
 

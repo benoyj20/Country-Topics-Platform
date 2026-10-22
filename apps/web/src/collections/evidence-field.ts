@@ -1,13 +1,14 @@
 import {
+  DOCUMENT_MIME_TYPES,
   EVIDENCE_KIND_LABELS,
   EVIDENCE_KINDS,
+  IMAGE_MIME_TYPES,
   URL_MAX_LENGTH,
 } from "@countrytopics/domain";
 import type { ArrayField } from "payload";
 
 import { rows } from "@/array-rows";
 
-import { DOCUMENT_MIME_TYPES, IMAGE_MIME_TYPES } from "./Media";
 import { httpUrl, optionalHttpUrl } from "./url-field";
 
 // Evidence rows, shared by topics and the statements on individuals'

@@ -29,6 +29,19 @@ export const REFERENCE_KINDS = [
 ] as const;
 export type ReferenceKind = (typeof REFERENCE_KINDS)[number];
 
+/** Photos and pictures; no SVG, which can carry scripts. */
+export const IMAGE_MIME_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+] as const;
+export const DOCUMENT_MIME_TYPES = ["application/pdf"] as const;
+/** Every file type Media accepts. */
+export const MEDIA_MIME_TYPES = [
+  ...IMAGE_MIME_TYPES,
+  ...DOCUMENT_MIME_TYPES,
+] as const;
+
 /** The licences a file may have; only files we may publish are uploaded. */
 export const LICENCES = [
   "public_domain",

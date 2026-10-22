@@ -1338,8 +1338,10 @@ and 31 GB), 2026-10-18 and 2026-10-19.
     listed twice instead of taken from the domain package; and the three
     slug routes were copies of one another.
 - [x] The member API's schemas moved into `packages/contracts` in phase 5.
-- [ ] Not in phase 3: Payload's REST types (phase 7) in
-  `packages/contracts`.
+- [x] Not in phase 3: Payload's REST types (phase 7) in
+  `packages/contracts`. Phase 7 describes what each list reads there
+  instead, checked against the backend by a test (ADR 0014, "Phase 7
+  results").
 
 ### The split, phase 4: the API through the frontend (ADR 0014)
 
@@ -1456,3 +1458,31 @@ and 31 GB), 2026-10-18 and 2026-10-19.
   `test-admin-p6a@example.test`, and the TEST browse-check topic's change
   log has the TEST edits made for these checks; its summary is back as it
   was.
+
+### The split, phase 7: the admin's shell and lists (ADR 0014)
+
+- [x] `/admin` has its own frame: the collections grouped as in Payload's
+  panel, the signed-in account, and sign-out; a list for each of the 17
+  collections, with search as you type, sorting, filters, page sizes, and
+  pages, at the panel's addresses (2026-10-22).
+- [x] Staff find records as fast as in Payload's panel, or faster: 133–165
+  ms against 151–265 ms for the same lists, searches, filters, and pages,
+  and the same time from typing to a match (382 ms and 385 ms).
+- [x] The gate: visitors sign in and come back to the same list; members
+  are told the admin is for staff; staff set up and confirm an
+  authenticator in the admin itself. Moderators see 15 collections, not the
+  audit log or invitations, and only their own account.
+- [x] What each list reads is in `packages/contracts` (`admin-lists.ts`);
+  an integration test checks it against the backend's collections and asks
+  for every list with its search and each filter.
+- [x] Every admin screen is axe-clean at 1280, 768, and 390 px, light and
+  dark, with no sideways scrolling, and is never cached.
+- [x] Found while building it: Payload's client-hint headers made Chrome
+  fetch email sign-in links twice, so signing in always ended on
+  `/account`; the pass-through now drops them.
+- [ ] A record's page only names it, and locally opens it in Payload's
+  panel, until its editor comes in phases 8 to 10.
+- [x] The local database has more TEST accounts:
+  `test-member-p7*@example.test`, `test-admin-p7*@example.test`,
+  `test-moderator-p7*@example.test`, and `test-member-trace*@example.test`
+  and `test-member-curl*@example.test` from tracing the sign-in links.

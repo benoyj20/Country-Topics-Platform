@@ -9,10 +9,8 @@ import { unstable_cache } from "next/cache";
 import { headers } from "next/headers";
 import { cache } from "react";
 
-import { frontendSettings } from "@/settings";
-import { visitorAddress } from "@/visitor-address";
-
 import { BackendError, FRONTEND_ADDRESS, readBackend } from "./request";
+import { visitorRead } from "./visitor";
 
 // The visitor's account, for the pages rendered for them: the member pages
 // and the admin's gate (ADR 0014). The backend reads the session from the
@@ -22,18 +20,13 @@ import { BackendError, FRONTEND_ADDRESS, readBackend } from "./request";
 
 /** The signed-in person, or null for visitors. One read per request. */
 export const currentAccount = cache(async (): Promise<Account | null> => {
-  const incoming = await headers();
-  const cookie = incoming.get("cookie");
-  // No cookie, no session: nothing to ask.
-  if (!cookie) return null;
-  const clientAddress = visitorAddress(incoming, frontendSettings());
-  if (!clientAddress) {
-    throw new Error("The request has no visitor address.");
-  }
-  const answer = await readBackend("/api/v1/account", AccountAnswer, {
-    clientAddress,
-    cookie,
-  });
+  // No cookie, no session: nothing to ask, nor any address needed.
+  if (!(await headers()).get("cookie")) return null;
+  const answer = await readBackend(
+    "/api/v1/account",
+    AccountAnswer,
+    await visitorRead(),
+  );
   if (!answer) throw new BackendError("/api/v1/account", 404);
   return answer.account;
 });

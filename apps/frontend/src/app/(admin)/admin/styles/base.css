@@ -1,0 +1,148 @@
+/* The admin's styles, on the shared tokens (styles/tokens.css) and in the
+   site's look: its mark and blurred header, white cards with soft shadows,
+   serif headings, and the same buttons and fields. The layout loads the
+   shared ones, in this folder, in order; each feature's own load with its
+   components (src/admin/features/<name>/<name>.css). This file: the
+   reset, type, and helpers every screen uses. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  color: var(--accent);
+  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+  transition:
+    color 0.15s ease,
+    text-decoration-color 0.15s ease;
+}
+
+a:hover {
+  color: var(--accent-hover);
+  text-decoration-color: currentColor;
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.admin-icon {
+  flex: none;
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  color: var(--heading);
+  line-height: 1.25;
+}
+
+h1 {
+  font-family: var(--font-serif);
+  font-size: clamp(1.6rem, 1.4rem + 0.8vw, 2rem);
+  font-weight: 650;
+  letter-spacing: -0.015em;
+}
+
+h2 {
+  font-size: 1.05rem;
+  font-weight: 650;
+  letter-spacing: -0.005em;
+}
+
+h3 {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+p {
+  margin: 0;
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  overflow-wrap: anywhere;
+}
+
+.admin-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.admin-skip {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 10;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-small);
+  background: var(--card);
+  transform: translateY(-200%);
+}
+
+.admin-skip:focus {
+  transform: none;
+}
+
+.admin-muted {
+  color: var(--muted);
+}
+
+.admin-none {
+  color: var(--muted);
+}
+
+.admin-stack {
+  display: grid;
+  gap: 1rem;
+}
+
+.admin-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  align-items: center;
+}
+
+/* As on the site: no movement for those who ask for less. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+
+  .admin-cards .admin-card:hover,
+  .admin-stat:hover {
+    transform: none;
+  }
+}

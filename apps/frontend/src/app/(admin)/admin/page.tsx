@@ -15,6 +15,8 @@ import { readDashboard } from "@/admin/dashboard";
 import { adminGate, createHref, readableIn } from "@/admin/gate";
 import { formatDateTime } from "@/format";
 
+import "./dashboard.css";
+
 // Rendered for each request with the staff member's cookie, never cached.
 export const dynamic = "force-dynamic";
 

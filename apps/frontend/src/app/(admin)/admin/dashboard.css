@@ -1,0 +1,202 @@
+/* The dashboard's styles, loaded with its page. */
+
+/* The dashboard: what waits for staff, and what they did lately. */
+
+/* The dashboard: a welcome in the site's hero colours, what waits as
+   counts, then the lists and the collections. */
+.admin-welcome {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem 2rem;
+  align-items: flex-end;
+  justify-content: space-between;
+  overflow: hidden;
+  padding: 2rem clamp(1.25rem, 3vw, 2.5rem);
+  border-radius: calc(var(--radius) + 0.25rem);
+  background:
+    radial-gradient(circle at 85% 20%, rgb(255 255 255 / 14%), transparent 45%),
+    linear-gradient(135deg, var(--brand), var(--brand-deep));
+  box-shadow: var(--shadow);
+  color: #e8eefc;
+}
+
+.admin-welcome h1 {
+  color: #fff;
+  font-size: clamp(1.9rem, 1.5rem + 1.4vw, 2.6rem);
+}
+
+.admin-welcome-text {
+  display: grid;
+  gap: 0.5rem;
+  max-width: 38rem;
+}
+
+.admin-welcome-text p {
+  font-size: 1.0625rem;
+}
+
+.admin-welcome-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* Buttons on the welcome's blue. */
+.admin-button.light {
+  border-color: #fff;
+  background: #fff;
+  color: #1d3fae;
+}
+
+.admin-button.light:hover {
+  border-color: #e8eefc;
+  background: #e8eefc;
+  color: #0b2545;
+}
+
+.admin-button.ghost {
+  border-color: rgb(255 255 255 / 45%);
+  background: rgb(255 255 255 / 8%);
+  box-shadow: none;
+  color: #fff;
+}
+
+.admin-button.ghost:hover {
+  border-color: #fff;
+  background: rgb(255 255 255 / 16%);
+  color: #fff;
+}
+
+.admin-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 0.875rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-stat {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0 0.875rem;
+  align-items: center;
+  height: 100%;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  box-shadow: var(--shadow-small);
+  color: var(--text);
+  text-decoration: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+
+.admin-stat:hover {
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  transform: translateY(-1px);
+}
+
+.admin-stat-icon {
+  display: grid;
+  grid-row: span 2;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: var(--radius-small);
+  background: var(--surface);
+  color: var(--muted);
+}
+
+.admin-stat-icon .admin-icon {
+  width: 1.375rem;
+  height: 1.375rem;
+}
+
+/* Something waits: the count stands out. */
+.admin-stat[data-waiting] .admin-stat-icon {
+  background: var(--admin-waiting-soft);
+  color: var(--admin-waiting-text);
+}
+
+.admin-stat-count {
+  color: var(--heading);
+  font-family: var(--font-serif);
+  font-size: 1.75rem;
+  font-weight: 650;
+  line-height: 1.1;
+}
+
+.admin-stat-label {
+  color: var(--muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.admin-dashboard {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+  gap: 0.875rem;
+}
+
+.admin-dashboard h2 {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+  margin: 0;
+  font-size: 1.0625rem;
+}
+
+.admin-dashboard-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-dashboard-list li {
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+
+.admin-dashboard-list li:last-child {
+  border-bottom: 0;
+}
+
+.admin-dashboard-list a {
+  color: var(--heading);
+  font-weight: 550;
+  text-decoration: none;
+}
+
+.admin-dashboard-list a:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.admin-panel-more a {
+  display: inline-flex;
+  gap: 0.3rem;
+  align-items: center;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.admin-panel-more .admin-icon {
+  width: 1rem;
+  height: 1rem;
+  transition: transform 0.15s ease;
+}
+
+.admin-panel-more a:hover .admin-icon {
+  transform: translateX(2px);
+}

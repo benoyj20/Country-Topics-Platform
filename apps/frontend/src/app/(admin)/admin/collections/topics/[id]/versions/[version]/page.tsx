@@ -5,9 +5,9 @@ import { notFound } from "next/navigation";
 
 import { AdminRefusal } from "@/admin/components/AdminRefusal";
 import { AdminShell } from "@/admin/components/AdminShell";
+import { readTopicVersion } from "@/admin/features/topics/backend";
+import { TopicView } from "@/admin/features/topics/TopicView";
 import { adminGate } from "@/admin/gate";
-import { readTopicVersion } from "@/admin/topics/backend";
-import { TopicView } from "@/admin/topics/TopicView";
 import {
   comparedWith,
   readPreviousVersion,

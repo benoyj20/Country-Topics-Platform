@@ -1,0 +1,73 @@
+/* The topics feature's styles, loaded with its live preview. */
+
+/* The topic editor's live preview: beside the form on wide screens,
+   over the whole screen on narrow ones. */
+
+.live-preview {
+  position: fixed;
+  z-index: 30;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem var(--gutter);
+  background: var(--background);
+}
+
+.live-preview-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.live-preview-bar h2 {
+  margin: 0;
+}
+
+.live-preview-widths {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.live-preview-frame {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-small);
+  background: var(--surface);
+}
+
+.live-preview-frame iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  margin: 0 auto;
+  border: 0;
+  background: var(--card);
+}
+
+@media (min-width: 64rem) {
+  .live-preview {
+    inset: 0 0 0 auto;
+    width: min(50vw, 60rem);
+    border-left: 1px solid var(--line-strong);
+    box-shadow: var(--shadow);
+  }
+
+  /* The main area is as wide as its column: padding, not a margin, makes
+     the form give up the panel's room. */
+  .admin-main:has(.live-preview) {
+    padding-right: calc(min(50vw, 60rem) + var(--gutter));
+  }
+
+  .admin-main:has(.live-preview) .record-editor-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

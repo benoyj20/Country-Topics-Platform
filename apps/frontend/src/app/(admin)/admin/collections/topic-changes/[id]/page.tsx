@@ -7,9 +7,9 @@ import type { ReactNode } from "react";
 
 import { AdminRefusal } from "@/admin/components/AdminRefusal";
 import { AdminShell } from "@/admin/components/AdminShell";
-import { recordName } from "@/admin/record-name";
+import { readTopicChange } from "@/admin/features/topics/backend";
 import { adminGate } from "@/admin/gate";
-import { readTopicChange } from "@/admin/topics/backend";
+import { recordName } from "@/admin/record-name";
 import { formatDateTime } from "@/format";
 
 // Rendered for each request with the staff member's cookie, never cached.

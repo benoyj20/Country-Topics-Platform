@@ -66,11 +66,16 @@ coding agents. "The user" below means that developer.
 - Write code with one clear responsibility per function, component, or module.
   Extract independently understandable behavior when a file becomes hard to
   navigate; avoid arbitrary line-count limits and unnecessary wrapper layers.
-- Follow the directory boundaries (ADR 0014):
+- Follow the directory boundaries (ADR 0014, ADR 0015):
   - `apps/frontend`: the site's public and member pages and the staff admin at
     `/admin`, on Cloudflare Workers. It reaches the backend only over HTTP,
     with the types and schemas in `packages/contracts`; a lint rule keeps
     Payload, `pg`, ioredis, BullMQ, and the jobs and search packages out of it.
+    The admin is split into features (`src/admin/features/<name>`), each
+    owned by one team (`.github/CODEOWNERS`): a feature changes only its own
+    folder and never imports another; the admin's core reaches features only
+    through `src/admin/registry`; code both the site and the admin use lives
+    in `src/shared`. Lint enforces these lines.
   - `apps/api`: Payload (collections, hooks, access rules, migrations), its
     REST API, sign-in, `/api/v1`, and `/files`. It renders no HTML; a lint rule
     keeps pages and their components out of it.

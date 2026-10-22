@@ -2,7 +2,7 @@ import type { VersionRow } from "@countrytopics/contracts";
 
 import { formatDateTime } from "@/format";
 
-import type { ComparedVersions } from "./compared-fields";
+import type { ComparedVersions } from "../registry/versions";
 import { ComparisonLoader } from "./ComparisonLoader";
 
 /** A version as a comparison names it. */

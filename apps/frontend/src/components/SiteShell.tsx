@@ -3,10 +3,10 @@ import type { ReactNode } from "react";
 
 import { AccountLink } from "@/components/AccountLink";
 import { ErrorReporting } from "@/components/ErrorReporting";
-import { Logo } from "@/components/Logo";
 import { NavLink } from "@/components/NavLink";
 import { NotificationsLink } from "@/components/NotificationsLink";
 import { SiteFooter } from "@/components/SiteFooter";
+import { Logo } from "@/shared/Logo";
 
 /**
  * The site's page around its content: the header, the footer, and error

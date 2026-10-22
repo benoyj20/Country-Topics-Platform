@@ -1,6 +1,7 @@
 import type { TopicPage } from "@countrytopics/contracts";
 
-import { RichTextView } from "../RichTextView";
+import { RichTextView } from "@/shared/RichTextView";
+
 import styles from "./public.module.css";
 
 /**

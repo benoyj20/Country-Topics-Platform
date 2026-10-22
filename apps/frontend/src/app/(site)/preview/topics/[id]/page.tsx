@@ -2,10 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { readTopicPreview } from "@/admin/features/topics/backend";
 import { adminGate } from "@/admin/gate";
-import { readTopicPreview } from "@/admin/topics/backend";
-import { TopicArticle } from "@/components/public/TopicArticle";
 import styles from "@/components/public/public.module.css";
+import { TopicArticle } from "@/components/public/TopicArticle";
 
 // Rendered for each request with the staff member's cookie, never cached:
 // a draft is staff-only, and each preview shows it as it is now.

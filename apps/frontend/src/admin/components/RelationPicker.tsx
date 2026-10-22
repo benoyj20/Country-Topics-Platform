@@ -18,7 +18,8 @@ import * as z from "zod";
 import { useAdminAccount } from "../account-context";
 import { COLLECTION_TEXT } from "../collections";
 import { recordName } from "../record-name";
-import { CREATED_FROM_FIELDS, CreateRecordDialog } from "./CreateRecordDialog";
+import { CREATED_FROM_FIELDS } from "../registry/create-forms";
+import { CreateRecordDialog } from "./CreateRecordDialog";
 
 /** How long typing pauses before the picker searches. */
 const SEARCH_DELAY_MS = 250;

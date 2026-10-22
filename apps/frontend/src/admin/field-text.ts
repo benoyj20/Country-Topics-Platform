@@ -3,7 +3,7 @@ import type { Refusal } from "@countrytopics/contracts";
 import { describedBy } from "./components/field-ids.ts";
 
 // What an editor calls each of its fields and what it says about them, as
-// Payload's panel does (apps/web/src/collections), and the props a field
+// Payload's panel does (apps/api/src/collections), and the props a field
 // gets from it and from a refusal's messages. A field's key is its path in
 // the form, such as `statements.0.evidence.1.url`.
 

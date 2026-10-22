@@ -99,11 +99,11 @@ jobs:
       - run: pnpm build
       - name: Generated Payload files and migrations match the config
         run: |
-          pnpm --filter @countrytopics/web generate
-          pnpm --filter @countrytopics/web migrate:create schema-drift --skip-empty
+          pnpm --filter @countrytopics/api generate
+          pnpm --filter @countrytopics/api migrate:create schema-drift --skip-empty
           if [ -n "$(git status --porcelain)" ]; then
             git status --short
-            echo "::error::Run 'make generate' and 'pnpm --filter @countrytopics/web migrate:create <name>', then commit the result."
+            echo "::error::Run 'make generate' and 'pnpm --filter @countrytopics/api migrate:create <name>', then commit the result."
             exit 1
           fi
 
@@ -113,5 +113,5 @@ jobs:
       - uses: actions/checkout@v4
       - run: cp .env.example .env
       - run: docker compose --env-file .env -f deploy/compose/compose.yaml config --quiet
-      - name: The backup, web, and worker images build
-        run: docker compose --env-file .env -f deploy/compose/compose.yaml --profile scale build backup web worker
+      - name: The backup, API, and worker images build
+        run: docker compose --env-file .env -f deploy/compose/compose.yaml --profile scale build backup api worker

@@ -31,7 +31,7 @@ import { TextArea, TextInput } from "./inputs";
 import { RecordForm } from "./RecordForm";
 
 // The editors of the labels topics are filed under, as Payload's panel
-// edits them (apps/web/src/collections/Countries.ts, Categories.ts,
+// edits them (apps/api/src/collections/Countries.ts, Categories.ts,
 // Tags.ts): a country's name, grouping, and slug, beside its ISO codes;
 // a category's or a tag's name and slug.
 

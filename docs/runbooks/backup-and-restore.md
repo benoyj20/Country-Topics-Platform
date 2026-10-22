@@ -75,16 +75,23 @@ made (drop it as below). Restore one of them on a server that has pgvector,
 such as a temporary `pgvector/pgvector:pg17` container, or use a newer
 backup.
 
-To look at the restored site, start a copy against it:
+To look at the restored site, start a copy of the API against it, and a
+frontend in front of that copy (the API renders no pages; ADR 0014):
 
 ```sh
 DATABASE_URL=postgres://<user>:<password>@localhost:5433/countrytopics_restore?sslmode=disable \
 DATABASE_REPLICA_URL= S3_BUCKET=countrytopics-restore QUEUE_PREFIX=countrytopics-restore \
-pnpm --filter @countrytopics/web start --port 3200
+SITE_URL=http://localhost:3100 \
+pnpm --filter @countrytopics/api start --port 3200
+
+SITE_URL=http://localhost:3100 BACKEND_URL=http://localhost:3200 \
+pnpm --filter @countrytopics/frontend start --port 3100
 ```
 
-The user and password are the ones in `.env`'s `DATABASE_URL`. This needs a
-build first (`pnpm --filter @countrytopics/web build`).
+Then open http://localhost:3100. The user and password are the ones in
+`.env`'s `DATABASE_URL`. This needs both apps built first
+(`pnpm --filter @countrytopics/api build` and
+`pnpm --filter @countrytopics/frontend build`).
 
 Afterwards, remove the copy:
 

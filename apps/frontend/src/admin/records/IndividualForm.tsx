@@ -53,7 +53,7 @@ import { PossibleDuplicates } from "./PossibleDuplicates";
 import { type FormApi, RecordForm } from "./RecordForm";
 
 // The individual editor, as Payload's panel edits an individual
-// (apps/web/src/collections/Individuals.ts): names and the duplicate
+// (apps/api/src/collections/Individuals.ts): names and the duplicate
 // warning, the countries they are linked to, a photo, staff notes, the
 // statements their public profile makes with each one's evidence and
 // sources, and links.

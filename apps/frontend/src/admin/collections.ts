@@ -16,7 +16,7 @@ import {
 } from "@countrytopics/domain";
 
 // What the admin calls each collection, its fields, and their stored
-// values, as Payload's panel does (apps/web/src/collections). What a list
+// values, as Payload's panel does (apps/api/src/collections). What a list
 // reads is in packages/contracts (admin-lists.ts).
 
 export type AdminGroup = "Content" | "Discussion" | "Administration";

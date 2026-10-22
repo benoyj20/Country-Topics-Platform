@@ -52,7 +52,7 @@ import { SelectInput, TextArea } from "./inputs";
 import { type FormApi, RecordForm } from "./RecordForm";
 
 // The moderation editors, as Payload's panel moderates (ADR 0010;
-// apps/web/src/collections/Comments.ts, CommentReports.ts, Feedback.ts):
+// apps/api/src/collections/Comments.ts, CommentReports.ts, Feedback.ts):
 // what a member wrote is shown, never edited, and staff set only its
 // status. The backend checks each change and does what follows from it:
 // closing a hidden comment's reports, telling its author, erasing a

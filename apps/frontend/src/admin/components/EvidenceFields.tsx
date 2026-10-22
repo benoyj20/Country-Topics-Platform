@@ -32,7 +32,7 @@ import { LinkArchiveStatus } from "./LinkArchiveStatus";
 import { RelationPicker } from "./RelationPicker";
 
 // The fields of an evidence row and of a source row, as Payload's panel
-// shows them (apps/web/src/collections/evidence-field.ts): in a topic's
+// shows them (apps/api/src/collections/evidence-field.ts): in a topic's
 // rows and in each statement on an individual's profile.
 
 export type RowProps<T> = {

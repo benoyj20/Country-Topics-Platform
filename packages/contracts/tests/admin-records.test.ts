@@ -19,7 +19,7 @@ import {
 } from "../src/index.ts";
 
 // The record editors' contracts (ADR 0014, phase 9). The backend's
-// integration test (apps/web/tests/int/admin-records.test.ts) sends these
+// integration test (apps/api/tests/int/admin-records.test.ts) sends these
 // requests; these check the parts it cannot see.
 
 const NOW = "2026-10-22T10:00:00.000Z";

@@ -136,15 +136,15 @@ services:
         condition: service_healthy
 
   # The scale rehearsal (ADR 0013, docs/runbooks/scale-rehearsal.md):
-  # `make scale-up` starts two web and two worker containers behind a load
+  # `make scale-up` starts two API and two worker containers behind a load
   # balancer at http://localhost:8080, on a database and bucket restored
   # from a backup, so development data is never touched.
-  web:
+  api:
     profiles: ["scale"]
     build:
       context: ../..
-      dockerfile: apps/web/Dockerfile
-    image: countrytopics-web
+      dockerfile: apps/api/Dockerfile
+    image: countrytopics-api
     deploy:
       replicas: 2
     init: true
@@ -170,7 +170,6 @@ services:
       # The rehearsal has no frontend: the load tests and make scale-check
       # sign their requests as it does (ADR 0014), with this key, which
       # only the rehearsal uses (check-stateless.mjs has it too).
-      BACKEND_URL: http://lb:8080
       FORWARDING_KEY: &rehearsal-forwarding-key rehearsal-only-forwarding-key-not-a-secret
       # Nor a site to purge: its worker sends no purges.
       PURGE_KEY: ""
@@ -222,7 +221,7 @@ services:
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
     depends_on:
-      web:
+      api:
         condition: service_healthy
 
   # Load tests (deploy/load-tests), run by `make load-test` against the load

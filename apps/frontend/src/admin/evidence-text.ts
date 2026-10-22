@@ -1,7 +1,7 @@
 import type { FieldTexts } from "./field-text.ts";
 
 // What evidence rows and source rows call their fields, as Payload's panel
-// does (apps/web/src/collections/evidence-field.ts), wherever they back a
+// does (apps/api/src/collections/evidence-field.ts), wherever they back a
 // published statement: in topics and on individuals' profiles.
 
 export const EVIDENCE_TEXTS: FieldTexts = {

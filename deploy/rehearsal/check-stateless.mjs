@@ -1,11 +1,11 @@
-// Shows that the site keeps no state in its containers (ADR 0013), through
+// Shows that the API keeps no state in its containers (ADR 0013), through
 // the scale rehearsal's load balancer. Run by `make scale-check`, which
 // invites the two addresses below on the rehearsal database first.
 //
-// It checks, alternating between web containers:
+// It checks, alternating between API containers:
 //   - a session made on one container works on every other;
-//   - publishing a change on one purges the page on all;
-//   - the page is then rendered once and the other containers serve that
+//   - publishing a change on one purges the topic page's data on all;
+//   - the data is then loaded once and the other containers serve that
 //     copy from the shared cache;
 //   - a member's comment limit counts across containers (Valkey).
 //
@@ -24,7 +24,7 @@ const MAILPIT = process.env.MAILPIT_URL ?? "http://localhost:8025";
 const ADMIN = "rehearsal-admin@example.test";
 const MEMBER = "rehearsal-member@example.test";
 const slug = process.argv[2] ?? "test-browse-check-topic";
-// The rehearsal's own key, as compose.yaml gives its web containers.
+// The rehearsal's own key, as compose.yaml gives its API containers.
 const FORWARDING_KEY = "rehearsal-only-forwarding-key-not-a-secret";
 // One visitor address for the whole check: its limits count per member.
 const CLIENT_ADDRESS = "198.18.0.1";
@@ -202,9 +202,9 @@ check(
   `the member's session works on ${sessionSeen.size} containers (${[...sessionSeen.keys()].join(", ")})`,
 );
 
-// 2. A purge reaches every container, and the page is then rendered once
-// and served by the others from the shared cache.
-const page = `/topics/${slug}`;
+// 2. A purge reaches every container, and the topic page's data is then
+// loaded once and served by the others from the shared cache.
+const page = `/api/v1/pages/topics/${slug}`;
 const admin = await signIn(ADMIN);
 await verifyStaff(admin);
 const found = await (
@@ -238,7 +238,7 @@ for (let i = 0; i < 6; i += 1) {
   const response = await member.fetch(page);
   const container = servedBy(response);
   if (!firstAnswer.has(container)) {
-    firstAnswer.set(container, response.headers.get("x-nextjs-cache"));
+    firstAnswer.set(container, response.headers.get("x-data-cache"));
   }
   const changed = (await response.text()).includes(summary);
   shows.set(container, (shows.get(container) ?? true) && changed);
@@ -247,13 +247,13 @@ check(
   shows.size >= 2 && [...shows.values()].every(Boolean),
   `every container shows the change at once (${[...shows.keys()].join(", ")})`,
 );
-// Per-container caches would make each render its own copy (a MISS each);
-// a shared cache renders once and the others' first answer is a HIT.
+// Per-container caches would make each load its own copy (a MISS each);
+// a shared cache loads once and the others' first answer is a HIT.
 const firsts = [...firstAnswer.values()];
 check(
   firsts.filter((answer) => answer !== "HIT").length <= 1 &&
     firsts.includes("HIT"),
-  `the page was rendered once and served from the shared cache by the other containers (first answers: ${[...firstAnswer].map(([k, v]) => `${k} ${v}`).join(", ")})`,
+  `the data was loaded once and served from the shared cache by the other containers (first answers: ${[...firstAnswer].map(([k, v]) => `${k} ${v}`).join(", ")})`,
 );
 
 // 3. A member's comment limit counts across containers.

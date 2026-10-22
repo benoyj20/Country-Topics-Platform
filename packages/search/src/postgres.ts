@@ -14,7 +14,7 @@ import {
 } from "./topic-search.ts";
 
 // The search adapter on PostgreSQL full text (ADR 0008). Documents live in
-// the "search_topics" table (created by the web app's migration
+// the "search_topics" table (created by the API's migration
 // 20261017_090000_search_topics; 20261017_193831_comments adds the comment
 // counts), apart from Payload's tables: it is a copy the worker rebuilds,
 // with one row per listed topic, the facets as arrays with GIN indexes, and

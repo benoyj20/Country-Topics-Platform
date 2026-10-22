@@ -21,7 +21,7 @@ import {
   type SerializedLexicalNode,
 } from "lexical";
 
-// The topic body's nodes, saving the JSON Payload's editor saves (apps/web's
+// The topic body's nodes, saving the JSON Payload's editor saves (apps/api's
 // src/editor.ts), so the site renders an edit from the admin exactly as one
 // from Payload's panel (ADR 0014, "The admin"). Payload's editor uses
 // Lexical's own heading, quote, and list nodes; its link, autolink, and

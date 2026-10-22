@@ -3,7 +3,7 @@ import type { TranscriptTimebase } from "@countrytopics/domain";
 import type { FieldTexts } from "../field-text.ts";
 
 // What the reference and snippet editors call each field and what they
-// say about it, as Payload's panel does (apps/web/src/collections), for
+// say about it, as Payload's panel does (apps/api/src/collections), for
 // the editors and for comparing versions.
 
 export const REFERENCE_TEXTS: FieldTexts = {

@@ -1183,6 +1183,59 @@ Left for later phases:
 - **Phase 12:** remove Payload's panel, its local-only allowance, and the
   public pages from the backend.
 
+### Phase 12 results (2026-10-22)
+
+The backend is now `apps/api`, and it answers no HTML: Payload's admin
+panel, its local-only allowance, and the backend's copies of the pages are
+gone. Checked on production builds of both apps, against the local
+database:
+
+| Check                   | Result                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| No HTML                 | Signed and unsigned GETs and POSTs to 21 addresses (the home page, `/admin` and Payload's panel's pages, the public and member pages, `/favicon.ico`, Next.js's own files and image route, unknown paths under `/files`, `/api`, and `/api/v1`, and deeper ones): unsigned, every one is refused (401, JSON); signed, every one answers JSON, plain text, or nothing, never HTML. The health check, page data, the topics listing, Payload's REST API, and the frontend's pages and pass-through answer as before |
+| The import lint rules   | The frontend's rule still keeps Payload, `pg`, ioredis, BullMQ, and the jobs and search packages out of it. A new rule in `apps/api` keeps pages out of the backend: no JSX, no styles, and nothing from React but `cache`, React DOM, Next.js's page modules, or Payload's panel and editor components. Both pass; a probe file with a link, a stylesheet, and JSX gets four errors                                                                                                                              |
+| The admin, in a browser | The admin's checks from phases 9, 10, and 11 pass again in headless Chrome (67, 42, and 53 of 53), with the new admin on the API alone. Phase 5's give 24 of 25: the one that fails expected an unknown admin address to link Payload's panel, which now says nothing is there                                                                                                                                                                                                                                    |
+| The backend             | All 308 integration tests and every unit test pass. Payload's generated types and migrations match the config, so no migration was needed                                                                                                                                                                                                                                                                                                                                                                         |
+| The scale rehearsal     | On two `api` containers: `make scale-check` passes, now on the topic page's data, which one container loads once after a purge and the other serves from the shared cache. The cached load test, now on the pages' data, held p95 at 51 ms at 100 visitors, with no failures in 23,224 requests                                                                                                                                                                                                                   |
+| The rest                | Lint and typecheck pass across the repository. The Worker is 1.94 MB compressed, as at phase 11                                                                                                                                                                                                                                                                                                                                                                                                                   |
+
+How it works, where the plan left details open:
+
+- **What went:** the backend's pages and their components; Payload's
+  panel (`app/(payload)/admin`, its import map, styles, and the custom
+  components the collections named, with the UI-only fields that showed
+  them); the panel's allowance (unsigned requests from its own address,
+  and that address as an origin for Payload, sign-in, and writes); and the
+  backend's `BACKEND_URL`, which only that allowance read. Payload's
+  `serverURL` is now always the site's. The frontend's link to the panel
+  from an unknown admin address went too.
+- **What stays:** the collections, hooks, access rules, versions, and
+  uploads; Payload's REST routes, now `app/api/[...slug]`, without the
+  panel's styles; sign-in; `/api/v1`; and `/files`. The collections keep
+  their `admin` settings (labels, descriptions, list columns): the admin's
+  texts and its integration tests are checked against them.
+- **Any other address** answers a JSON 404 from a catch-all route, and the
+  proxy now covers every path, Next.js's own files included, so nothing
+  answers without a signature but the health check.
+- **The scale rehearsal measures page data.** Its stateless check and its
+  cached load test read `/api/v1/pages/*`, as the frontend does on a miss.
+  Those endpoints say whether their data came from the shared cache
+  (`X-Data-Cache: HIT` or `MISS`), in place of Next.js's page cache header.
+  Compose's service is `api`; phase 14 load-tests the site through Workers.
+- **Renamed:** `apps/web` to `apps/api`, and `@countrytopics/web` to
+  `@countrytopics/api`, with the Dockerfile, Compose, the Makefile, CI,
+  the runbooks, README.md, CONTRIBUTING.md, and comments. Earlier ADRs,
+  this one's earlier results, the checklist's history, the MVP plan, and
+  the prototypes keep the old name, as written at the time.
+- **AGENTS.md** now gives the split's directory boundaries, says the
+  frontend runs on Workers and the backend in containers, and that pages
+  are cached in R2 and D1, the API's data in Valkey. The other records ADR
+  0014 supersedes already point here.
+
+Left for later phases:
+
+- **Phases 13 and 14**, only if the platform launches (Until a launch).
+
 ## Consequences
 
 **Gains:**

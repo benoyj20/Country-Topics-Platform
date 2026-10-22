@@ -11,9 +11,9 @@ import type {
 } from "./reference-jobs.ts";
 import type { VideoState, VideoStore } from "./video-jobs.ts";
 
-// The worker writes the results of its checks straight to the tables the web
+// The worker writes the results of its checks straight to the tables the API
 // app's Payload collections use ("references", "link-archives", and
-// "videos", see apps/web/src/collections). It changes only the system fields those
+// "videos", see apps/api/src/collections). It changes only the system fields those
 // collections never accept from requests, so it does not need Payload or its
 // hooks. Queries are parameterised; table and column names are fixed.
 
@@ -24,7 +24,7 @@ const SAME_IDENTIFIERS = `doi IS NOT DISTINCT FROM $2
 
 /**
  * How the check request a row records compares with a job's (`param` holds
- * the job's requestedAt). The web app stores the request time with the
+ * the job's requestedAt). The API stores the request time with the
  * "being checked" status and puts the same value in the job, so this compares
  * two copies of one value, never two clocks:
  * - "older": the save that queued the job has not committed yet;

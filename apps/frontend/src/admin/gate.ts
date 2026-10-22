@@ -27,7 +27,7 @@ export function canRead(
 
 /**
  * The collections whose records are made in the admin: verified admins
- * make them (apps/web's access rules). Countries are a fixed list; the
+ * make them (apps/api's access rules). Countries are a fixed list; the
  * worker adds videos and archived links; members write comments, reports,
  * and feedback, and their accounts are made at sign-in; the backend writes
  * the change and audit logs.

@@ -11,7 +11,7 @@ import { COLLECTION_TEXT } from "../collections";
 import { personName } from "../record-name";
 
 // An audit log entry, as Payload's panel shows it
-// (apps/web/src/collections/AuditLog.ts): who did what to which record,
+// (apps/api/src/collections/AuditLog.ts): who did what to which record,
 // and the details the backend recorded. Nobody changes it.
 
 export function AuditEntryView({ entry }: { entry: StoredAuditEntry }) {

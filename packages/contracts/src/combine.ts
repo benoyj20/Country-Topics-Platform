@@ -1,7 +1,8 @@
-// The registries combine each feature's part into one object. Spreading
-// them would let a later feature silently replace an earlier one's
-// collection, so combine() refuses two features claiming one key as the
-// registry loads: the build, the tests, and every page would fail.
+// The registries (ADR 0015), here and in the frontend's admin, combine each
+// feature's part into one object. Spreading them would let a later feature
+// silently replace an earlier one's collection, so combine() refuses two
+// features claiming one key as the registry loads: the build, the tests,
+// and every page would fail.
 
 /** The type of every part's keys together. */
 type Combined<Parts> = (

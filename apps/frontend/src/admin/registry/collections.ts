@@ -1,4 +1,4 @@
-import type { AdminCollection } from "@countrytopics/contracts";
+import { type AdminCollection, combine } from "@countrytopics/contracts";
 
 import { COLLECTIONS as archives } from "@/admin/features/archives/collections";
 import { COLLECTIONS as audit } from "@/admin/features/audit/collections";
@@ -12,7 +12,6 @@ import { COLLECTIONS as taxonomy } from "@/admin/features/taxonomy/collections";
 import { COLLECTIONS as topics } from "@/admin/features/topics/collections";
 
 import type { CollectionText } from "../collection-text";
-import { combine } from "./combine";
 
 // Every feature's collections, in one place: a feature adds its own in
 // its folder and is listed here once.

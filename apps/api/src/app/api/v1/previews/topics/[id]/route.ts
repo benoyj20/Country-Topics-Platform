@@ -2,7 +2,7 @@ import { isRecordId } from "@countrytopics/contracts";
 
 import { apiError, NO_STORE } from "@/api/json";
 import { accountFor } from "@/auth/current-account";
-import { loadTopicPreview } from "@/public/content";
+import { loadTopicPreview } from "@/public/topic-page";
 
 // GET /api/v1/previews/topics/:id: the topic page's data from its newest
 // draft (ADR 0014, live preview), for verified staff only, as Payload's

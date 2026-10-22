@@ -59,7 +59,7 @@ import * as z from "zod";
 
 import { GET as getPreview } from "@/app/api/v1/previews/topics/[id]/route";
 import type { Media, Topic, User } from "@/payload-types";
-import { loadTopicPage } from "@/public/content";
+import { loadTopicPage } from "@/public/topic-page";
 
 import { file, PNG_BYTES, richText } from "./fixtures";
 import {

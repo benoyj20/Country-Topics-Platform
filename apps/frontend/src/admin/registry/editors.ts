@@ -1,5 +1,7 @@
 import "server-only";
 
+import { combine } from "@countrytopics/contracts";
+
 import { EDITORS as archives } from "@/admin/features/archives/editors";
 import { EDITORS as audit } from "@/admin/features/audit/editors";
 import { EDITORS as individuals } from "@/admin/features/individuals/editors";
@@ -11,7 +13,6 @@ import { EDITORS as snippets } from "@/admin/features/snippets/editors";
 import { EDITORS as taxonomy } from "@/admin/features/taxonomy/editors";
 
 import type { EditedCollection, Editor } from "../records/editor";
-import { combine } from "./combine";
 
 // Every feature's record pages, in one place: a feature adds its own in
 // its folder and is listed here once. The topics' have pages of their own.

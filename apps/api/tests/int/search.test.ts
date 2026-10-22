@@ -29,7 +29,7 @@ import { GET as getTopics } from "@/app/api/v1/topics/route";
 import type { Individual, Topic, User } from "@/payload-types";
 import { browseTopics } from "@/public/browse";
 import { serverEnv } from "@/env";
-import { loadIndividualPage } from "@/public/content";
+import { loadIndividualPage } from "@/public/individual-page";
 import type { BrowseResult } from "@/public/types";
 
 import {

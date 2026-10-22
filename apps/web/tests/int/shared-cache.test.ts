@@ -58,8 +58,10 @@ const sitePurges = new Queue(PURGE_QUEUE_NAME, {
 async function queuedSitePurges(): Promise<string[][]> {
   const jobs = await sitePurges.getJobs(["waiting", "delayed"]);
   await sitePurges.obliterate({ force: true });
+  // Jobs queued in the same millisecond are told apart by their ids,
+  // which the queue counts up.
   return jobs
-    .sort((a, b) => a.timestamp - b.timestamp)
+    .sort((a, b) => a.timestamp - b.timestamp || Number(a.id) - Number(b.id))
     .map((job) => job.data.tags);
 }
 

@@ -1,3 +1,4 @@
+import { NewFeedback } from "@countrytopics/contracts";
 import {
   feedbackMessageProblem,
   feedbackPagePath,
@@ -7,10 +8,7 @@ import {
 import { apiError, NO_STORE, readJsonBody } from "@/api/json";
 import { rateLimited, refundRateLimited, writingMember } from "@/api/member";
 import { problemsOf } from "@/comments/requests";
-import {
-  FEEDBACK_REQUEST_MAX_BYTES,
-  feedbackSchema,
-} from "@/feedback/requests";
+import { FEEDBACK_REQUEST_MAX_BYTES } from "@/feedback/requests";
 import { loadPayload } from "@/payload-instance";
 
 // POST /api/v1/feedback, `{ kind, message, page? }`: a member's feedback
@@ -22,7 +20,7 @@ export async function POST(request: Request) {
   if (!member.ok) return member.response;
   const read = await readJsonBody(request, FEEDBACK_REQUEST_MAX_BYTES);
   if (!read.ok) return read.response;
-  const parsed = feedbackSchema.safeParse(read.value);
+  const parsed = NewFeedback.safeParse(read.value);
   if (!parsed.success) {
     return apiError(400, "The feedback could not be read.", {
       problems: problemsOf(parsed.error),

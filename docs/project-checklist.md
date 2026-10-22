@@ -525,8 +525,9 @@ See [ADR 0007](adr/0007-public-pages-and-caching.md) for the design.
   Built in week 11 (see there, and ADR 0013).
 - [x] Paging past 50 topics, filters, and search came in week 8 (below):
   lists that stop short link to `/topics` with their filter.
-- [ ] Not built yet: serving video thumbnails through the site, now decided
-  in ADR 0014 (a frontend route, phase 5).
+- [x] Video thumbnails come through the site since ADR 0014's phase 5
+  (`/thumbnails/:id` in `apps/frontend`); Payload's panel's snippet editor
+  moves onto it in phase 9.
 
 ### Week 8: browsing, filters, search, shareable links
 
@@ -1191,9 +1192,9 @@ and 31 GB), 2026-10-18 and 2026-10-19.
   Found and fixed: a snippet's note sat loose under the player; the
   profile said "under each statement above" when it showed none; profile
   text ran the full page width, so profiles are reading width now.
-- [ ] Not changed: an address that matches no page still shows Next.js's
-  plain 404, because the site and the admin panel have separate root
-  layouts. A site-wide 404 needs Next.js's experimental `globalNotFound`.
+- [x] An address that matches no page showed Next.js's plain 404, because
+  the site and the admin panel had separate root layouts; since ADR 0014's
+  phase 5 it shows the site's 404 (`globalNotFound`).
 
 ### The split, phase 0: the local environment (ADR 0014)
 
@@ -1336,8 +1337,9 @@ and 31 GB), 2026-10-18 and 2026-10-19.
     503 answer, and the body's root were not fully checked; values were
     listed twice instead of taken from the domain package; and the three
     slug routes were copies of one another.
-- [ ] Not in phase 3: the member API's schemas (phase 5) and Payload's
-  REST types (phase 7) in `packages/contracts`.
+- [x] The member API's schemas moved into `packages/contracts` in phase 5.
+- [ ] Not in phase 3: Payload's REST types (phase 7) in
+  `packages/contracts`.
 
 ### The split, phase 4: the API through the frontend (ADR 0014)
 
@@ -1384,3 +1386,43 @@ and 31 GB), 2026-10-18 and 2026-10-19.
 - [x] The local database has more TEST accounts for these checks: members
   invited as `test-member-*-phase4*@example.test`, which deleted their own
   accounts, and their TEST comment on the TEST browse-check topic.
+
+### The split, phase 5: `apps/frontend` (ADR 0014)
+
+- [x] The frontend renders the public pages, the member pages, an
+  unknown address's 404, and the admin's gate at `/admin`, and serves video
+  thumbnails; it passes only `/api` and `/files` on to the backend
+  (2026-10-21).
+- [x] Page data is read signed and cached by path under its collections'
+  tags (`unstable_cache`); member pages ask `GET /api/v1/account` with the
+  visitor's cookie, and the sign-in page `GET /api/v1/sign-in-options`.
+- [x] The member API's requests and answers, the browse parameters, and
+  sign-in's error codes are in `packages/contracts`; the labels, link
+  checks, and browse sorts in `packages/domain`. A lint rule keeps
+  Payload, `pg`, ioredis, BullMQ, and the jobs and search packages out of
+  the frontend.
+- [x] Checked against production builds of `main` and this phase (ADR
+  0014, "Phase 5 results"): 162 of 168 screenshots identical, the six
+  others the new 404; the whole-site audit as on `main`, the 404 now clean;
+  every member action through the pages with clicks; the admin's gate for
+  visitors, members, unverified and verified staff; thumbnails from the
+  site and nothing from Google before play; in workerd, every page cached
+  in R2; a 1.56 MB compressed Worker; 164 integration tests;
+  `make scale-check` and both load tests, with no failures.
+- [x] Found while building it:
+  - the build-time home page, rendered without the backend, would have been
+    served empty for an hour after each deploy; the build now leaves it
+    out;
+  - URL parsing resolves `%2e%2e`, so the pass-through refuses dot
+    segments;
+  - workerd needs the system's certificates for HTTPS, which the local
+    preview's image lacked.
+- [ ] Until phase 6's purges, a published change reaches the site when its
+  cached page and data expire, within an hour or two.
+- [ ] The backend's copies of the pages stay until phase 12, for the
+  rehearsal and the load tests; change pages in `apps/frontend` only.
+- [x] The local database has more TEST accounts for these checks:
+  `test-member-audit-phase5@example.test`, members
+  `test-member-*-p5*@example.test`, who deleted their own accounts or
+  remain, and admins `test-admin-p5*@example.test`, with their TEST
+  comments, replies, reports, and feedback on the TEST browse-check topic.

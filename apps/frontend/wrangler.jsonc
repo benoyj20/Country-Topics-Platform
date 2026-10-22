@@ -11,8 +11,32 @@
   "services": [
     { "binding": "WORKER_SELF_REFERENCE", "service": "countrytopics-frontend" },
   ],
+  // ADR 0014's cache (open-next.config.ts). Locally Wrangler keeps all three
+  // in .wrangler/state; hosted, the R2 bucket and D1 database are created
+  // with the eastern North America location hint (enam) in phase 13.
+  "r2_buckets": [
+    {
+      "binding": "NEXT_INC_CACHE_R2_BUCKET",
+      "bucket_name": "countrytopics-frontend-cache",
+    },
+  ],
+  "d1_databases": [
+    {
+      "binding": "NEXT_TAG_CACHE_D1",
+      "database_name": "countrytopics-frontend-tags",
+      "database_id": "local",
+    },
+  ],
+  "durable_objects": {
+    "bindings": [
+      { "name": "NEXT_CACHE_DO_QUEUE", "class_name": "DOQueueHandler" },
+    ],
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DOQueueHandler"] }],
   // The local preview's settings. FORWARDING_KEY is a secret: locally in
-  // .dev.vars, which is never committed; deployed, a Wrangler secret.
+  // .dev.vars, which is never committed; deployed, a Wrangler secret. The
+  // legal pages' SITE_OPERATOR and CONTACT_EMAIL come from .dev.vars too
+  // (the Dockerfile writes it from .env).
   "vars": {
     "APP_ENV": "local",
     "SITE_URL": "http://localhost:8788",

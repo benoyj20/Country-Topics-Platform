@@ -1,8 +1,8 @@
 import { passThrough } from "@/pass-through";
 import { frontendSettings } from "@/settings";
 
-// Every address the frontend does not answer itself goes on to the backend
-// (pass-through.ts), whatever the method.
+// /api/* goes on to the backend (pass-through.ts), whatever the method:
+// sign-in, the member API, page data, and Payload's REST API.
 
 export const dynamic = "force-dynamic";
 

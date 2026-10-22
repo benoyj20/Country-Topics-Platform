@@ -19,7 +19,7 @@ import {
   filterCount,
   type ListKey,
   parseBrowseQuery,
-} from "@/public/browse-query";
+} from "@countrytopics/contracts";
 import { formatDate } from "@/public/format";
 import type {
   BrowseFacetValue,

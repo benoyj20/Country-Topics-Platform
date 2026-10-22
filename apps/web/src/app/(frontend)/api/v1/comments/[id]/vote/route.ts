@@ -1,10 +1,11 @@
+import { CommentVote } from "@countrytopics/contracts";
+
 import { apiError, NO_STORE, readJsonBody } from "@/api/json";
 import { rateLimited, refundRateLimited, writingMember } from "@/api/member";
 import {
   commentIdSchema,
   problemsOf,
   SMALL_REQUEST_MAX_BYTES,
-  voteSchema,
 } from "@/comments/requests";
 import { commentFailure } from "@/comments/responses";
 import { CommentRefusal, voteOnComment } from "@/comments/store";
@@ -24,7 +25,7 @@ export async function PUT(
   if (!member.ok) return member.response;
   const read = await readJsonBody(request, SMALL_REQUEST_MAX_BYTES);
   if (!read.ok) return read.response;
-  const parsed = voteSchema.safeParse(read.value);
+  const parsed = CommentVote.safeParse(read.value);
   if (!parsed.success) {
     return apiError(400, "The vote could not be read.", {
       problems: problemsOf(parsed.error),

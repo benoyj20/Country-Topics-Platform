@@ -1,20 +1,20 @@
+import type { CommentReportReason } from "./comments.ts";
+import type { FeedbackKind, FeedbackStatus } from "./feedback.ts";
+import type { CommentReportStatus, CommentStatus } from "./moderation.ts";
 import type {
   ClaimStance,
-  CommentReportReason,
-  CommentReportStatus,
-  CommentStatus,
   EvidenceKind,
-  FeedbackKind,
-  FeedbackStatus,
   Licence,
   ReferenceKind,
+} from "./topic-evidence.ts";
+import type {
   TopicChangeKind,
   TopicPersonRole,
   TopicState,
-} from "@countrytopics/domain";
+} from "./topic-workflow.ts";
 
-// Names shown for stored values, shared by the admin panel and the public
-// pages so both say the same thing.
+// Names shown for stored values, shared by the admin and the public pages
+// so both say the same thing.
 
 export const EVIDENCE_KIND_LABELS: Record<EvidenceKind, string> = {
   document: "Document (PDF)",

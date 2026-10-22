@@ -7,6 +7,7 @@ import {
   MIN_SECRET_LENGTH,
   readAppEnvironment,
   readBackendUrl,
+  readLegalContacts,
   readSecret,
   readSiteUrl,
 } from "@countrytopics/environment";
@@ -90,7 +91,6 @@ const QUEUE_PREFIX_PATTERN = /^[a-z0-9-]+$/;
 // AWS bucket naming rules, which other S3-compatible services follow.
 const BUCKET_PATTERN = /^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/;
 const DEFAULT_S3_REGION = "us-east-1";
-const SITE_OPERATOR_MAX_LENGTH = 200;
 
 type Env = Record<string, string | undefined>;
 
@@ -241,17 +241,7 @@ export function readServerEnv(env: Env = process.env): ServerEnv {
   checkServiceAddress(environment, "PAGE_CACHE_URL", pageCacheUrl, problems);
   checkServiceAddress(environment, "S3_ENDPOINT", storage.endpoint, problems);
 
-  const contactEmail = env.CONTACT_EMAIL?.trim() || undefined;
-  if (contactEmail && !/^[^@\s]+@[^@\s]+$/.test(contactEmail)) {
-    problems.push("CONTACT_EMAIL must be empty or an email address");
-  }
-
-  const siteOperator = env.SITE_OPERATOR?.trim() || undefined;
-  if (siteOperator && siteOperator.length > SITE_OPERATOR_MAX_LENGTH) {
-    problems.push(
-      `SITE_OPERATOR must be at most ${SITE_OPERATOR_MAX_LENGTH} characters`,
-    );
-  }
+  const { contactEmail, siteOperator } = readLegalContacts(env, problems);
 
   if (problems.length > 0) {
     throw new Error(

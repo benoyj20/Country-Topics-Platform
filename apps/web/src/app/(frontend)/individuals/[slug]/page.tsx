@@ -1,3 +1,4 @@
+import { browseHref } from "@countrytopics/contracts";
 import { isSlug } from "@countrytopics/domain";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -7,7 +8,6 @@ import { FileCredit } from "@/components/public/FileCredit";
 import { SourceList } from "@/components/public/ReferenceList";
 import styles from "@/components/public/public.module.css";
 import { TopicList } from "@/components/public/TopicList";
-import { browseHref } from "@/public/browse-query";
 import { individualPage } from "@/public/cached";
 import type { IndividualPage } from "@/public/types";
 

@@ -1,7 +1,7 @@
+import { TOPIC_CHANGE_LABELS } from "@countrytopics/domain";
 import type { CollectionConfig } from "payload";
 
 import { nobody, verifiedStaffOnly } from "@/access";
-import { TOPIC_CHANGE_LABELS } from "@/content-labels";
 
 // A topic's public change log (F3): one entry per publish, written by the topic
 // hooks and never edited or deleted. Visitors see it on the topic's page,

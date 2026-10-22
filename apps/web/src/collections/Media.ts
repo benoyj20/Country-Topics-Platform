@@ -1,9 +1,8 @@
-import { URL_MAX_LENGTH } from "@countrytopics/domain";
+import { LICENCE_LABELS, URL_MAX_LENGTH } from "@countrytopics/domain";
 import type { CollectionConfig } from "payload";
 
 import { verifiedAdminsOnly, verifiedStaffOnly } from "@/access";
 import { auditHooks } from "@/audit";
-import { LICENCE_LABELS } from "@/content-labels";
 import { PUBLIC_TAGS, purgeOnChange } from "@/public-cache";
 import { reindexTopicsOnChange } from "@/search-index";
 

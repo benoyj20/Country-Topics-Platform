@@ -1,3 +1,4 @@
+import { CommentReport } from "@countrytopics/contracts";
 import { commentReportProblem } from "@countrytopics/domain";
 
 import { apiError, NO_STORE, readJsonBody } from "@/api/json";
@@ -5,7 +6,6 @@ import { rateLimited, refundRateLimited, writingMember } from "@/api/member";
 import {
   commentIdSchema,
   problemsOf,
-  reportSchema,
   SMALL_REQUEST_MAX_BYTES,
 } from "@/comments/requests";
 import { commentFailure } from "@/comments/responses";
@@ -26,7 +26,7 @@ export async function POST(
   if (!member.ok) return member.response;
   const read = await readJsonBody(request, SMALL_REQUEST_MAX_BYTES);
   if (!read.ok) return read.response;
-  const parsed = reportSchema.safeParse(read.value);
+  const parsed = CommentReport.safeParse(read.value);
   if (!parsed.success) {
     return apiError(400, "The report could not be read.", {
       problems: problemsOf(parsed.error),

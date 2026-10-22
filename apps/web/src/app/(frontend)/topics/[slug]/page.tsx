@@ -1,4 +1,9 @@
-import { isSlug, type TopicPersonRole } from "@countrytopics/domain";
+import {
+  isSlug,
+  PERSON_ROLE_LABELS,
+  TOPIC_CHANGE_LABELS,
+  type TopicPersonRole,
+} from "@countrytopics/domain";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -8,7 +13,6 @@ import { EvidenceList } from "@/components/public/EvidenceList";
 import styles from "@/components/public/public.module.css";
 import { ReferenceList } from "@/components/public/ReferenceList";
 import { TopicBody } from "@/components/public/TopicBody";
-import { PERSON_ROLE_LABELS, TOPIC_CHANGE_LABELS } from "@/content-labels";
 import { topicPage } from "@/public/cached";
 import { formatDate } from "@/public/format";
 import type { IndividualLink, TopicPage } from "@/public/types";

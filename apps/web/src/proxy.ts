@@ -69,8 +69,9 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 }
 
 export const config = {
-  // Next.js's own files are public and the same for everyone: the pages'
-  // scripts, styles, and fonts, which they name under the asset prefix
-  // (next.config.ts), and the development server's live reload.
-  matcher: ["/((?!_next/|_backend/_next/).*)"],
+  // Next.js's own files are public and the same for everyone: the
+  // scripts, styles, and fonts of Payload's panel and of the pages this
+  // backend still renders until phase 12, and the development server's
+  // live reload.
+  matcher: ["/((?!_next/).*)"],
 };

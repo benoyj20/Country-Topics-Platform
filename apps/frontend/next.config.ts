@@ -20,29 +20,35 @@ const nextConfig: NextConfig = {
   agentRules: false,
   // Workspace packages ship TypeScript source.
   transpilePackages: [
+    "@countrytopics/contracts",
+    "@countrytopics/domain",
     "@countrytopics/environment",
     "@countrytopics/forwarding",
+    "@countrytopics/observability",
   ],
   outputFileTracingRoot: workspaceRoot,
   poweredByHeader: false,
-  turbopack: { root: workspaceRoot },
-  async rewrites() {
-    const backendUrl = process.env.BACKEND_URL?.trim();
-    return {
-      // The build files of the pages the backend still renders, and its
-      // development server's live reload, a websocket, which a route
-      // cannot pass on but Next.js's own proxying can (pass-through.ts).
-      // Gone with those pages in phase 5.
-      beforeFiles: backendUrl
-        ? [
-            {
-              source: "/_backend/_next/:path*",
-              destination: `${backendUrl}/_backend/_next/:path*`,
-            },
-          ]
-        : [],
-    };
+  experimental: {
+    // The site and the admin have separate root layouts, so an address
+    // that matches no route needs a 404 of its own
+    // (app/global-not-found.tsx).
+    globalNotFound: true,
   },
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          // No other site may frame these pages (clickjacking on the admin).
+          { key: "Content-Security-Policy", value: "frame-ancestors 'self'" },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+        ],
+      },
+    ];
+  },
+  turbopack: { root: workspaceRoot },
 };
 
 export default nextConfig;

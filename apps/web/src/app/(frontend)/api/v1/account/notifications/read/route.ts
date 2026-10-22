@@ -1,10 +1,9 @@
-import * as z from "zod";
+import { MarkNotificationsRead } from "@countrytopics/contracts";
 
 import { apiError, NO_STORE, readJsonBody } from "@/api/json";
 import { writingMember } from "@/api/member";
 import { problemsOf, SMALL_REQUEST_MAX_BYTES } from "@/comments/requests";
 import { commentFailure } from "@/comments/responses";
-import { MARK_READ_MAX } from "@/notifications/limits";
 import { markNotificationsRead } from "@/notifications/store";
 import { writePool } from "@/write-pool";
 
@@ -12,16 +11,12 @@ import { writePool } from "@/write-pool";
 // member's notifications as read; ids that are not theirs change nothing
 // (ADR 0010).
 
-const markReadSchema = z
-  .object({ ids: z.array(z.uuid()).max(MARK_READ_MAX) })
-  .strict();
-
 export async function POST(request: Request) {
   const member = await writingMember(request);
   if (!member.ok) return member.response;
   const read = await readJsonBody(request, SMALL_REQUEST_MAX_BYTES);
   if (!read.ok) return read.response;
-  const parsed = markReadSchema.safeParse(read.value);
+  const parsed = MarkNotificationsRead.safeParse(read.value);
   if (!parsed.success) {
     return apiError(400, "The request could not be read.", {
       problems: problemsOf(parsed.error),

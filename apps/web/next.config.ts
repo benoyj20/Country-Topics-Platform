@@ -37,20 +37,6 @@ const nextConfig: NextConfig = {
     "@countrytopics/sources",
   ],
   outputFileTracingRoot: workspaceRoot,
-  // The pages this backend still renders reach browsers through the
-  // frontend (ADR 0014), whose own build files are under /_next, so these
-  // pages name theirs under /_backend/_next and the frontend passes that
-  // path on. Removed with the pages in phase 12.
-  assetPrefix: "/_backend",
-  experimental: {
-    // Next.js checks that a page-data request's _rsc parameter matches its
-    // router headers, against caches that ignore Vary. The frontend makes
-    // that check on every browser request, then drops the Next-Url header
-    // before passing the request on, so here it would always fail and
-    // redirect. The backend is reached only through the frontend; this
-    // goes with the pages in phase 12.
-    validateRSCRequestHeaders: false,
-  },
   poweredByHeader: false,
   async headers() {
     return [

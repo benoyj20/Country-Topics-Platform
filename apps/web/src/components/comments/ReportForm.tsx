@@ -2,13 +2,12 @@
 
 import {
   COMMENT_REPORT_NOTE_MAX_LENGTH,
+  COMMENT_REPORT_REASON_LABELS,
   COMMENT_REPORT_REASONS,
   type CommentReportReason,
   commentReportProblem,
 } from "@countrytopics/domain";
 import { useId, useState } from "react";
-
-import { COMMENT_REPORT_REASON_LABELS } from "@/content-labels";
 
 import { sendReport } from "./comments-api";
 import styles from "./comments.module.css";

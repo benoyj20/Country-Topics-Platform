@@ -1,22 +1,43 @@
+import { type AccountAnswer, AccountDeletion } from "@countrytopics/contracts";
 import { isRole, isStaff, normalizeEmail } from "@countrytopics/domain";
-import * as z from "zod";
 
 import { signedInRecently } from "@/account/recent-sign-in";
 import { apiError, NO_STORE, readJsonBody } from "@/api/json";
 import { writingMember } from "@/api/member";
+import { accountFor } from "@/auth/current-account";
 import { problemsOf, SMALL_REQUEST_MAX_BYTES } from "@/comments/requests";
 import { loadPayload } from "@/payload-instance";
+
+// GET /api/v1/account: the signed-in person, `{ account }`, or
+// `{ account: null }` for visitors (ADR 0014). The frontend asks before it
+// renders a member page or the admin, sending the visitor's cookie.
+// Personal, so never cached.
+
+export const dynamic = "force-dynamic";
+
+export async function GET(request: Request) {
+  try {
+    const account = await accountFor(request.headers);
+    return Response.json({ account } satisfies AccountAnswer, {
+      headers: NO_STORE,
+    });
+  } catch (error) {
+    console.error(
+      "Reading the account failed:",
+      error instanceof Error ? error.message : error,
+    );
+    return apiError(
+      503,
+      "Your account could not be read right now. Try again in a moment.",
+    );
+  }
+}
 
 // DELETE /api/v1/account, `{ email }`: the signed-in member deletes their
 // own account (ADR 0011). They confirm by typing their email address and
 // must have signed in within the last few minutes. Staff accounts are
 // deleted by another admin, so a site is never left without one. What the
 // deletion removes is in src/account/deletion.ts.
-
-const EMAIL_MAX_LENGTH = 320;
-const confirmationSchema = z
-  .object({ email: z.string().max(EMAIL_MAX_LENGTH) })
-  .strict();
 
 export async function DELETE(request: Request) {
   const member = await writingMember(
@@ -27,7 +48,7 @@ export async function DELETE(request: Request) {
   const { profile } = member;
   const read = await readJsonBody(request, SMALL_REQUEST_MAX_BYTES);
   if (!read.ok) return read.response;
-  const parsed = confirmationSchema.safeParse(read.value);
+  const parsed = AccountDeletion.safeParse(read.value);
   if (!parsed.success) {
     return apiError(400, "The confirmation could not be read.", {
       problems: problemsOf(parsed.error),

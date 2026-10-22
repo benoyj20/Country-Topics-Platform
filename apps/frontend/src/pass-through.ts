@@ -1,12 +1,12 @@
+import type { ApiError } from "@countrytopics/contracts";
 import {
   FORWARDING_HEADERS,
-  isClientAddress,
-  LOCAL_CLIENT_ADDRESS,
   signedPathAndQuery,
   signForwardedRequest,
 } from "@countrytopics/forwarding";
 
 import type { FrontendSettings } from "./settings";
+import { visitorAddress } from "./visitor-address.ts";
 
 // Passes a browser's request to the backend and its answer back (ADR 0014,
 // "Sign-in and API calls, through the frontend"). Browsers only ever talk
@@ -16,18 +16,16 @@ import type { FrontendSettings } from "./settings";
 // pass unchanged. Redirects come back to the browser instead of being
 // followed here, so a sign-in's cookie reaches it.
 //
-// Until phase 5 moves the pages here, every path the frontend does not
-// answer itself goes on, pages included; the pages' build files
-// (/_backend/_next) go by a rewrite in next.config.ts. Phase 5 narrows it
-// to /api and /files.
+// Only /api and /files go on (app/api and app/files); the pages are this
+// frontend's own.
 
-/** Never passed on: answered here, or reserved for this frontend. */
+/** The paths passed on, and everything under them. */
+const PASSED = ["/api", "/files"];
+
+/** Never passed on: answered here. */
 const NOT_PASSED = [
   // The purge the worker sends, answered here in phase 6.
   "/api/revalidate",
-  // The new admin, from phase 7; Payload's panel stays at the backend's
-  // own address locally.
-  "/admin",
 ];
 
 // Request headers set by the connection, by this frontend, or by
@@ -66,40 +64,38 @@ export const BACKEND_TIMEOUT_MS = 30_000;
 
 const NO_STORE = { "Cache-Control": "no-store" };
 
+const isUnder = (decoded: string, path: string) =>
+  decoded === path || decoded.startsWith(`${path}/`);
+
 /**
- * Whether `pathname` is one never passed on, compared as the backend's
- * router reads it, percent-decoded, so "/%61dmin" counts as "/admin". Null
+ * Whether `pathname` goes on, compared as the backend's router reads it,
+ * percent-decoded, so "/api/revalid%61te" counts as "/api/revalidate".
+ * A "." or ".." segment is refused: URL parsing resolves "%2e%2e" away,
+ * so "/api/%2e%2e/admin" would otherwise reach the backend's /admin. Null
  * when it cannot be decoded.
  */
-function isNotPassed(pathname: string): boolean | null {
+function isPassed(pathname: string): boolean | null {
   let decoded: string;
   try {
     decoded = decodeURIComponent(pathname);
   } catch {
     return null;
   }
-  return NOT_PASSED.some(
-    (path) => decoded === path || decoded.startsWith(`${path}/`),
+  if (decoded.split(/[/\\]/).some((part) => part === "." || part === "..")) {
+    return false;
+  }
+  return (
+    PASSED.some((path) => isUnder(decoded, path)) &&
+    !NOT_PASSED.some((path) => isUnder(decoded, path))
   );
-}
-
-/**
- * The visitor's address: Cloudflare's header when deployed; locally, where
- * no Cloudflare header exists, 127.0.0.1 for everyone, so local requests
- * share one bucket. Null when a deployed request has none.
- */
-function clientAddress(
-  request: Request,
-  settings: FrontendSettings,
-): string | null {
-  if (settings.environment === "local") return LOCAL_CLIENT_ADDRESS;
-  const address = request.headers.get("cf-connecting-ip")?.trim() ?? "";
-  return isClientAddress(address) ? address : null;
 }
 
 function failure(status: number, pathname: string, message: string): Response {
   return pathname.startsWith("/api/")
-    ? Response.json({ error: message }, { status, headers: NO_STORE })
+    ? Response.json({ error: message, problems: [] } satisfies ApiError, {
+        status,
+        headers: NO_STORE,
+      })
     : new Response(message, {
         status,
         headers: { ...NO_STORE, "Content-Type": "text/plain; charset=utf-8" },
@@ -127,14 +123,14 @@ export async function passThrough(
   timeoutMs: number = BACKEND_TIMEOUT_MS,
 ): Promise<Response> {
   const incoming = new URL(request.url);
-  const notPassed = isNotPassed(incoming.pathname);
-  if (notPassed === null) {
+  const passed = isPassed(incoming.pathname);
+  if (passed === null) {
     return failure(400, incoming.pathname, "The address cannot be read.");
   }
-  if (notPassed) {
+  if (!passed) {
     return failure(404, incoming.pathname, "There is nothing at this address.");
   }
-  const address = clientAddress(request, settings);
+  const address = visitorAddress(request.headers, settings);
   if (!address) {
     return failure(
       400,

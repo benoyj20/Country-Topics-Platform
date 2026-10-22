@@ -1,14 +1,17 @@
-import { EVIDENCE_KINDS } from "@countrytopics/domain";
+import {
+  type BrowseQuery,
+  effectiveSort,
+  type ListKey,
+} from "@countrytopics/contracts";
+import { EVIDENCE_KINDS, EVIDENCE_KIND_LABELS } from "@countrytopics/domain";
 import {
   type FacetCount,
   SEARCH_PAGE_SIZE,
   type TopicFilters,
 } from "@countrytopics/search/topic-search";
 
-import { EVIDENCE_KIND_LABELS } from "@/content-labels";
 import { topicSearch } from "@/search";
 
-import { type BrowseQuery, effectiveSort, type ListKey } from "./browse-query";
 import { browseTerms } from "./cached";
 import { loadIndividualLinks, loadPublicIndividualLinks } from "./content";
 import type {

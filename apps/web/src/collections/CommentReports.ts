@@ -1,16 +1,14 @@
 import {
   COMMENT_REPORT_NOTE_MAX_LENGTH,
+  COMMENT_REPORT_REASON_LABELS,
   COMMENT_REPORT_REASONS,
+  COMMENT_REPORT_STATUS_LABELS,
   COMMENT_REPORT_STATUSES,
 } from "@countrytopics/domain";
 import type { CollectionConfig } from "payload";
 
 import { nobody, readOnlyField, verifiedStaffOnly } from "@/access";
 import { auditHooks } from "@/audit";
-import {
-  COMMENT_REPORT_REASON_LABELS,
-  COMMENT_REPORT_STATUS_LABELS,
-} from "@/content-labels";
 
 // A member's report that a comment breaks the rules, at most one per member
 // and comment. Staff work through the open ones: hiding the comment marks

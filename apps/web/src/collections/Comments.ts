@@ -1,5 +1,7 @@
 import {
   COMMENT_BODY_MAX_LENGTH,
+  COMMENT_REPORT_REASON_LABELS,
+  COMMENT_STATUS_LABELS,
   COMMENT_STATUSES,
   MODERATION_NOTE_MAX_LENGTH,
   MODERATION_REASONS,
@@ -8,10 +10,6 @@ import type { CollectionConfig } from "payload";
 
 import { nobody, readOnlyField, verifiedStaffOnly } from "@/access";
 import { afterModeration, moderateComment } from "@/comments/moderation-hooks";
-import {
-  COMMENT_REPORT_REASON_LABELS,
-  COMMENT_STATUS_LABELS,
-} from "@/content-labels";
 
 // F6 comments on topics, in two levels: a comment with no parent starts a
 // thread, and replies point to it (ADR 0009). Members write them through

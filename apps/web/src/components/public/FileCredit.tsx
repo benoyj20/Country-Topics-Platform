@@ -1,4 +1,4 @@
-import { LICENCE_LABELS } from "@/content-labels";
+import { LICENCE_LABELS } from "@countrytopics/domain";
 import type { PublicFile } from "@/public/types";
 
 import styles from "./public.module.css";

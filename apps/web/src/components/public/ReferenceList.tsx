@@ -1,6 +1,9 @@
-import type { ClaimStance } from "@countrytopics/domain";
+import {
+  type ClaimStance,
+  REFERENCE_KIND_LABELS,
+  STANCE_LABELS,
+} from "@countrytopics/domain";
 
-import { REFERENCE_KIND_LABELS, STANCE_LABELS } from "@/content-labels";
 import { formatPartialDate } from "@/public/format";
 import type {
   CitedReference,

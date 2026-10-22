@@ -726,6 +726,106 @@ How it works, where the plan left details open:
   panel calls its API there; public pages link files at `/files/:id`, on
   the site.
 
+### Phase 5 results (2026-10-21)
+
+The site's pages come from `apps/frontend` now: the public pages, the
+member pages, the admin's gate at `/admin`, video thumbnails, and an
+address no route matches. The frontend passes only `/api` and `/files` on
+to the backend. Checked against production builds of `main` and of this
+phase, on the local database, with new TEST accounts:
+
+| Check                | Result                                                                                                                                                                                                                                                                                                                |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PR #18's design      | Full-page screenshots of 28 pages and states, signed out and in, at 1280 px (light and dark), 1024, 768, and 390 px (light and dark), compared pixel by pixel with `main`'s: 162 of 168 are identical. The six that differ are an address no page has, which now shows the site's 404 in place of Next.js's plain one |
+| The whole-site audit | axe-core (WCAG 2.1 A and AA, and best practices), console errors, failed requests, broken images, sideways scrolling, and every internal link: the same as `main` on every page, except the unknown address, which is now clean too                                                                                   |
+| Member pages         | Through the pages, with clicks: sign-in by the form and the email link, a public name, a comment, a vote, a report, a reply and its notification in the header and on `/notifications`, feedback, the data export, and account deletion                                                                               |
+| The admin's gate     | A visitor is sent to sign in and back; a member is told the admin is for staff; staff who have not passed the authenticator check are sent to it; verified staff pass. The admin is never cached and loads none of the site's header or styles, and the site none of its                                              |
+| Thumbnails           | A topic page loads its snippet's thumbnail from `/thumbnails/:id` and asks nothing of another host until play is pressed; YouTube's player then loads as before                                                                                                                                                       |
+| The Workers runtime  | In workerd, every page renders and is cached in R2 (a miss, then hits), the home page with its data from the first visit, and thumbnails are fetched and kept a day                                                                                                                                                   |
+| Size and start-up    | The Worker is 1.56 MB compressed (7.4 MB raw), and its start-up took about 22 ms of CPU locally                                                                                                                                                                                                                       |
+| The backend          | All 164 integration tests pass, two of them for the new endpoints; the member API's answers are checked against their contracts                                                                                                                                                                                       |
+| The scale rehearsal  | `make scale-check` and both load tests pass against the backend; the load tests had no failures                                                                                                                                                                                                                       |
+
+How it works, where the plan left details open:
+
+- **Page data is cached by path, not by fetch.** Each read is signed afresh,
+  and Next.js keys a fetch by its headers, so the frontend reads through
+  `unstable_cache`, keyed by the endpoint's path and tagged with
+  `PAGE_DATA_TAGS`, for an hour. The ADR named `"use cache"`, which needs
+  Next.js's Cache Components and changes how every page is cached;
+  `unstable_cache` gives the same keying without that. The shared reads are
+  signed as `127.0.0.1`: they are cached for everyone, so no visitor asked
+  for them.
+- **The frontend's own reads, besides page data:**
+  - `GET /api/v1/account` (new) answers the signed-in person, or null, from
+    the visitor's cookie, for the member pages and the admin's gate. It sets
+    no cookie; the header's account link refreshes the session as before.
+  - `GET /api/v1/sign-in-options` (new) answers whether Google is offered
+    and Turnstile's site key, so the key the page shows always matches the
+    secret the backend checks with.
+- **The build leaves out the home page it renders.** The build cannot reach
+  the backend, so the home page is rendered there with no topics. OpenNext
+  copies the build into its R2 cache, and `next start` serves it too, so
+  that empty page was served for an hour after each deploy.
+  `scripts/drop-build-time-pages.mjs` removes it after `next build`, so the
+  first visit renders and caches the page; the topic, country, and person
+  pages were never built.
+- **The pass-through takes `/api` and `/files` only**, compared
+  percent-decoded, and refuses a `.` or `..` segment: URL parsing resolves
+  `%2e%2e`, so `/api/%2e%2e/admin` would otherwise have reached the
+  backend's `/admin`. Phase 4's workarounds for passing pages on are gone:
+  the frontend's `/_backend/_next` rewrite, and the backend's `assetPrefix`
+  and `validateRSCRequestHeaders`.
+- **Shared code moved to packages**, so the frontend imports none of the
+  backend's: the browse parameters, the member API's requests and answers
+  (strict requests, as the routes had), and sign-in's error codes and
+  callback check to `packages/contracts`; the names shown for stored values,
+  the rich-text link checks, and the browse sorts to `packages/domain`; and
+  the legal pages' contacts to `packages/environment`. A lint rule
+  (`no-restricted-imports`) keeps Payload (except its rich-text renderer),
+  `pg`, ioredis, BullMQ, and the jobs and search packages out of the
+  frontend.
+- **The site and the admin share the design**: `styles/tokens.css` and
+  `fonts.ts`, imported by both root layouts. The admin is a placeholder
+  until phase 7; locally it links each address to the same page in
+  Payload's panel, so a comment's "moderate" link still reaches it.
+- **An unknown address gets the site's 404** (`app/global-not-found.tsx`,
+  Next.js's `globalNotFound`), with the site's header and footer.
+- **Comment lists tell Cloudflare not to store them**
+  (`Cloudflare-CDN-Cache-Control: no-store`), as "Everything else" asks.
+- **YouTube's terms.** The YouTube API Services Developer Policies (updated
+  2026-10-15) do not mention thumbnails served through a site. They let a
+  client store data that is not a user's own for up to 30 days, refreshed
+  after (III.E.4.d, e); the route keeps nothing, and caches each image a
+  day. The address fetched is the one YouTube's own oEmbed answer names, and
+  the player is still YouTube's, loaded on a click, with a thumbnail larger
+  than the 120 × 70 px the Required Minimum Functionality asks for. Read
+  this way the route is allowed, so the placeholder was not needed. This is
+  a reading, not legal advice; it is reviewed with the legal pages before a
+  launch.
+
+Left for later phases:
+
+- **Purges reach the frontend in phase 6.** The backend still purges its own
+  caches when content changes, but nothing yet tells the frontend, so a
+  published change shows on the site only when its cached page and data
+  expire: within an hour, or two when a stale page is served once while it
+  is refreshed. `next dev` caches page data too. Phase 6's signed purge
+  closes this; until then an edit shown in a demo needs that wait.
+- **The backend's copies of the pages stay until phase 12**, as planned:
+  the scale rehearsal's stateless check and the cached load test still
+  measure them, until phase 14 measures through Workers. No visitor reaches
+  them. Until then they are a second copy, which AGENTS.md otherwise rules
+  out: the pages are changed in `apps/frontend` only.
+- **Payload's panel's snippet editor** still loads thumbnails from YouTube;
+  phase 9 moves it into the frontend, onto `/thumbnails`.
+- **Sentry in the Worker** waits for phase 13: error reports are off
+  locally. Browser reports still go to the backend's `/api/v1/errors`.
+- **Found on the way:** through phase 4's pass-through, link prefetches of
+  the backend's pages never finished in a production build. The frontend's
+  own pages have none outstanding. The local Workers preview's image lacked
+  the system's certificates, which workerd needs for HTTPS.
+
 ## Consequences
 
 **Gains:**

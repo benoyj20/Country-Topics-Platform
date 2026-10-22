@@ -1,19 +1,16 @@
 import {
   COMMENT_BODY_MAX_LENGTH,
-  COMMENT_REPORT_NOTE_MAX_LENGTH,
-  COMMENT_REPORT_REASONS,
-  COMMENT_VOTE_VALUES,
   type CommentSort,
   DEFAULT_COMMENT_SORT,
-  DISPLAY_NAME_MAX_LENGTH,
   isCommentSort,
 } from "@countrytopics/domain";
 import * as z from "zod";
 
 import { VIEWER_IDS_MAX } from "./store";
 
-// What the comment routes accept (ADR 0009). Bodies are checked here for
-// shape; the rules in packages/domain (comments.ts) then check content.
+// What the comment routes accept (ADR 0009). Bodies are checked for shape
+// by the schemas in packages/contracts (members.ts); the rules in
+// packages/domain (comments.ts) then check content.
 
 /**
  * JSON bodies larger than this are refused unread. A comment's characters
@@ -22,33 +19,6 @@ import { VIEWER_IDS_MAX } from "./store";
 export const COMMENT_REQUEST_MAX_BYTES = COMMENT_BODY_MAX_LENGTH * 6 + 1_024;
 /** Bodies of the other writes are a few short fields. */
 export const SMALL_REQUEST_MAX_BYTES = 8 * 1_024;
-
-// Text is bounded before normalising, which can only shorten it; the
-// domain rules then give the exact limit and message.
-export const newCommentSchema = z
-  .object({
-    body: z.string().max(COMMENT_BODY_MAX_LENGTH * 2),
-    parentId: z.uuid().nullable().optional(),
-  })
-  .strict();
-
-export const voteSchema = z
-  .object({ value: z.literal(COMMENT_VOTE_VALUES) })
-  .strict();
-
-export const reportSchema = z
-  .object({
-    reason: z.enum(COMMENT_REPORT_REASONS),
-    note: z
-      .string()
-      .max(COMMENT_REPORT_NOTE_MAX_LENGTH * 2)
-      .optional(),
-  })
-  .strict();
-
-export const displayNameSchema = z
-  .object({ displayName: z.string().max(DISPLAY_NAME_MAX_LENGTH * 4) })
-  .strict();
 
 /** zod's issues as sentences naming the field. */
 export function problemsOf(error: z.ZodError): string[] {

@@ -1,3 +1,7 @@
+import {
+  EMAIL_NOT_VERIFIED_ERROR,
+  NOT_INVITED_ERROR,
+} from "@countrytopics/contracts";
 import { FORWARDING_HEADERS } from "@countrytopics/forwarding";
 import { betterAuth } from "better-auth";
 import { APIError } from "better-auth/api";
@@ -18,8 +22,7 @@ const SESSION_EXPIRES_IN_S = 7 * 24 * 60 * 60;
 const SESSION_UPDATE_AGE_S = 24 * 60 * 60;
 const DATABASE_CONNECT_TIMEOUT_MS = 5_000;
 
-export const NOT_INVITED_ERROR = "NOT_INVITED";
-export const EMAIL_NOT_VERIFIED_ERROR = "EMAIL_NOT_VERIFIED";
+export { EMAIL_NOT_VERIFIED_ERROR, NOT_INVITED_ERROR };
 
 async function queueSignInLink(email: string, url: string): Promise<void> {
   if (!(await maySignIn(await loadPayload(), email))) return;

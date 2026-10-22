@@ -1,3 +1,4 @@
+import { browseHref } from "@countrytopics/contracts";
 import { PHASE_PRODUCTION_BUILD } from "next/constants";
 import Form from "next/form";
 import Link from "next/link";
@@ -10,7 +11,6 @@ import {
 } from "@/components/public/icons";
 import styles from "@/components/public/public.module.css";
 import { TopicList } from "@/components/public/TopicList";
-import { browseHref } from "@/public/browse-query";
 import { homePage } from "@/public/cached";
 
 // Cached for everyone and purged when content changes (ADR 0007); equal to

@@ -1,14 +1,15 @@
 import {
+  FEEDBACK_KIND_LABELS,
   FEEDBACK_KINDS,
   FEEDBACK_MESSAGE_MAX_LENGTH,
   FEEDBACK_PAGE_MAX_LENGTH,
+  FEEDBACK_STATUS_LABELS,
   FEEDBACK_STATUSES,
 } from "@countrytopics/domain";
 import type { CollectionConfig } from "payload";
 
 import { nobody, readOnlyField, verifiedStaffOnly } from "@/access";
 import { auditHooks } from "@/audit";
-import { FEEDBACK_KIND_LABELS, FEEDBACK_STATUS_LABELS } from "@/content-labels";
 
 // What members tell us about the site, sent from /feedback through
 // POST /api/v1/feedback (ADR 0011). Staff read it here and mark it done;

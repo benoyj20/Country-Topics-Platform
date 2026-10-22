@@ -3,6 +3,7 @@ import {
   checkSiteAddress,
   errorEnvironmentFor,
   readAppEnvironment,
+  readSecret,
   readSiteUrl,
 } from "@countrytopics/environment";
 import { DEFAULT_QUEUE_PREFIX } from "@countrytopics/jobs";
@@ -20,8 +21,13 @@ export type WorkerEnv = {
   smtpUrl: string;
   emailFrom: string;
   databaseUrl: string;
-  /** Named in requests to outside services, with the contact address. */
+  /**
+   * Named in requests to outside services, with the contact address; the
+   * site's purges are sent there.
+   */
   siteUrl: string;
+  /** Signs the site's purges; unset only locally, with no site to purge. */
+  purgeKey?: string;
   contactEmail?: string;
   /** Optional: Google Books as a backup when Open Library does not know an ISBN. */
   googleBooksApiKey?: string;
@@ -50,6 +56,19 @@ function readWayback(env: Env, problems: string[]): WorkerEnv["wayback"] {
     return undefined;
   }
   return { accessKey, secretKey };
+}
+
+/**
+ * The purge key. Hosted environments always purge their site; locally it
+ * may be left out, for the scale rehearsal, which has no site.
+ */
+function readPurgeKey(
+  env: Env,
+  environment: ReturnType<typeof readAppEnvironment>,
+  problems: string[],
+): string | undefined {
+  if (environment === "local" && !env.PURGE_KEY?.trim()) return undefined;
+  return readSecret(env, "PURGE_KEY", problems);
 }
 
 export function readWorkerEnv(env: Env = process.env): WorkerEnv {
@@ -86,6 +105,7 @@ export function readWorkerEnv(env: Env = process.env): WorkerEnv {
   }
 
   const siteUrl = readSiteUrl(env, problems);
+  const purgeKey = readPurgeKey(env, environment, problems);
 
   const contactEmail = env.CONTACT_EMAIL?.trim() || undefined;
   if (contactEmail && !/^[^@\s]+@[^@\s]+$/.test(contactEmail)) {
@@ -116,6 +136,7 @@ export function readWorkerEnv(env: Env = process.env): WorkerEnv {
     emailFrom,
     databaseUrl,
     siteUrl,
+    purgeKey,
     contactEmail,
     googleBooksApiKey: env.GOOGLE_BOOKS_API_KEY?.trim() || undefined,
     youtubeApiKey: env.YOUTUBE_API_KEY?.trim() || undefined,

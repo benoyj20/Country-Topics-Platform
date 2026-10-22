@@ -1,4 +1,5 @@
-import { createRedisConnection } from "@countrytopics/jobs";
+import { createRedisConnection, PURGE_QUEUE_NAME } from "@countrytopics/jobs";
+import { Queue } from "bullmq";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -12,7 +13,7 @@ import SharedCacheHandler, {
 // The shared page cache (ADR 0013) against the real Valkey, with two
 // handlers standing in for two web containers: what one stores, the other
 // reads, and a purge through either reaches both. Keys use the tests'
-// queue prefix, never the site's.
+// queue prefix, never the site's, so no worker sends the tests' purges on.
 
 const pageValue = {
   kind: "APP_PAGE",
@@ -44,8 +45,34 @@ async function clearPageCache(): Promise<void> {
   }
 }
 
-beforeAll(clearPageCache);
-afterAll(clearPageCache);
+const queueConnection = createRedisConnection(
+  process.env.REDIS_URL ?? "redis://localhost:6379",
+  "worker",
+);
+const sitePurges = new Queue(PURGE_QUEUE_NAME, {
+  connection: queueConnection,
+  prefix: process.env.QUEUE_PREFIX,
+});
+
+/** The tags of the site purges queued since the last call. */
+async function queuedSitePurges(): Promise<string[][]> {
+  const jobs = await sitePurges.getJobs(["waiting", "delayed"]);
+  await sitePurges.obliterate({ force: true });
+  return jobs
+    .sort((a, b) => a.timestamp - b.timestamp)
+    .map((job) => job.data.tags);
+}
+
+beforeAll(async () => {
+  await clearPageCache();
+  await sitePurges.obliterate({ force: true });
+});
+afterAll(async () => {
+  await clearPageCache();
+  await sitePurges.obliterate({ force: true });
+  await sitePurges.close();
+  await queueConnection.quit();
+});
 
 describe("the shared page cache", () => {
   it("serves a page one web process stored to another, Buffers and Maps intact", async () => {
@@ -88,6 +115,20 @@ describe("the shared page cache", () => {
     expect((await webB.get("fetch-key", { tags: [] }))?.value).toEqual(data);
     await webA.revalidateTag("public:individuals");
     expect(await webB.get("fetch-key", { tags: [] })).toBeNull();
+  });
+
+  it("passes a purge of public tags on to the site once it is written", async () => {
+    await queuedSitePurges();
+    await webA.revalidateTag(
+      ["public:topics", "_N_T_/topics/x", "public:topics"],
+      { expire: 0 },
+    );
+    await webB.revalidateTag("public:media");
+    await webA.revalidateTag("_N_T_/admin");
+    expect(await queuedSitePurges()).toEqual([
+      ["public:topics"],
+      ["public:media"],
+    ]);
   });
 
   it("forgets an entry stored as nothing", async () => {

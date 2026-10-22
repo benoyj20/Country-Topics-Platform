@@ -2,6 +2,7 @@ export * from "./content-store.ts";
 export * from "./email-jobs.ts";
 export * from "./link-jobs.ts";
 export * from "./pending-checks.ts";
+export * from "./purge-jobs.ts";
 export * from "./redis.ts";
 export * from "./reference-jobs.ts";
 export * from "./search-jobs.ts";

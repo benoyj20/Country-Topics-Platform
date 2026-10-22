@@ -11,8 +11,8 @@ const workspaceRoot = path.resolve(
 );
 
 // Local runs read the repository's .env, which the backend reads too: the
-// two share SITE_URL, BACKEND_URL, and FORWARDING_KEY. Real environment
-// variables take precedence over the file.
+// two share SITE_URL, BACKEND_URL, and FORWARDING_KEY, and the worker
+// PURGE_KEY. Real environment variables take precedence over the file.
 const rootEnvFile = path.join(workspaceRoot, ".env");
 if (existsSync(rootEnvFile)) process.loadEnvFile(rootEnvFile);
 

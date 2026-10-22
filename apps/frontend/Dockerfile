@@ -3,8 +3,9 @@
 # only Developer Mode allows (ADR 0014, phase 1). For local checks only.
 # Built from the repository root:
 #   docker build -f apps/frontend/Dockerfile -t countrytopics-frontend-worker .
-# Run with the repository's .env, for the forwarding key the backend uses
-# and the legal pages' SITE_OPERATOR and CONTACT_EMAIL:
+# Run with the repository's .env, for the forwarding key the backend uses,
+# the purge key the worker uses, and the legal pages' SITE_OPERATOR and
+# CONTACT_EMAIL:
 #   docker run --rm -p 127.0.0.1:8788:8788 --env-file .env countrytopics-frontend-worker
 FROM node:22.23.3-bookworm-slim
 # workerd checks HTTPS certificates against the system's store, which the
@@ -21,6 +22,6 @@ WORKDIR /repo/apps/frontend
 # The build reads no settings; the Worker reads them when it runs.
 RUN SITE_URL= BACKEND_URL= pnpm build:worker
 EXPOSE 8788
-# The key, and who runs the site for the legal pages, from the container's
-# environment; the other settings are wrangler.jsonc's vars.
-CMD ["sh", "-c", "printf 'FORWARDING_KEY=%s\nSITE_OPERATOR=%s\nCONTACT_EMAIL=%s\n' \"$FORWARDING_KEY\" \"$SITE_OPERATOR\" \"$CONTACT_EMAIL\" > .dev.vars && pnpm preview --ip 0.0.0.0 --port 8788"]
+# The keys, and who runs the site for the legal pages, from the
+# container's environment; the other settings are wrangler.jsonc's vars.
+CMD ["sh", "-c", "printf 'FORWARDING_KEY=%s\nPURGE_KEY=%s\nSITE_OPERATOR=%s\nCONTACT_EMAIL=%s\n' \"$FORWARDING_KEY\" \"$PURGE_KEY\" \"$SITE_OPERATOR\" \"$CONTACT_EMAIL\" > .dev.vars && pnpm preview --ip 0.0.0.0 --port 8788"]

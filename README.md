@@ -60,7 +60,8 @@ container dumps the database and copies uploads every day, and `make restore`
 restores a backup into a new database and checks every table; errors from the
 site, its pages, and the worker go to Sentry when `SENTRY_DSN` is set. The
 site caches its pages and their data (in R2 on Workers), and the backend's API
-answers in Valkey, shared by every backend process; `make scale-up` runs two
+answers in Valkey, shared by every backend process; publishing purges both, the
+backend's first, then the site's through a signed purge from the worker; `make scale-up` runs two
 backend and two worker containers behind a load balancer for the scale rehearsal
 (load tests with k6). There is a health check at `/api/v1/health`. The remaining features follow the
 [MVP plan](docs/mvp-plan.md); see the checklist for what is verified.
@@ -76,11 +77,11 @@ Open `http://localhost:4173` and click **Try demo**. See
 
 - `apps/frontend` — the site (ADR 0014): the public and member pages, the admin's gate at `/admin`, video thumbnails, and `/api` and `/files` passed on to `apps/web`, signed; built for Cloudflare Workers
 - `apps/web` — the backend: Payload and its admin panel, sign-in, `/api/v1`, and `/files`; it answers only requests the frontend signed. Its copies of the pages are no longer served and go in phase 12
-- `apps/worker` — background jobs on BullMQ: sign-in emails, reference checks, link archiving, video checks, the search index
-- `packages/contracts` — what the backend's API accepts and answers (ADR 0014): the public pages' data at `/api/v1/pages/*` and `/api/v1/topics`, the browse parameters, and the member API (comments, votes, reports, notifications, the account, feedback, sign-in): zod schemas, the types made from them, the endpoints' paths, and their cache tags
+- `apps/worker` — background jobs on BullMQ: sign-in emails, reference checks, link archiving, video checks, the search index, purges of the site's cache
+- `packages/contracts` — what the backend's API accepts and answers (ADR 0014): the public pages' data at `/api/v1/pages/*` and `/api/v1/topics`, the browse parameters, and the member API (comments, votes, reports, notifications, the account, feedback, sign-in), and the site's purge: zod schemas, the types made from them, the endpoints' paths, and their cache tags
 - `packages/domain` — roles, sign-up rules, name, slug, date, DOI, and ISBN rules, the topic workflow, the evidence rules, snippet and transcript parsing, language codes, the plain text and links of rich text, the comment, vote, report, and display-name rules, the browse sorts, and the names shown for stored values
 - `packages/email` — the email adapter (SMTP) and email templates
-- `packages/forwarding` — the frontend's signature on the requests it passes to the backend, checked there (ADR 0014)
+- `packages/forwarding` — the frontend's signature on the requests it passes to the backend, checked there, and the worker's on its purges of the site (ADR 0014)
 - `packages/environment` — which environment a process belongs to (`APP_ENV`: local, staging, or production), and the start-up checks that stop it running with another environment's addresses
 - `packages/jobs` — job queues shared by the web app and the worker, and the worker's database reads and writes
 - `packages/search` — the search adapter: topic search with filters and facets, on PostgreSQL full text

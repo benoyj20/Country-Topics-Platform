@@ -379,12 +379,18 @@ importers:
 
   packages/jobs:
     dependencies:
+      '@countrytopics/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       '@countrytopics/domain':
         specifier: workspace:*
         version: link:../domain
       '@countrytopics/email':
         specifier: workspace:*
         version: link:../email
+      '@countrytopics/forwarding':
+        specifier: workspace:*
+        version: link:../forwarding
       '@countrytopics/search':
         specifier: workspace:*
         version: link:../search

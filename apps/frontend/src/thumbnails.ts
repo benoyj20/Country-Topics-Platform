@@ -1,5 +1,7 @@
 import { YOUTUBE_ID_PATTERN } from "@countrytopics/domain";
 
+import { readLimited } from "./read-limited.ts";
+
 // /thumbnails/:youtubeId (app/thumbnails): a video's thumbnail, fetched
 // from YouTube's image server on the visitor's behalf (ADR 0014, "Video
 // thumbnails come from the site"), so a topic page contacts no Google
@@ -29,35 +31,6 @@ function refusal(status: number, message: string, maxAgeS: number): Response {
       "Content-Type": "text/plain; charset=utf-8",
     },
   });
-}
-
-/** The body, or null when it is larger than `maxBytes` (read no further). */
-async function readLimited(
-  response: Response,
-  maxBytes: number,
-): Promise<Uint8Array<ArrayBuffer> | null> {
-  if (Number(response.headers.get("content-length")) > maxBytes) return null;
-  if (!response.body) return new Uint8Array();
-  const chunks: Uint8Array[] = [];
-  let size = 0;
-  const reader = response.body.getReader();
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    size += value.byteLength;
-    if (size > maxBytes) {
-      await reader.cancel();
-      return null;
-    }
-    chunks.push(value);
-  }
-  const body = new Uint8Array(size);
-  let at = 0;
-  for (const chunk of chunks) {
-    body.set(chunk, at);
-    at += chunk.byteLength;
-  }
-  return body;
 }
 
 /** The answer for /thumbnails/`youtubeId`. */

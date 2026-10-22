@@ -21,6 +21,8 @@ export type FrontendSettings = {
   backendUrl: string;
   /** The key every passed-on request is signed with. */
   forwardingKey: string;
+  /** The key the worker signs its purges of this site's cache with. */
+  purgeKey: string;
   /** How to reach whoever runs the site, for the legal pages; optional. */
   contactEmail?: string;
   /** Who runs the site, as the legal pages name them; optional. */
@@ -35,6 +37,11 @@ export function readFrontendSettings(env: Env): FrontendSettings {
   const siteUrl = readSiteUrl(env, problems);
   const backendUrl = readBackendUrl(env, siteUrl, problems);
   const forwardingKey = readSecret(env, "FORWARDING_KEY", problems);
+  const purgeKey = readSecret(env, "PURGE_KEY", problems);
+  // One key for both would let a purge's holder sign requests too.
+  if (purgeKey && purgeKey === forwardingKey) {
+    problems.push("PURGE_KEY must differ from FORWARDING_KEY");
+  }
   const { contactEmail, siteOperator } = readLegalContacts(env, problems);
   checkSiteAddress(environment, "SITE_URL", siteUrl, problems);
   checkServiceAddress(environment, "BACKEND_URL", backendUrl, problems);
@@ -48,6 +55,7 @@ export function readFrontendSettings(env: Env): FrontendSettings {
     siteUrl,
     backendUrl,
     forwardingKey,
+    purgeKey,
     contactEmail,
     siteOperator,
   };

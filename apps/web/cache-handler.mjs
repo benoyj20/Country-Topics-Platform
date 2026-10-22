@@ -3,7 +3,9 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { deserialize, serialize } from "node:v8";
 
+import { PUBLIC_TAGS } from "@countrytopics/contracts";
 import {
+  createPurgeQueue,
   createRedisConnection,
   DEFAULT_QUEUE_PREFIX,
   REDIS_CONNECT_TIMEOUT_MS,
@@ -31,6 +33,10 @@ import {
 //   treated as missing, so the page is rendered again. Times come from
 //   each process's clock, as in Next.js's own cache; the web containers
 //   must agree on the time (one host, or NTP).
+// - A purge of the public tags is passed on to the site (ADR 0014): once
+//   it is written here, a purge job asks the worker to purge the site's
+//   cache too. Only then, so the site's next miss cannot fetch the old
+//   data from here and keep it for an hour.
 
 /** Entries live at most this long; pages and data revalidate hourly. */
 const ENTRY_TTL_S = 2 * 60 * 60;
@@ -44,11 +50,25 @@ const TAGS_HEADER = "x-next-cache-tags";
 
 /** @type {{ client: Redis; firstReady: Promise<unknown> } | undefined} */
 let connection;
+/** @type {ReturnType<typeof createPurgeQueue> | undefined} */
+let sitePurges;
+/** @type {Set<string>} */
+const publicTags = new Set(Object.values(PUBLIC_TAGS));
+
+/**
+ * @param {string} tag
+ * @returns {tag is import("@countrytopics/contracts").PublicTag}
+ */
+const isPublicTag = (tag) => publicTags.has(tag);
 /** Build ids by the server folder they were read from. */
 const buildIds = new Map();
 
+function queuePrefix() {
+  return process.env.QUEUE_PREFIX?.trim() || DEFAULT_QUEUE_PREFIX;
+}
+
 function prefix() {
-  return `${process.env.QUEUE_PREFIX?.trim() || DEFAULT_QUEUE_PREFIX}:page-cache`;
+  return `${queuePrefix()}:page-cache`;
 }
 
 /**
@@ -109,6 +129,46 @@ async function redis() {
     return client;
   }
   throw new Error(`Valkey is ${client.status}`);
+}
+
+/**
+ * Asks the worker to purge the site's cache of the public tags among
+ * `tags`. The jobs go to the queues' Valkey (REDIS_URL), not the cache's.
+ * A failure is reported, not thrown: this cache is purged already, and the
+ * site's pages refresh within the hour. While Valkey is away, queueing
+ * gives up after the connect timeout rather than hold the request's
+ * after() work.
+ * @param {string[]} tags
+ */
+async function purgeSite(tags) {
+  const purged = [...new Set(tags)].filter(isPublicTag);
+  if (purged.length === 0) return;
+  /** @type {ReturnType<typeof setTimeout> | undefined} */
+  let timer;
+  try {
+    const url = process.env.REDIS_URL?.trim();
+    if (!url) throw new Error("REDIS_URL must be set");
+    sitePurges ??= createPurgeQueue({
+      connection: createRedisConnection(url, "producer"),
+      prefix: queuePrefix(),
+    });
+    await Promise.race([
+      sitePurges.enqueue({ tags: purged }),
+      new Promise((_resolve, reject) => {
+        timer = setTimeout(
+          () => reject(new Error("Valkey did not answer in time")),
+          REDIS_CONNECT_TIMEOUT_MS,
+        );
+      }),
+    ]);
+  } catch (error) {
+    console.error(
+      `Site purge not queued for ${purged.join(", ")}; its pages refresh within the hour:`,
+      error instanceof Error ? error.message : error,
+    );
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** During `next build` there is no Valkey to reach, and nothing to share. */
@@ -286,6 +346,7 @@ export default class SharedCacheHandler {
       );
       throw error;
     }
+    await purgeSite(list);
   }
 
   resetRequestCache() {}

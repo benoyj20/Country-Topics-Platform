@@ -33,8 +33,9 @@
     ],
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DOQueueHandler"] }],
-  // The local preview's settings. FORWARDING_KEY is a secret: locally in
-  // .dev.vars, which is never committed; deployed, a Wrangler secret. The
+  // The local preview's settings. FORWARDING_KEY and PURGE_KEY are secrets:
+  // locally in .dev.vars, which is never committed; deployed, Wrangler
+  // secrets. The
   // legal pages' SITE_OPERATOR and CONTACT_EMAIL come from .dev.vars too
   // (the Dockerfile writes it from .env).
   "vars": {

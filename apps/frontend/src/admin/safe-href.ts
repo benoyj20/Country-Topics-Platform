@@ -7,6 +7,7 @@ import { isAllowedLinkUrl } from "@countrytopics/domain";
  */
 export function safeHref(url: string | null | undefined): string | undefined {
   if (!url) return undefined;
-  if (url.startsWith("/") && !url.startsWith("//")) return url;
+  // A path, but not "//host" or "/\host", which browsers read as another site.
+  if (url.startsWith("/") && url[1] !== "/" && url[1] !== "\\") return url;
   return isAllowedLinkUrl(url) ? url : undefined;
 }

@@ -10,6 +10,7 @@ import {
   savedForm,
   valuesAfterAnswer,
 } from "../src/admin/topics/form-state.ts";
+import { safeHref } from "../src/admin/safe-href.ts";
 import { fieldName } from "../src/admin/topics/topic-text.ts";
 
 describe("the topic form's rows", () => {
@@ -112,5 +113,30 @@ describe("a save's answer", () => {
     assert.equal(after.summary, "TEST typed while saving");
     assert.deepEqual(after.people, [{ ...row, role: "speaker", id: "row-1" }]);
     assert.notEqual(savedForm(after), savedForm(stored));
+  });
+});
+
+describe("a stored address", () => {
+  it("is linked when it is a web or email address, or this site's path", () => {
+    assert.equal(safeHref("/files/TEST.png"), "/files/TEST.png");
+    assert.equal(safeHref("https://example.org/a"), "https://example.org/a");
+    assert.equal(
+      safeHref("mailto:test@example.test"),
+      "mailto:test@example.test",
+    );
+  });
+
+  it("is not linked otherwise, nor when a browser reads it as another site", () => {
+    for (const url of [
+      "//example.org",
+      "/" + String.fromCharCode(92) + "example.org",
+      "data:text/html,x",
+      "javascript:alert(1)",
+      "ftp://example.org",
+      "",
+      null,
+    ]) {
+      assert.equal(safeHref(url), undefined, String(url));
+    }
   });
 });

@@ -926,8 +926,7 @@ rehearsal is the rest of week 11, in a later PR.
 
 - [x] The backup image builds from the repository root (Node 22.23.3 on
   Alpine 3.24, with the PostgreSQL 17.11 client tools) and runs as an
-  unprivileged user (2026-10-18). Node 22.23.4 since 2026-10-23, for the
-  October 2026 security release.
+  unprivileged user (2026-10-18).
 - [x] Backups against a real server and storage (integration tests in the
   image, `make test-backup`, 2026-10-18):
   - a backup records every table's row count from the dump's own snapshot,
@@ -1641,3 +1640,16 @@ and 31 GB), 2026-10-18 and 2026-10-19.
   their invitations, and TEST topics, tags, references, and files.
 - [ ] Hosting and verification, phases 13 and 14: only if the platform
   launches.
+
+### Maintenance: Node 22.23.4 (2026-10-23)
+
+- [x] Every image (`apps/api`, `apps/worker`, `apps/backup`,
+  `apps/frontend`, and `prototypes/workers-spike`) and CI run Node 22.23.4,
+  the October 2026 security release (CVE-2026-111497 in the Brotli decoder,
+  among others); CI pins the version the images use.
+- [x] On Node 22.23.4: lint, typecheck, unit tests, all 308 integration
+  tests, and the build pass; `make test-backup` passes (5 tests);
+  `make scale-check` passes on two `api` and two `worker` containers; the
+  frontend's Workers image builds.
+- [ ] CI builds the backup, api, and worker images but not the frontend's;
+  its base image was checked only by hand.

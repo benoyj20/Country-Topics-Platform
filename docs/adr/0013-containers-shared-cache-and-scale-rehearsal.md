@@ -58,9 +58,8 @@ required a shared Redis cache handler before running two web containers.
     cache, so web containers must share a clock (one host, or NTP).
 - **Images** (`apps/web/Dockerfile`, `apps/worker/Dockerfile`), built from the
   repository root:
-  - **Node 22.23.4 on Alpine 3.24** (22.23.3 until the October 2026
-    security release), running as the unprivileged `node` user, with
-    production dependencies only.
+  - **Node 22.23.3 on Alpine 3.24**, running as the unprivileged `node` user,
+    with production dependencies only.
   - **The workspace layout is kept,** as in the backup image: Node runs the
     workspace packages' TypeScript, but not from inside `node_modules`.
   - **Read-only code:** the code belongs to root while the process runs as

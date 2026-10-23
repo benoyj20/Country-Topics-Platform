@@ -7,7 +7,7 @@
 # the purge key the worker uses, and the legal pages' SITE_OPERATOR and
 # CONTACT_EMAIL:
 #   docker run --rm -p 127.0.0.1:8788:8788 --env-file .env countrytopics-frontend-worker
-FROM node:22.23.3-bookworm-slim
+FROM node:22.23.4-bookworm-slim
 # workerd checks HTTPS certificates against the system's store, which the
 # slim image leaves out (Node carries its own): the thumbnail route
 # fetches from YouTube over HTTPS.

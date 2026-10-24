@@ -79,7 +79,7 @@ jobs:
           version: 10.17.1
       - uses: actions/setup-node@v4
         with:
-          node-version: 22.23.4
+          node-version-file: .node-version
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
@@ -113,5 +113,33 @@ jobs:
       - uses: actions/checkout@v4
       - run: cp .env.example .env
       - run: docker compose --env-file .env -f deploy/compose/compose.yaml config --quiet
+      - name: Every image uses the Node.js version in .node-version
+        run: |
+          version="$(tr -d '[:space:]' < .node-version)"
+          stale="$(grep -Hn '^FROM node:' apps/*/Dockerfile prototypes/*/Dockerfile | grep -v "FROM node:${version}-" || true)"
+          if [ -n "$stale" ]; then
+            echo "$stale"
+            echo "::error::Every Dockerfile's FROM node: line must use Node.js ${version}, from .node-version."
+            exit 1
+          fi
       - name: The backup, API, and worker images build
         run: docker compose --env-file .env -f deploy/compose/compose.yaml --profile scale build backup api worker
+      - name: The frontend's Workers image builds and starts
+        run: |
+          docker build -f apps/frontend/Dockerfile -t countrytopics-frontend-worker .
+          docker run -d --name frontend-worker -p 127.0.0.1:8788:8788 \
+            -e FORWARDING_KEY="$(openssl rand -hex 32)" \
+            -e PURGE_KEY="$(openssl rand -hex 32)" \
+            -e SITE_OPERATOR=CI -e CONTACT_EMAIL=ci@example.test \
+            countrytopics-frontend-worker
+          # The Worker refuses an unsigned purge itself, so a 403 shows it
+          # started and runs the site's code, with no backend needed.
+          status=none
+          for attempt in $(seq 1 30); do
+            status="$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8788/api/revalidate || true)"
+            if [ "$status" = 403 ]; then exit 0; fi
+            sleep 2
+          done
+          echo "::error::The frontend's Workers image did not refuse an unsigned purge with 403 (last status: ${status})."
+          docker logs frontend-worker
+          exit 1

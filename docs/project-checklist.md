@@ -1651,5 +1651,10 @@ and 31 GB), 2026-10-18 and 2026-10-19.
   tests, and the build pass; `make test-backup` passes (5 tests);
   `make scale-check` passes on two `api` and two `worker` containers; the
   frontend's Workers image builds.
-- [ ] CI builds the backup, api, and worker images but not the frontend's;
-  its base image was checked only by hand.
+- [x] CI builds and starts the frontend's Workers image: an unsigned
+  `POST /api/revalidate` must answer 403, which needs no backend.
+- [x] `.node-version` names the images' and CI's Node.js version; CI reads it
+  and fails when a Dockerfile's `FROM node:` line names another.
+- [x] `engines` accepts only releases with the October 2026 security fixes
+  (`^22.23.4 || ^24.22.1 || >=26.12.1`), and `.npmrc`'s `engine-strict`
+  makes pnpm refuse to install or run scripts on any other.

@@ -11,7 +11,10 @@ and every change can be reverted on its own.
 
 ## Setup
 
-Install Node.js 22.18 or later, Docker Desktop, Git, and the GitHub CLI (`gh`).
+Install Node.js (22.23.4 or later in 22.x, 24.22.1 or later in 24.x, or 26.12.1
+or later; pnpm refuses older releases), Docker Desktop, Git, and the GitHub CLI
+(`gh`). When the images' Node.js version changes, change `.node-version` and
+every Dockerfile's `FROM node:` line together; CI checks that they match.
 pnpm is provided by Corepack: run `corepack enable` once, and the version pinned
 in `package.json` is used automatically.
 

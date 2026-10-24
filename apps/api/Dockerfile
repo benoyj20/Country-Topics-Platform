@@ -4,7 +4,7 @@
 # Configuration comes only from the environment at run time; the build uses
 # placeholders and reaches no database.
 
-FROM node:22.23.3-alpine3.24 AS build
+FROM node:22.23.4-alpine3.24 AS build
 RUN npm install --global pnpm@10.17.1
 WORKDIR /repo
 COPY . .
@@ -27,7 +27,7 @@ RUN DATABASE_URL=postgres://build@127.0.0.1:1/build \
 # workspace packages' TypeScript, but not from inside node_modules.
 RUN CI=true pnpm install --frozen-lockfile --prod --filter "@countrytopics/api..."
 
-FROM node:22.23.3-alpine3.24
+FROM node:22.23.4-alpine3.24
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1
 WORKDIR /app
 # The code belongs to root and the API runs as `node`, so it cannot change

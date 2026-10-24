@@ -94,7 +94,7 @@ Open `http://localhost:4173` and click **Try demo**. See
 
 ## Prerequisites
 
-- Node.js 22.18 or later (the worker and packages run TypeScript directly), with pnpm 10 through Corepack (`corepack enable`)
+- Node.js 22.23.4 or later in 22.x, 24.22.1 or later in 24.x, or 26.12.1 or later (the worker and packages run TypeScript directly; earlier releases lack the October 2026 security fixes, and pnpm refuses them). The images and CI use the version in `.node-version`. Use pnpm 10 through Corepack (`corepack enable`)
 - Docker Desktop (Compose v2)
 - Git and the GitHub CLI (`gh`)
 - GNU Make (optional; every target is a plain `pnpm` or `docker compose` command)
